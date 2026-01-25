@@ -1,0 +1,27 @@
+[project]
+name = "easy-capcut-draft-backend"
+version = "0.1.0"
+description = "Easy-CapCut-Draft Backend API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.5",
+    "pydantic-settings>=2.7.1",
+    "python-multipart>=0.0.20",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14.0",
+    "asyncpg>=0.30.0",
+    "psycopg2-binary>=2.9.10",
+    "redis>=5.2.1",
+    "hiredis>=3.1.0",
+    "httpx>=0.28.1",
+    "pillow>=11.1.0",
+    "opencv-python>=4.10.0.84",
+    "ffmpeg-python>=0.2.0",
+    "pydantic-extra-types>=2.10.3",
+    "email-validator>=2.2.0",
+]

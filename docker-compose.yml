@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: capcut-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: capcut_draft
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - capcut-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: capcut-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - capcut-network
+
+  # 后端 API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: capcut-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/capcut_draft
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_BASE_URL=https://cpa.mosuyang.org/v1
+      - GEMINI_API_KEY=darry
+      - OPENAI_MODEL=gemini-3-flash-preview
+      - SECRET_KEY=docker-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - capcut-network
+    restart: unless-stopped
+
+  # 前端
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: capcut-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - capcut-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  capcut-network:
+    driver: bridge

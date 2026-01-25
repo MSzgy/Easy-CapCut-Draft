@@ -1,0 +1,23 @@
+meta {
+  name: /generate
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8000/api/ai/generate
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "mode": "prompt",
+    "prompt": "你是谁啊"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

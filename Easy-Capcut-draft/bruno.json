@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Easy-Capcut-draft",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
