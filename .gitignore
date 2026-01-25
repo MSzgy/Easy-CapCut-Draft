@@ -1,0 +1,48 @@
+# 依赖
+node_modules/
+frontend/node_modules/
+
+# 环境变量
+.env
+.env.local
+frontend/.env
+backend/.env
+
+# 日志
+*.log
+logs/
+
+# 数据库
+*.db
+*.sqlite3
+
+# 上传文件
+uploads/
+temp/
+backend/uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# 构建产物
+dist/
+build/
+frontend/dist/
+frontend/build/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Docker
+docker-compose.override.yml
+
+# 测试
+coverage/
+.pytest_cache/
