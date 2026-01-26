@@ -52,6 +52,7 @@ class GenerateCoverRequest(BaseModel):
     style: str = Field(..., description="封面风格: 3d, minimal, cinematic, gradient")
     prompt: Optional[str] = Field(None, description="封面描述")
     theme: Optional[str] = Field(None, description="视频主题")
+    size: Optional[str] = Field(None, description="封面尺寸")
 
 
 class GenerateCoverResponse(BaseModel):

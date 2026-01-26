@@ -35,6 +35,7 @@ export interface GenerateCoverRequest {
   style: string
   prompt?: string
   theme?: string
+  size?: string
 }
 
 export interface GenerateCoverResponse {

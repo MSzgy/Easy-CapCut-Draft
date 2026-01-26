@@ -11,6 +11,7 @@ class OpenAIService:
         self.base_url = settings.OPENAI_API_BASE_URL.rstrip('/')
         self.api_key = settings.GEMINI_API_KEY
         self.model = settings.OPENAI_MODEL
+        self.image_model = settings.IMAGE_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
 
         # 创建HTTP客户端
@@ -66,6 +67,39 @@ class OpenAIService:
         # 解析响应
         try:
             return result["choices"][0]["message"]["content"]
+        except (KeyError, IndexError) as e:
+            raise Exception(f"解析API响应失败: {str(e)}, 响应: {result}")
+
+
+    async def generate_image(
+        self,
+        prompt: str,
+        size: str,
+        style: str,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        """生成图片"""
+        system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
+                                    1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
+                                    2. 适配{size}比例
+                                    3. 符合用户要求
+                                    4. 符合平台内容审核标准
+                                """
+        payload = {
+            "model": self.image_model,
+            "messages": [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": temperature,
+        }
+
+        result = await self._make_request("/chat/completions", payload)
+
+        # 解析响应
+        try:
+            return result["choices"][0]["message"]["images"] or []
         except (KeyError, IndexError) as e:
             raise Exception(f"解析API响应失败: {str(e)}, 响应: {result}")
 

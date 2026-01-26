@@ -1,0 +1,35 @@
+meta {
+  name: image_api
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://cpa.mosuyang.org/v1/chat/completions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: test
+}
+
+body:json {
+  {
+      "model": "gemini-3-pro-image-preview",
+      "messages": [
+          {
+            "role": "system", 
+            "content": "你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度 2. 适配16 * 9比例 3. 符合用户要求，4. 符合平台内容审核标准 5. 生成两张图}"
+          },
+          {"role": "user", "content": "沙滩上笑着的清纯女生"}
+      ],
+      "temperature": 0.7
+  //     "max_tokens": 20000
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

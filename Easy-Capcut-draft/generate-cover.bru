@@ -1,0 +1,25 @@
+meta {
+  name: /generate-cover
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8000/api/ai/generate-cover
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "style": "轻快明亮",
+    "prompt": "沙滩上笑着的清纯女生",
+    "theme": "女生写真",
+    "size": "16 * 9"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

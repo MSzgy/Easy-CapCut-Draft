@@ -94,6 +94,9 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   const [isGeneratingCover, setIsGeneratingCover] = useState(false)
   const [generatedCover, setGeneratedCover] = useState<string | null>(null)
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([])
+  const [coverPrompt, setCoverPrompt] = useState("")
+  const [coverTheme, setCoverTheme] = useState("")
+  const [coverSize, setCoverSize] = useState("16:9")
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -332,13 +335,23 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   }
 
   const handleGenerateCover = async () => {
+    if (!coverPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a cover prompt",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsGeneratingCover(true)
 
     try {
       const response = await aiContentApi.generateCover({
         style: coverStyle,
-        prompt: prompt || undefined,
-        theme: activeTab === "url" ? url : prompt,
+        prompt: coverPrompt,
+        theme: coverTheme || undefined,
+        size: coverSize,
       })
 
       if (response.success) {
@@ -364,9 +377,9 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-4 overflow-y-auto pr-2">
       {/* Input Tabs Card */}
-      <Card className="flex-1 border-border bg-card">
+      <Card className="border-border bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -603,6 +616,41 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Cover Prompt</Label>
+            <Textarea
+              placeholder="e.g., 沙滩上笑着的清纯女生"
+              value={coverPrompt}
+              onChange={(e) => setCoverPrompt(e.target.value)}
+              className="min-h-[80px] resize-none bg-secondary text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Theme (Optional)</Label>
+            <Input
+              placeholder="e.g., 女生写真"
+              value={coverTheme}
+              onChange={(e) => setCoverTheme(e.target.value)}
+              className="bg-secondary text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Size</Label>
+            <Select value={coverSize} onValueChange={setCoverSize}>
+              <SelectTrigger className="bg-secondary">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Style Preset</Label>
             <div className="grid grid-cols-4 gap-2">
               {coverStyles.map((style) => (
@@ -626,10 +674,10 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
               <img
                 src={generatedCover || "/placeholder.svg"}
                 alt="Generated cover"
-                className="aspect-[9/16] w-full object-cover"
+                className={`w-full object-cover ${coverSize === "16:9" ? "aspect-video" : coverSize === "9:16" ? "aspect-[9/16]" : coverSize === "1:1" ? "aspect-square" : "aspect-[4/3]"}`}
                 crossOrigin="anonymous"
               />
-              <Badge className="absolute right-2 top-2 bg-primary/80">9:16</Badge>
+              <Badge className="absolute right-2 top-2 bg-primary/80">{coverSize}</Badge>
             </div>
           )}
 

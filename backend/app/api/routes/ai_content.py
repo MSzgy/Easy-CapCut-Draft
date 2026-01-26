@@ -334,13 +334,11 @@ async def generate_cover(request: GenerateCoverRequest):
     """生成AI封面"""
     try:
         # TODO: 实现真实的AI图片生成
-        # 目前返回模拟URL
-        cover_url = f"https://images.unsplash.com/photo-1618005182384?w=400&h=600&fit=crop&style={request.style}"
-
+        cover_url = await openai_service.generate_image(prompt=request.prompt, style=request.style, size=request.size)
         return GenerateCoverResponse(
             success=True,
             message="封面生成成功",
-            coverUrl=cover_url
+            coverUrl=cover_url[0]['image_url']['url']
         )
 
     except Exception as e:

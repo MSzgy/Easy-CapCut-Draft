@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     OPENAI_API_BASE_URL: str = "https://cpa.mosuyang.org/v1"
     GEMINI_API_KEY: str = "darry"
     OPENAI_MODEL: str = "gemini-3-flash-preview"
-    OPENAI_MAX_TOKENS: int = 2000
+    IMAGE_MODEL: str = "gemini-3-pro-image-preview"
+    OPENAI_MAX_TOKENS: int = 200000
 
     # 可选的Claude配置
     ANTHROPIC_API_KEY: str = ""
