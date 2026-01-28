@@ -37,6 +37,9 @@ class GenerateContentRequest(BaseModel):
 
     # Upload模式字段
     uploadedAssets: Optional[List[dict]] = Field(None, description="上传的资源列表，图片资源应包含content(base64)")
+    
+    # 通用字段
+    copyStyle: Optional[str] = Field(None, description="文案风格")
 
 
 class GenerateContentResponse(BaseModel):
@@ -45,6 +48,7 @@ class GenerateContentResponse(BaseModel):
     message: str
     scenes: List[SceneContent]
     coverUrl: Optional[str] = None
+    copy: Optional[str] = Field(None, description="生成的文案")
 
 
 class GenerateCoverRequest(BaseModel):
@@ -53,6 +57,7 @@ class GenerateCoverRequest(BaseModel):
     prompt: Optional[str] = Field(None, description="封面描述")
     theme: Optional[str] = Field(None, description="视频主题")
     size: Optional[str] = Field(None, description="封面尺寸")
+    resolution: Optional[str] = Field(None, description="图片分辨率")
 
 
 class GenerateCoverResponse(BaseModel):

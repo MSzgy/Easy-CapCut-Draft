@@ -1,0 +1,4 @@
+给我赛博朋克的风格，Cyberpunk night street scene, heavy rain, neon signs in cyan magenta pink reflecting on wet asphalt, lone figure in trench coat with cybernetic arm, split lighting with hard neon rim light, low angle medium shot, shot on ARRI Alexa 35 with Master Prime 24mm T2.2, high contrast low key, strong cyan-teal shadows and vivid neon highlights, dystopian future metropolis atmosphere, cinematic cyberpunk aesthetic
+
+把这个图片给我一种阿凡达的风格，Cinematic scene on Pandora at night, bioluminescent jungle glowing in cyan and teal, Na'vi character with blue skin and intricate patterns, ethereal fantasy atmosphere, strong rim lighting and diffused bioluminescent fill, medium shot low angle, shot on ARRI Alexa 35 with Master Prime 35mm T2.8, dreamy magical glow, floating seeds and plants emitting light, high-end movie look, vivid alien ecosystem
+

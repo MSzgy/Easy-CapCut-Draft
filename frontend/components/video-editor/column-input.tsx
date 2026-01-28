@@ -36,6 +36,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { aiContentApi } from "@/lib/api/ai-content"
 import { useToast } from "@/hooks/use-toast"
 
@@ -60,6 +66,7 @@ export interface SceneContent {
 export interface GeneratedOutput {
   scenes: SceneContent[]
   coverUrl?: string
+  copy?: string
 }
 
 interface ColumnInputProps {
@@ -97,6 +104,15 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   const [coverPrompt, setCoverPrompt] = useState("")
   const [coverTheme, setCoverTheme] = useState("")
   const [coverSize, setCoverSize] = useState("16:9")
+  const [coverResolution, setCoverResolution] = useState("1K")
+
+  // Copy Generation State
+  const [generateCopy, setGenerateCopy] = useState(false)
+  const [copyStyle, setCopyStyle] = useState("")
+
+  // Image Preview State
+  const [expandedImage, setExpandedImage] = useState<string | null>(null)
+
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -191,7 +207,8 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
     setIsDragging(false)
   }
 
-  const removeAsset = (id: string) => {
+  const removeAsset = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
     setUploadedAssets((prev) => prev.filter((a) => a.id !== id))
   }
 
@@ -268,6 +285,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         prompt: activeTab === "prompt" ? prompt : undefined,
         videoStyle: activeTab === "prompt" ? scriptType : undefined,
         url: activeTab === "url" ? url : undefined,
+        copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
           id: asset.id,
           name: asset.name,
@@ -280,7 +298,8 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
       if (response.success) {
         onGenerate({
           scenes: response.scenes,
-          coverUrl: response.coverUrl || generatedCover || undefined
+          coverUrl: response.coverUrl || generatedCover || undefined,
+          copy: response.copy
         })
 
         toast({
@@ -352,6 +371,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         prompt: coverPrompt,
         theme: coverTheme || undefined,
         size: coverSize,
+        resolution: coverResolution,
       })
 
       if (response.success) {
@@ -441,7 +461,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
 
               {/* Uploaded Assets List */}
               {uploadedAssets.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs text-muted-foreground">
                       Uploaded Assets ({uploadedAssets.length})
@@ -455,8 +475,42 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                       Clear all
                     </Button>
                   </div>
-                  <div className="max-h-[200px] space-y-2 overflow-auto">
-                    {uploadedAssets.map((asset) => (
+
+                  {/* Image Grid */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {uploadedAssets.filter(a => a.type === 'image').map((asset) => (
+                      <div
+                        key={asset.id}
+                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-md border border-border"
+                        onClick={() => setExpandedImage(asset.url)}
+                      >
+                        <img
+                          src={asset.url}
+                          alt={asset.name}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+                        <button
+                          onClick={(e) => removeAsset(asset.id, e)}
+                          className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity hover:bg-destructive group-hover:opacity-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        {asset.progress < 100 && (
+                          <div className="absolute inset-x-0 bottom-0 h-1 bg-secondary">
+                            <div
+                              className="h-full bg-primary transition-all duration-300"
+                              style={{ width: `${asset.progress}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Other Files List */}
+                  <div className="max-h-[150px] space-y-2 overflow-auto">
+                    {uploadedAssets.filter(a => a.type !== 'image').map((asset) => (
                       <div
                         key={asset.id}
                         className="flex items-center gap-3 rounded-md bg-secondary p-2"
@@ -480,15 +534,65 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 shrink-0"
-                          onClick={() => removeAsset(asset.id)}
+                          onClick={(e) => removeAsset(asset.id, e)}
                         >
                           <X className="h-3 w-3 text-muted-foreground" />
                         </Button>
                       </div>
                     ))}
                   </div>
+
+                  {/* Image Preview Dialog */}
+                  <Dialog open={!!expandedImage} onOpenChange={(open) => !open && setExpandedImage(null)}>
+                    <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
+                      <div className="relative flex items-center justify-center">
+                        {expandedImage && (
+                          <img
+                            src={expandedImage}
+                            alt="Expanded preview"
+                            className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl"
+                          />
+                        )}
+                        <button
+                          className="absolute -right-4 -top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                          onClick={() => setExpandedImage(null)}
+                        >
+                          <X className="h-6 w-6" />
+                        </button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
+
+              {/* Copy Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="copy-upload"
+                    checked={generateCopy}
+                    onCheckedChange={(checked) => setGenerateCopy(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="copy-upload"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Generate social media copy
+                  </label>
+                </div>
+
+                {generateCopy && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label className="text-xs text-muted-foreground">Copy Style</Label>
+                    <Input
+                      placeholder="e.g. Humorous, Professional, Gen Z style..."
+                      className="bg-secondary text-xs h-8"
+                      value={copyStyle}
+                      onChange={(e) => setCopyStyle(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="prompt" className="mt-3 space-y-3">
@@ -547,6 +651,35 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                     <AlertCircle className="h-3 w-3" />
                     {urlError}
                   </p>
+                )}
+              </div>
+
+              {/* Copy Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="copy-url"
+                    checked={generateCopy}
+                    onCheckedChange={(checked) => setGenerateCopy(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="copy-url"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Generate social media copy
+                  </label>
+                </div>
+
+                {generateCopy && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label className="text-xs text-muted-foreground">Copy Style</Label>
+                    <Input
+                      placeholder="e.g. Humorous, Professional, Gen Z style..."
+                      className="bg-secondary text-xs h-8"
+                      value={copyStyle}
+                      onChange={(e) => setCopyStyle(e.target.value)}
+                    />
+                  </div>
                 )}
               </div>
 
@@ -635,19 +768,35 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Size</Label>
-            <Select value={coverSize} onValueChange={setCoverSize}>
-              <SelectTrigger className="bg-secondary">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                <SelectItem value="4:3">4:3 (Standard)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Size</Label>
+              <Select value={coverSize} onValueChange={setCoverSize}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                  <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Resolution</Label>
+              <Select value={coverResolution} onValueChange={setCoverResolution}>
+                <SelectTrigger className="bg-secondary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1K">1K (Standard)</SelectItem>
+                  <SelectItem value="2K">2K (High)</SelectItem>
+                  <SelectItem value="4K">4K (Ultra)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -701,6 +850,6 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
           </Button>
         </CardContent>
       </Card>
-    </div>
+    </div >
   )
 }

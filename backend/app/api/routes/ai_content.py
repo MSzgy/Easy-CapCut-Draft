@@ -165,12 +165,21 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo") -
         ]
 
 
-async def generate_scenes_from_url(url: str) -> List[SceneContent]:
+async def generate_scenes_from_url(url: str, copy_style: str = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url)
 
-    # 2. 使用AI分析网页内容并生成场景
+    # 2. 生成文案 (如果需要)
+    generated_copy = None
+    if copy_style:
+        content_text = f"{web_content['title']}\n{web_content['description']}\n{web_content['main_content']}"
+        try:
+            generated_copy = await openai_service.generate_copy(content_text, copy_style)
+        except Exception as e:
+            print(f"文案生成失败: {str(e)}")
+
+    # 3. 使用AI分析网页内容并生成场景
     system_message = """你是一个专业的视频内容创作专家。
 根据网页内容，生成4-6个视频场景。"""
 
@@ -223,7 +232,7 @@ async def generate_scenes_from_url(url: str) -> List[SceneContent]:
             )
         ]
 
-        return scenes
+        return scenes, generated_copy
 
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -235,6 +244,7 @@ async def generate_content(request: GenerateContentRequest):
     """生成AI内容"""
     try:
         scenes = []
+        generated_copy = None
 
         if request.mode == "prompt":
             if not request.prompt:
@@ -244,7 +254,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes = await generate_scenes_from_url(request.url)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.copyStyle)
 
         elif request.mode == "upload":
             if not request.uploadedAssets or len(request.uploadedAssets) == 0:
@@ -252,7 +262,7 @@ async def generate_content(request: GenerateContentRequest):
 
             # 提取图片素材进行识别
             image_assets = [a for a in request.uploadedAssets if a.get("type") == "image" and a.get("content")]
-            print(request.uploadedAssets)
+            
             if image_assets:
                 # 使用第一张图片进行识别
                 try:
@@ -265,6 +275,14 @@ async def generate_content(request: GenerateContentRequest):
                     # 基于图片识别结果生成场景
                     basic_description = await openai_service.analyze_image(image_content)
                     scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}")
+                    
+                    # 生成文案 (如果需要)
+                    if request.copyStyle:
+                        try:
+                            copy_content = image_analysis.get("description", basic_description)
+                            generated_copy = await openai_service.generate_copy(copy_content, request.copyStyle)
+                        except Exception as e:
+                            print(f"文案生成失败: {str(e)}")
 
                     # 将第一个场景的图片元数据更新为实际分析结果
                     if scenes and len(scenes) > 0:
@@ -317,7 +335,8 @@ async def generate_content(request: GenerateContentRequest):
         return GenerateContentResponse(
             success=True,
             message="内容生成成功",
-            scenes=scenes
+            scenes=scenes,
+            copy=generated_copy
         )
 
     except HTTPException:
@@ -334,11 +353,17 @@ async def generate_cover(request: GenerateCoverRequest):
     """生成AI封面"""
     try:
         # TODO: 实现真实的AI图片生成
-        cover_url = await openai_service.generate_image(prompt=request.prompt, style=request.style, size=request.size)
+        data = await openai_service.generate_image_gemini_format(
+            prompt=request.prompt, 
+            style=request.style, 
+            theme=request.theme, 
+            size=request.size,
+            resolution=request.resolution
+        )
         return GenerateCoverResponse(
             success=True,
             message="封面生成成功",
-            coverUrl=cover_url[0]['image_url']['url']
+            coverUrl=data
         )
 
     except Exception as e:

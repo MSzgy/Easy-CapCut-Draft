@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     ALLOWED_VIDEO_EXTENSIONS: str = "mp4,mov,avi,webm"
 
     # AI服务配置
-    OPENAI_API_BASE_URL: str = "https://cpa.mosuyang.org/v1"
+    OPENAI_API_BASE_URL: str = "https://cpa.mosuyang.org"
     GEMINI_API_KEY: str = "darry"
     OPENAI_MODEL: str = "gemini-3-flash-preview"
     IMAGE_MODEL: str = "gemini-3-pro-image-preview"

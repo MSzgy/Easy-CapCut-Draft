@@ -222,6 +222,20 @@ export function ColumnContent({
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full px-4 pb-4">
           <div className="space-y-4">
+            {/* Generated Copy Section */}
+            {content.copy && (
+              <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">
+                    Social Media Copy
+                  </Badge>
+                </div>
+                <div className="whitespace-pre-wrap rounded bg-background/50 p-2 text-xs leading-relaxed text-foreground">
+                  {content.copy}
+                </div>
+              </div>
+            )}
+
             {content.scenes.map((scene, index) => (
               <div
                 key={scene.id}

@@ -15,6 +15,7 @@ export interface GenerateContentRequest {
   prompt?: string
   videoStyle?: string
   url?: string
+  copyStyle?: string
   uploadedAssets?: Array<{
     id: string
     name: string
@@ -29,6 +30,7 @@ export interface GenerateContentResponse {
   message: string
   scenes: SceneContent[]
   coverUrl?: string
+  copy?: string
 }
 
 export interface GenerateCoverRequest {
@@ -36,6 +38,7 @@ export interface GenerateCoverRequest {
   prompt?: string
   theme?: string
   size?: string
+  resolution?: string
 }
 
 export interface GenerateCoverResponse {

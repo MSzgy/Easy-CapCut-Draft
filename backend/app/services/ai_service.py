@@ -16,7 +16,7 @@ class OpenAIService:
 
         # 创建HTTP客户端
         self.client = httpx.AsyncClient(
-            timeout=60.0,
+            timeout=100.0,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
@@ -62,7 +62,7 @@ class OpenAIService:
             "max_tokens": max_tokens or self.max_tokens,
         }
 
-        result = await self._make_request("/chat/completions", payload)
+        result = await self._make_request("/v1/chat/completions", payload)
 
         # 解析响应
         try:
@@ -95,11 +95,71 @@ class OpenAIService:
             "temperature": temperature,
         }
 
-        result = await self._make_request("/chat/completions", payload)
+        result = await self._make_request("/v1/chat/completions", payload)
 
         # 解析响应
         try:
             return result["choices"][0]["message"]["images"] or []
+        except (KeyError, IndexError) as e:
+            raise Exception(f"解析API响应失败: {str(e)}, 响应: {result}")
+
+    async def generate_image_gemini_format(
+        self,
+        prompt: str,
+        size: str,
+        style: str,
+        theme: str,
+        resolution: str = "1024x1024",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        """生成图片"""
+        system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
+                                    1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
+                                    2. 符合用户要求
+                                    3. 符合平台内容审核标准
+                                    4. 主题：{theme}
+                                    5. 风格：{style}
+                                """
+        
+        # Map simple resolution names to pixel dimensions if possible, or pass through
+        # But for now, let's assume valid input or default to reasonable value
+        # Actually, let's just pass it to the API prompt or config if supported.
+        # Since I'm not sure of the exact 'imageSize' enum values for this specific endpoint (Gemini beta),
+        # I will keep the 'imageSize' field but update it with the resolution if it matches expected format, 
+        # OR just rely on the model identifying "high quality" etc.
+        # However, to start with, I will pass it to imageConfig.
+        
+        payload = {
+            "contents": [
+                {
+                    "role": "model",
+                    "parts": [
+                        {"text": system_message}
+                    ]   
+                },
+                {   
+                    "role": "user",
+                    "parts": [
+                        {"text": prompt}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseModalities": ["Image"],
+                "imageConfig": {
+                    "aspectRatio": size,
+                    "imageSize": resolution
+                }
+            }   
+        }
+
+        result = await self._make_request("/v1beta/models/gemini-3-pro-image-preview:generateContent", payload)
+        try:
+            inline_data = result["candidates"][0]["content"]["parts"][0]["inlineData"]
+            mime_type = inline_data.get("mimeType", "image/jpeg")
+            data = inline_data["data"]
+            return f"data:{mime_type};base64,{data}"
         except (KeyError, IndexError) as e:
             raise Exception(f"解析API响应失败: {str(e)}, 响应: {result}")
 
@@ -153,6 +213,27 @@ class OpenAIService:
         # 这里应该解析JSON，但先返回原始响应
         return {"raw_response": response}
 
+    async def generate_copy(self, content: str, style: str) -> str:
+        """生成抖音文案"""
+        prompt = f"""请根据以下内容，创作一段吸引人的抖音文案：
+        
+                内容：{content}
+
+                风格要求：{style}
+
+                要求：
+                1. 包含合适的Emoji表情
+                2. 添加3-5个相关话题标签（hashtags）
+                3. 语言生动有趣，符合抖音用户习惯
+                4. 控制在200字以内
+                """
+        system_message = "你是一个爆款短视频文案专家。"
+        
+        return await self.generate_completion(
+            prompt=prompt,
+            system_message=system_message,
+        )
+
     async def analyze_image(self, image_url: str) -> str:
         """分析图片内容（如果API支持vision）- 简单版本"""
 
@@ -178,7 +259,7 @@ class OpenAIService:
             "max_tokens": 500,
         }
 
-        result = await self._make_request("/chat/completions", payload)
+        result = await self._make_request("/v1/chat/completions", payload)
 
         try:
             return result["choices"][0]["message"]["content"]
@@ -224,7 +305,7 @@ class OpenAIService:
             "max_tokens": 800,
         }
 
-        result = await self._make_request("/chat/completions", payload)
+        result = await self._make_request("/v1/chat/completions", payload)
 
         try:
             content = result["choices"][0]["message"]["content"]
