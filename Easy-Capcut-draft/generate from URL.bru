@@ -1,7 +1,7 @@
 meta {
-  name: /generate
+  name: /generate from URL
   type: http
-  seq: 1
+  seq: 6
 }
 
 post {
@@ -12,10 +12,10 @@ post {
 
 body:json {
   {
-    "mode": "prompt",
-    "prompt": "公园里一个身材高挑的美女正在做瑜伽",
-    "copyStyle": "幽默，令人捧腹大笑",
-    "videoStyle": "炫酷动人"
+    "mode": "url",
+    "url": "halo.mosuyang.org",
+    "copyStyle": "通俗易懂",
+    "videoStyle": "科普"
   //   "uploadedAssets": [
   //     {
   //       "id": "asset_1769613393004_bdftixsoq", 

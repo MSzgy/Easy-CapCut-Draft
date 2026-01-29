@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     OPENAI_API_BASE_URL: str = "https://cpa.mosuyang.org"
     GEMINI_API_KEY: str = "darry"
     OPENAI_MODEL: str = "gemini-3-flash-preview"
+    WEB_TOOL_MODEL: str = "gemini-2.5-flash"
     IMAGE_MODEL: str = "gemini-3-pro-image-preview"
     OPENAI_MAX_TOKENS: int = 200000
 

@@ -10,7 +10,7 @@ class OpenAIService:
     def __init__(self):
         self.base_url = settings.OPENAI_API_BASE_URL.rstrip('/')
         self.api_key = settings.GEMINI_API_KEY
-        self.model = settings.OPENAI_MODEL
+        self.model = settings.WEB_TOOL_MODEL
         self.image_model = settings.IMAGE_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
 
@@ -70,6 +70,71 @@ class OpenAIService:
         except (KeyError, IndexError) as e:
             raise Exception(f"解析API响应失败: {str(e)}, 响应: {result}")
 
+    async def generate_completion_gemini_format(
+        self,
+        prompt: str,
+        system_message: str = "You are a helpful assistant.",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+
+    ) -> str:
+        """生成文本补全 (Gemini Format)"""
+
+        # Construct payload in Gemini format
+        payload = {
+            "contents": [
+                {
+                    "role": "model",
+                    "parts": [
+                    {
+                        "text": system_message
+                    }
+                    ]
+                },
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": prompt}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens or self.max_tokens,
+                "thinkingConfig": { 
+                    "thinkingLevel": "high",
+                    "includeThoughts": "true"
+                },
+            },
+            "tools": [
+                {
+                    "googleSearch": {}
+                },
+                {
+                    "urlContext": {}
+                }
+            ]
+        }
+
+        # Use the Gemini generateContent endpoint
+        # Assuming self.model contains a valid Gemini model ID (e.g. gemini-2.0-flash, gemini-1.5-pro)
+        result = await self._make_request(f"/v1beta/models/{self.model}:generateContent", payload)
+
+        # Parse response
+        try:
+            # Handle potential multiple candidates or thoughts
+            candidate = result["candidates"][-1]
+            content_parts = candidate["content"]["parts"]
+            
+            # Filter out parts that are marked as thoughts
+            full_text = "".join([
+                part.get("text", "") 
+                for part in content_parts 
+                if part.get("thought") is not True and part.get("thought") != "true"
+            ])
+            return full_text or ""
+        except (KeyError, IndexError) as e:
+            raise Exception(f"解析Gemini API响应失败: {str(e)}, 响应: {result}")
 
     async def generate_image(
         self,
@@ -266,22 +331,13 @@ class OpenAIService:
         except (KeyError, IndexError) as e:
             raise Exception(f"图片分析失败: {str(e)}")
 
-    async def analyze_image_detailed(self, image_url: str) -> dict:
-        """详细分析图片内容，返回结构化数据"""
-
-        prompt = """请详细分析这张图片，并以JSON格式返回以下信息：
-{
-    "description": "图片的详细描述(50-100字)",
-    "tags": ["标签1", "标签2", "标签3"],
-    "mood": "情绪/氛围",
-    "color_scheme": "主要色调",
-    "composition": "构图特点",
-    "subjects": ["主体对象1", "主体对象2"],
-    "scene_type": "场景类型",
-    "style": "视觉风格"
-}
-
-只返回JSON对象，不要其他说明文字。"""
+    async def analyze_image_detailed(self, prompt: str, image_url: str) -> dict:
+        """详细分析图片内容，返回结构化数据
+        
+        Args:
+            prompt: 自定义分析提示词
+            image_url: 图片的base64编码或URL
+        """
 
         payload = {
             "model": self.model,

@@ -21,15 +21,14 @@ async def test_connection():
     print(f"\n配置信息:")
     print(f"  API Base URL: {settings.OPENAI_API_BASE_URL}")
     print(f"  API Key: {settings.GEMINI_API_KEY[:10]}..." if len(settings.GEMINI_API_KEY) > 10 else f"  API Key: {settings.GEMINI_API_KEY}")
-    print(f"  Model: {settings.OPENAI_MODEL}")
+    print(f"  Model: {settings.WEB_TOOL_MODEL}")
     print(f"  Max Tokens: {settings.OPENAI_MAX_TOKENS}")
     print("\n" + "=" * 50)
 
     try:
         print("\n正在测试简单的文本生成...")
-        response = await openai_service.generate_completion(
-            prompt="请用一句话介绍你自己。",
-            system_message="你是一个友好的AI助手。",
+        response = await openai_service.generate_completion_gemini_format(
+            prompt="请访问https://baidu.com, 介绍这个网站讲了什么",
             max_tokens=100,
         )
         print("\n✅ 连接成功！")
@@ -39,7 +38,7 @@ async def test_connection():
     except Exception as e:
         print(f"\n❌ 连接失败！")
         print(f"\n错误信息:\n{str(e)}")
-        print("\n请检查:")
+        print("\n请检查:")  
         print("  1. API密钥是否正确")
         print("  2. API地址是否可访问")
         print("  3. 模型名称是否正确")

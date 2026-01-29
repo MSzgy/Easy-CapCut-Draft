@@ -15,55 +15,176 @@ router = APIRouter()
 
 
 async def extract_url_content(url: str) -> dict:
-    """从URL提取内容（模拟爬虫功能）"""
-    # TODO: 实现真实的网页爬虫功能
-    # 目前返回模拟数据
-    return {
-        "title": "Example Website",
-        "description": "A sample website for demonstration",
-        "keywords": ["product", "service", "technology"],
-        "main_content": "This is the main content of the website..."
-    }
+    """从URL提取内容 - 使用爬虫获取截图和HTML，然后用多模态LLM分析"""
+    
+    import base64
+    import asyncio
+    from pathlib import Path
+    from app.scraper.full_capture import run_all_scrapers
+    
+    try:
+        # 步骤1: 在单独线程中运行同步爬虫（避免asyncio冲突）
+        print(f"🚀 开始爬取网站: {url}")
+        await asyncio.to_thread(run_all_scrapers, url)
+        
+        # 步骤2: 读取生成的文件
+        scraper_dir = Path(__file__).parent.parent.parent / "scraper"
+        screenshot_path = scraper_dir / "result_full.png"
+        html_path = scraper_dir / "result_source.html"
+        text_path = scraper_dir / "result_extracted_text.txt"
+        
+        # 读取截图（转为base64）
+        screenshot_base64 = None
+        if screenshot_path.exists():
+            with open(screenshot_path, 'rb') as f:
+                screenshot_base64 = base64.b64encode(f.read()).decode('utf-8')
+            print(f"✅ 已读取截图: {screenshot_path.stat().st_size / 1024:.2f} KB")
+        
+        # 读取HTML（限制长度避免token过多）
+        html_content = None
+        if html_path.exists():
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()[:20000]  # 限制20000字符
+            print(f"✅ 已读取HTML")
+        
+        # 读取提取的文本
+        extracted_text = None
+        if text_path.exists():
+            with open(text_path, 'r', encoding='utf-8') as f:
+                extracted_text = f.read()
+            print(f"✅ 已读取提取的文本")
+        
+        # 步骤3: 构建提示词，包含HTML和提取的文本作为上下文
+        prompt = f"""我需要你分析这个网站的内容。
+
+                网站URL: {url}
+
+                我已经为你提供了：
+                1. 网页完整截图（图片）
+                2. HTML源代码片段
+                3. 提取的文本内容
+
+                **HTML源代码片段：**
+                ```html
+                {html_content if html_content else '未获取到HTML'}
+                ```
+
+                **提取的文本：**
+                ```
+                {extracted_text if extracted_text else '未获取到文本'}
+                ```
+
+                请基于截图、HTML和文本内容，提取以下信息，并严格按照JSON格式返回：
+                {{
+                    "title": "网站标题",
+                    "description": "网站简短描述/摘要 (100字以内)",
+                    "keywords": ["关键词1", "关键词2", "关键词3", "关键词4", "关键词5"],
+                    "main_content": "网站主要内容详情 (300-500字，保留核心价值信息)"
+                }}
+
+                注意：
+                1. 必须返回合法的JSON字符串
+                2. 不要包含Markdown格式标记（如 ```json ... ```）
+                3. 仔细观察截图中的视觉内容和文字
+                4. 结合HTML结构理解页面布局
+                5. main_content应该提取网站的核心信息和价值主张
+                """
+
+        # 步骤4: 调用多模态API（图片 + 文本）
+        if screenshot_base64:
+            print("🤖 正在调用多模态LLM分析...")
+            
+            # analyze_image_detailed 返回的是 dict，直接使用
+            result = await openai_service.analyze_image_detailed(prompt, screenshot_base64)
+            
+            print(f"✅ 内容提取成功: {result.get('title', 'Unknown')}")
+            
+            return {
+                "title": result.get("title", "Unknown Website"),
+                "description": result.get("description", "No description available"),
+                "keywords": result.get("keywords", []),
+                "main_content": result.get("main_content", "Content could not be extracted.")
+            }
+            
+        else:
+            # 如果没有截图，使用纯文本模式
+            print("⚠️  未找到截图，使用纯文本模式")
+            content = await openai_service.generate_completion_gemini_format(
+                prompt=prompt,
+                system_message="你是一个专业的网页内容提取助手。",
+                temperature=0.3,
+                max_tokens=4096
+            )
+            
+            # 纯文本模式返回的是字符串，需要解析JSON
+            cleaned_content = content.strip()
+            json_match = re.search(r'\{.*\}', cleaned_content, re.DOTALL)
+            if json_match:
+                cleaned_content = json_match.group()
+                
+            data = json.loads(cleaned_content)
+            
+            print(f"✅ 内容提取成功: {data.get('title', 'Unknown')}")
+            
+            return {
+                "title": data.get("title", "Unknown Website"),
+                "description": data.get("description", "No description available"),
+                "keywords": data.get("keywords", []),
+                "main_content": data.get("main_content", "Content could not be extracted.")
+            }
+        
+    except Exception as e:
+        print(f"❌ URL内容提取失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # 降级：使用原来的纯文本方法
+        return {
+            "title": "Content Extraction Failed",
+            "description": f"Failed to extract content from {url}",
+            "keywords": [],
+            "main_content": f"Error: {str(e)}"
+        }
 
 
 async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo") -> List[SceneContent]:
     """根据提示词生成场景"""
     system_message = f"""你是一个专业的视频内容创作专家。
-根据用户的提示词和视频风格，生成4-6个场景，每个场景包含：
-- timestamp: 时间戳（格式：0:00 - 0:05）
-- script: 场景脚本（包含旁白和视觉描述）
-- image: 图片详细信息对象
+                        根据用户的提示词和视频风格，生成6-8个场景，每个场景包含：
+                        - timestamp: 时间戳（格式：0:00 - 0:05）
+                        - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
+                        - image: 图片详细信息对象
 
-视频风格：{video_style}
-"""
+                        视频风格：{video_style}
+                    """
 
     user_prompt = f"""用户需求：{prompt}
 
-请生成4个场景，以JSON数组格式返回，每个场景包含：
-{{
-    "timestamp": "时间戳",
-    "script": "脚本内容",
-    "image": {{
-        "description": "图片描述(用于AI生成图片)",
-        "tags": ["标签1", "标签2", "标签3"],
-        "mood": "情绪/氛围",
-        "color_scheme": "主要色调",
-        "composition": "构图说明",
-        "style": "视觉风格",
-        "subjects": ["主体对象1", "主体对象2"],
-        "scene_type": "场景类型"
-    }}
-}}
+                    请生成6个场景，以JSON数组格式返回，每个场景包含：   
+                    {{
+                        "timestamp": "时间戳",
+                        "script": "脚本内容",
+                        "image": {{
+                            "description": "图片描述(用于AI生成图片)",
+                            "tags": ["标签1", "标签2", "标签3"],
+                            "mood": "情绪/氛围",
+                            "color_scheme": "主要色调",
+                            "composition": "构图说明",
+                            "style": "视觉风格",
+                            "subjects": ["主体对象1", "主体对象2"],
+                            "scene_type": "场景类型"
+                        }}
+                    }}
 
-只返回JSON数组，不要其他说明文字。
-"""
+                    只返回JSON数组，不要其他说明文字。
+                """
 
     try:
-        response = await openai_service.generate_completion(
+        response = await openai_service.generate_completion_gemini_format(
             prompt=user_prompt,
             system_message=system_message,
             temperature=0.8,
-            max_tokens=2000
+            max_tokens=30000
         )
 
         # 解析JSON响应
@@ -165,74 +286,100 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo") -
         ]
 
 
-async def generate_scenes_from_url(url: str, copy_style: str = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url)
-
-    # 2. 生成文案 (如果需要)
-    generated_copy = None
-    if copy_style:
-        content_text = f"{web_content['title']}\n{web_content['description']}\n{web_content['main_content']}"
-        try:
-            generated_copy = await openai_service.generate_copy(content_text, copy_style)
-        except Exception as e:
-            print(f"文案生成失败: {str(e)}")
-
-    # 3. 使用AI分析网页内容并生成场景
-    system_message = """你是一个专业的视频内容创作专家。
-根据网页内容，生成4-6个视频场景。"""
-
-    user_prompt = f"""网页内容：
-标题：{web_content['title']}
-描述：{web_content['description']}
-关键词：{', '.join(web_content['keywords'])}
-主要内容：{web_content['main_content']}
-
-请生成4个场景，以JSON数组格式返回。
-"""
-
-    try:
-        response = await openai_service.generate_completion(
-            prompt=user_prompt,
-            system_message=system_message,
-            temperature=0.7,
-            max_tokens=1500
-        )
-
-        # 简化处理，返回模拟场景
-        scenes = [
-            SceneContent(
-                id="scene_1",
-                timestamp="0:00 - 0:03",
-                script=f"介绍网站：{web_content['title']}",
-                imageUrl="https://images.unsplash.com/photo-1460925895917?w=400&h=300&fit=crop",
-                imageDescription="Website hero section"
-            ),
-            SceneContent(
-                id="scene_2",
-                timestamp="0:03 - 0:10",
-                script=web_content['description'],
-                imageUrl="https://images.unsplash.com/photo-1551288049?w=400&h=300&fit=crop",
-                imageDescription="Main features"
-            ),
-            SceneContent(
-                id="scene_3",
-                timestamp="0:10 - 0:20",
-                script="详细特性展示",
-                imageUrl="https://images.unsplash.com/photo-1553877522?w=400&h=300&fit=crop",
-                imageDescription="Feature details"
-            ),
-            SceneContent(
-                id="scene_4",
-                timestamp="0:20 - 0:30",
-                script="访问网站了解更多",
-                imageUrl="https://images.unsplash.com/photo-1559028012?w=400&h=300&fit=crop",
-                imageDescription="Call to action"
-            )
-        ]
-
+    try: 
+        generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style)
         return scenes, generated_copy
+    except Exception as e:
+        print(f"从URL生成场景失败: {str(e)}")
+        raise
+    # # 2. 生成文案 (如果需要)
+    # if copy_style:
+    #     content_text = f"{web_content['title']}\n{web_content['description']}\n{web_content['main_content']}"
+    #     try:
+    #         generated_copy = await openai_service.generate_copy(content_text, copy_style)
+    #     except Exception as e:
+    #         print(f"文案生成失败: {str(e)}")
+    
+    # # 3. 使用AI分析网页内容并生成场景
+    # system_message = f"""你是一个专业的视频内容创作专家。
+    #                     根据用户的提示词和视频风格，生成6-8个场景，每个场景包含：
+    #                     - timestamp: 时间戳（格式：0:00 - 0:05）
+    #                     - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
+    #                     - image: 图片详细信息对象
+
+    #                     视频风格：{video_style}
+    #                 """
+
+    # user_prompt = f"""网页内容：
+    #                 标题：{web_content['title']}
+    #                 描述：{web_content['description']}
+    #                 关键词：{', '.join(web_content['keywords'])}
+    #                 主要内容：{web_content['main_content']}
+
+    #                 请生成6个场景，以JSON数组格式返回，每个场景包含：   
+    #                 {{
+    #                     "timestamp": "时间戳",
+    #                     "script": "脚本内容",
+    #                     "image": {{
+    #                         "description": "图片描述(用于AI生成图片)",
+    #                         "tags": ["标签1", "标签2", "标签3"],
+    #                         "mood": "情绪/氛围",
+    #                         "color_scheme": "主要色调",
+    #                         "composition": "构图说明",
+    #                         "style": "视觉风格",
+    #                         "subjects": ["主体对象1", "主体对象2"],
+    #                         "scene_type": "场景类型"
+    #                     }}
+    #                 }}
+
+    #                 只返回JSON数组，不要其他说明文字。
+    #                 """
+    # try:
+    #     response = await openai_service.generate_completion_gemini_format(
+    #         prompt=user_prompt,
+    #         system_message=system_message,
+    #         temperature=0.7,
+    #         max_tokens=5000
+    #     )
+
+    #     # 简化处理，返回模拟场景
+    #     scenes = [
+    #         SceneContent(
+    #             id="scene_1",
+    #             timestamp="0:00 - 0:03",
+    #             script=f"介绍网站：{web_content['title']}",
+    #             imageUrl="https://images.unsplash.com/photo-1460925895917?w=400&h=300&fit=crop",
+    #             imageDescription="Website hero section"
+    #         ),
+    #         SceneContent(
+    #             id="scene_2",
+    #             timestamp="0:03 - 0:10",
+    #             script=web_content['description'],
+    #             imageUrl="https://images.unsplash.com/photo-1551288049?w=400&h=300&fit=crop",
+    #             imageDescription="Main features"
+    #         ),
+    #         SceneContent(
+    #             id="scene_3",
+    #             timestamp="0:10 - 0:20",
+    #             script="详细特性展示",
+    #             imageUrl="https://images.unsplash.com/photo-1553877522?w=400&h=300&fit=crop",
+    #             imageDescription="Feature details"
+    #         ),
+    #         SceneContent(
+    #             id="scene_4",
+    #             timestamp="0:20 - 0:30",
+    #             script="访问网站了解更多",
+    #             imageUrl="https://images.unsplash.com/photo-1559028012?w=400&h=300&fit=crop",
+    #             imageDescription="Call to action"
+    #         )
+    #     ]
+
+    #     return scenes, generated_copy
 
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -254,7 +401,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.copyStyle)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle)
 
         elif request.mode == "upload":
             if not request.uploadedAssets or len(request.uploadedAssets) == 0:
@@ -270,7 +417,21 @@ async def generate_content(request: GenerateContentRequest):
 
                     image_content = image_assets[0]["content"]
                     # 使用详细分析方法
-                    image_analysis = await openai_service.analyze_image_detailed(image_content)
+                    prompt = """请详细分析这张图片，并以JSON格式返回以下信息：
+                                {
+                                    "description": "图片的详细描述(50-100字)",
+                                    "tags": ["标签1", "标签2", "标签3"],
+                                    "mood": "情绪/氛围",
+                                    "color_scheme": "主要色调",
+                                    "composition": "构图特点",
+                                    "subjects": ["主体对象1", "主体对象2"],
+                                    "scene_type": "场景类型",
+                                    "style": "视觉风格"
+                                }
+
+                                只返回JSON对象，不要其他说明文字。
+                            """
+                    image_analysis = await openai_service.analyze_image_detailed(prompt, image_content)
 
                     # 基于图片识别结果生成场景
                     basic_description = await openai_service.analyze_image(image_content)
