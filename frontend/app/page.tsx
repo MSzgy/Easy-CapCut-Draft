@@ -8,6 +8,7 @@ import { ColumnOrchestrator } from "@/components/video-editor/column-orchestrato
 import { SmartTimeline } from "@/components/video-editor/smart-timeline"
 import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vault"
 import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
+import { ImageStudio } from "@/components/video-editor/image-studio"
 
 export default function VideoEditorPage() {
   const [activeTab, setActiveTab] = useState<TabType>("workbench")
@@ -42,12 +43,12 @@ export default function VideoEditorPage() {
   const handleComposeJson = async () => {
     setIsComposing(true)
     setComposingStep(0)
-    
+
     for (let i = 0; i <= 6; i++) {
       await new Promise((resolve) => setTimeout(resolve, 500))
       setComposingStep(i)
     }
-    
+
     setIsComposing(false)
   }
 
@@ -55,7 +56,7 @@ export default function VideoEditorPage() {
     setExportType("json")
     setIsExporting(true)
     await new Promise((resolve) => setTimeout(resolve, 1500))
-    
+
     const jsonData = {
       version: "5.0.0",
       project: { name: "AI Generated Video" },
@@ -80,7 +81,7 @@ export default function VideoEditorPage() {
       scenes: generatedContent?.scenes.length || 0,
     }
     setOutputRecords((prev) => [newRecord, ...prev])
-    
+
     setIsExporting(false)
     setExportType(null)
   }
@@ -104,7 +105,7 @@ export default function VideoEditorPage() {
     setOutputRecords((prev) => [processingRecord, ...prev])
 
     await new Promise((resolve) => setTimeout(resolve, 3000))
-    
+
     // Update to rendered
     setOutputRecords((prev) =>
       prev.map((r) =>
@@ -113,7 +114,7 @@ export default function VideoEditorPage() {
           : r
       )
     )
-    
+
     setIsExporting(false)
     setExportType(null)
   }
@@ -182,6 +183,12 @@ export default function VideoEditorPage() {
               />
             </footer>
           </>
+        )}
+
+        {activeTab === "image-studio" && (
+          <main className="flex-1 overflow-hidden p-4">
+            <ImageStudio />
+          </main>
         )}
 
         {activeTab === "media-vault" && (

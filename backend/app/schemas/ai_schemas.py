@@ -31,6 +31,7 @@ class GenerateContentRequest(BaseModel):
     # Prompt模式字段
     prompt: Optional[str] = Field(None, description="用户输入的提示词")
     videoStyle: Optional[str] = Field(None, description="视频风格: promo, tutorial, review, story")
+    styleKeywords: Optional[List[str]] = Field(None, description="风格关键词，用于增强AI理解")
 
     # URL模式字段
     url: Optional[str] = Field(None, description="网站URL")
@@ -54,6 +55,7 @@ class GenerateContentResponse(BaseModel):
 class GenerateCoverRequest(BaseModel):
     """AI封面生成请求"""
     style: str = Field(..., description="封面风格: 3d, minimal, cinematic, gradient")
+    styleKeywords: Optional[List[str]] = Field(None, description="风格关键词，用于增强AI理解")
     prompt: Optional[str] = Field(None, description="封面描述")
     theme: Optional[str] = Field(None, description="视频主题")
     size: Optional[str] = Field(None, description="封面尺寸")

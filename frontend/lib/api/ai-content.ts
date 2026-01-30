@@ -14,6 +14,7 @@ export interface GenerateContentRequest {
   mode: 'upload' | 'prompt' | 'url'
   prompt?: string
   videoStyle?: string
+  styleKeywords?: string[]
   url?: string
   copyStyle?: string
   uploadedAssets?: Array<{
@@ -35,6 +36,7 @@ export interface GenerateContentResponse {
 
 export interface GenerateCoverRequest {
   style: string
+  styleKeywords?: string[]
   prompt?: string
   theme?: string
   size?: string

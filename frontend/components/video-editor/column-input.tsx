@@ -20,6 +20,8 @@ import {
   FileAudio,
   FileImage,
   FolderOpen,
+  Loader2,
+  Download,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -82,11 +84,98 @@ const crawlerSteps = [
 ]
 
 const coverStyles = [
-  { id: "3d", name: "3D Style", icon: "cube" },
-  { id: "minimal", name: "Minimalist", icon: "minus" },
-  { id: "cinematic", name: "Cinematic", icon: "film" },
-  { id: "gradient", name: "Gradient", icon: "palette" },
+  { id: "3d", name: "3D立体", icon: "cube" },
+  { id: "minimal", name: "极简风", icon: "minus" },
+  { id: "cinematic", name: "电影感", icon: "film" },
+  { id: "gradient", name: "渐变色", icon: "palette" },
+  { id: "neon", name: "霓虹灯", icon: "palette" },
+  { id: "vintage", name: "复古风", icon: "clock" },
+  { id: "futuristic", name: "未来科技", icon: "rocket" },
+  { id: "nature", name: "自然风光", icon: "palette" },
+  { id: "abstract", name: "抽象艺术", icon: "layers" },
+  { id: "cartoon", name: "卡通动漫", icon: "smile" },
+  { id: "photo-realistic", name: "写实摄影", icon: "palette" },
+  { id: "watercolor", name: "水彩画", icon: "droplet" },
+  { id: "oil-painting", name: "油画风", icon: "palette" },
+  { id: "sketch", name: "素描风", icon: "pen-tool" },
+  { id: "cyberpunk", name: "赛博朋克", icon: "palette" },
+  { id: "japanese", name: "日式和风", icon: "palette" },
+  { id: "chinese", name: "中国风", icon: "palette" },
+  { id: "luxury-gold", name: "奢华金色", icon: "palette" },
+  { id: "dark-mode", name: "暗黑模式", icon: "palette" },
+  { id: "pastel", name: "马卡龙色", icon: "palette" },
+  { id: "monochrome", name: "黑白艺术", icon: "palette" },
+  { id: "pop-art", name: "波普艺术", icon: "palette" },
+  { id: "geometric", name: "几何图形", icon: "palette" },
+  { id: "glitch", name: "故障艺术", icon: "palette" },
+  { id: "nine-grid", name: "九宫格", icon: "palette" },
 ]
+
+// Video style keywords mapping (33 styles)
+const videoStyleKeywords: Record<string, string[]> = {
+  'promo': ['engaging', 'persuasive', 'attention-grabbing'],
+  'tutorial': ['educational', 'step-by-step', 'instructional'],
+  'review': ['analytical', 'comparative', 'informative'],
+  'story': ['narrative', 'emotional', 'character-driven'],
+  'documentary': ['factual', 'investigative', 'authentic'],
+  'vlog': ['personal', 'candid', 'lifestyle'],
+  'cinematic': ['dramatic', 'atmospheric', 'artistic'],
+  'fast-paced': ['dynamic', 'energetic', 'rapid-cut'],
+  'educational': ['informative', 'structured', 'clear'],
+  'entertainment': ['fun', 'lighthearted', 'amusing'],
+  'testimonial': ['authentic', 'personal', 'trust-building'],
+  'product-showcase': ['detailed', 'attractive', 'commercial'],
+  'behind-the-scenes': ['exclusive', 'insider', 'making-of'],
+  'motivational': ['inspiring', 'uplifting', 'empowering'],
+  'minimalist': ['clean', 'simple', 'elegant'],
+  'luxury': ['premium', 'sophisticated', 'high-end'],
+  'news': ['timely', 'objective', 'newsworthy'],
+  'interview': ['conversational', 'insightful', 'dialogue-based'],
+  'comparison': ['analytical', 'side-by-side', 'evaluative'],
+  'challenge': ['competitive', 'exciting', 'goal-oriented'],
+  'reaction': ['spontaneous', 'expressive', 'responsive'],
+  'unboxing': ['first-impression', 'reveal', 'detailed-showcase'],
+  'cooking': ['recipe-based', 'appetizing', 'instructional'],
+  'travel': ['exploratory', 'scenic', 'adventurous'],
+  'fitness': ['active', 'motivating', 'health-focused'],
+  'music': ['rhythmic', 'artistic', 'performance'],
+  'dance': ['choreographed', 'rhythmic', 'expressive'],
+  'animation': ['creative', 'illustrated', 'dynamic'],
+  'gaming': ['interactive', 'gameplay-focused', 'commentary'],
+  'tech': ['innovative', 'technical', 'detailed'],
+  'lifestyle': ['aspirational', 'relatable', 'curated'],
+  'fashion': ['trendy', 'stylish', 'aesthetic'],
+  'beauty': ['transformative', 'cosmetic', 'how-to'],
+}
+
+// Cover style keywords mapping (24 styles)
+const coverStyleKeywords: Record<string, string[]> = {
+  '3d': ['depth', 'dimensional', 'realistic-rendering'],
+  'minimal': ['clean', 'simple', 'negative-space'],
+  'cinematic': ['dramatic-lighting', 'film-quality', 'atmospheric'],
+  'gradient': ['smooth-blend', 'color-transition', 'vibrant'],
+  'neon': ['glowing', 'vibrant', 'electric'],
+  'vintage': ['retro', 'aged', 'nostalgic'],
+  'futuristic': ['sci-fi', 'technological', 'modern'],
+  'nature': ['organic', 'natural', 'earthy'],
+  'abstract': ['artistic', 'non-representational', 'creative'],
+  'cartoon': ['illustrated', 'playful', 'animated-style'],
+  'photo-realistic': ['photographic', 'detailed', 'lifelike'],
+  'watercolor': ['painted', 'soft', 'artistic'],
+  'oil-painting': ['textured', 'classical', 'brushwork'],
+  'sketch': ['hand-drawn', 'linework', 'artistic'],
+  'cyberpunk': ['neon', 'dystopian', 'high-tech'],
+  'japanese': ['zen', 'traditional', 'minimalist'],
+  'chinese': ['traditional', 'cultural', 'ornate'],
+  'luxury-gold': ['opulent', 'golden', 'prestigious'],
+  'dark-mode': ['moody', 'high-contrast', 'dramatic'],
+  'pastel': ['soft', 'gentle', 'muted-colors'],
+  'monochrome': ['black-and-white', 'contrast', 'timeless'],
+  'pop-art': ['bold', 'graphic', 'colorful'],
+  'geometric': ['structured', 'angular', 'pattern-based'],
+  'glitch': ['distorted', 'digital', 'experimental'],
+  'nine-grid': ['structured', 'angular', 'pattern-based'],
+}
 
 export function ColumnInput({ onGenerate }: ColumnInputProps) {
   const [activeTab, setActiveTab] = useState("upload")
@@ -109,6 +198,10 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   // Copy Generation State
   const [generateCopy, setGenerateCopy] = useState(false)
   const [copyStyle, setCopyStyle] = useState("")
+
+  // Video Style for Upload and URL
+  const [uploadVideoStyle, setUploadVideoStyle] = useState("promo")
+  const [urlVideoStyle, setUrlVideoStyle] = useState("promo")
 
   // Image Preview State
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
@@ -280,10 +373,15 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
       }
 
       // 调用后端API
+      const selectedStyle = activeTab === "prompt" ? scriptType :
+        activeTab === "upload" ? uploadVideoStyle :
+          activeTab === "url" ? urlVideoStyle : undefined
+
       const response = await aiContentApi.generateContent({
         mode: activeTab as "upload" | "prompt" | "url",
         prompt: activeTab === "prompt" ? prompt : undefined,
-        videoStyle: activeTab === "prompt" ? scriptType : undefined,
+        videoStyle: selectedStyle,
+        styleKeywords: selectedStyle ? videoStyleKeywords[selectedStyle] : undefined,
         url: activeTab === "url" ? url : undefined,
         copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
@@ -368,6 +466,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
     try {
       const response = await aiContentApi.generateCover({
         style: coverStyle,
+        styleKeywords: coverStyleKeywords[coverStyle],
         prompt: coverPrompt,
         theme: coverTheme || undefined,
         size: coverSize,
@@ -399,7 +498,24 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pr-2">
       {/* Input Tabs Card */}
-      <Card className="border-border bg-card">
+      <Card className="relative border-border bg-card">
+        {/* Loading Overlay for Content Generation */}
+        {isGenerating && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4 rounded-lg bg-card p-6 shadow-lg border border-border">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="text-sm font-medium text-foreground">
+                  {activeTab === "url" ? "Scanning & Generating Content..." : "Generating Content..."}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Please wait while AI processes your request
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -565,6 +681,51 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                 </div>
               )}
 
+              {/* Video Style Selection */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">视频风格</Label>
+                <Select value={uploadVideoStyle} onValueChange={setUploadVideoStyle}>
+                  <SelectTrigger className="bg-secondary">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="promo">🎯 宣传推广</SelectItem>
+                    <SelectItem value="tutorial">📚 教程讲解</SelectItem>
+                    <SelectItem value="review">⭐ 评测推荐</SelectItem>
+                    <SelectItem value="story">📖 故事叙述</SelectItem>
+                    <SelectItem value="documentary">🎬 纪录片</SelectItem>
+                    <SelectItem value="vlog">📹 生活日志</SelectItem>
+                    <SelectItem value="cinematic">🎥 电影感</SelectItem>
+                    <SelectItem value="fast-paced">⚡ 快节奏</SelectItem>
+                    <SelectItem value="educational">🎓 教育科普</SelectItem>
+                    <SelectItem value="entertainment">🎪 娱乐搞笑</SelectItem>
+                    <SelectItem value="testimonial">💬 用户评价</SelectItem>
+                    <SelectItem value="product-showcase">🛍️ 产品展示</SelectItem>
+                    <SelectItem value="behind-the-scenes">🎭 幕后花絮</SelectItem>
+                    <SelectItem value="motivational">💪 励志鸡汤</SelectItem>
+                    <SelectItem value="minimalist">⬜ 极简风格</SelectItem>
+                    <SelectItem value="luxury">💎 奢华高端</SelectItem>
+                    <SelectItem value="news">📰 新闻资讯</SelectItem>
+                    <SelectItem value="interview">🎤 访谈对话</SelectItem>
+                    <SelectItem value="comparison">⚖️ 对比分析</SelectItem>
+                    <SelectItem value="challenge">🏆 挑战任务</SelectItem>
+                    <SelectItem value="reaction">😲 反应视频</SelectItem>
+                    <SelectItem value="unboxing">📦 开箱测评</SelectItem>
+                    <SelectItem value="cooking">🍳 美食烹饪</SelectItem>
+                    <SelectItem value="travel">✈️ 旅行探索</SelectItem>
+                    <SelectItem value="fitness">🏋️ 健身运动</SelectItem>
+                    <SelectItem value="music">🎵 音乐MV</SelectItem>
+                    <SelectItem value="dance">💃 舞蹈表演</SelectItem>
+                    <SelectItem value="animation">🎨 动画效果</SelectItem>
+                    <SelectItem value="gaming">🎮 游戏实况</SelectItem>
+                    <SelectItem value="tech">💻 科技数码</SelectItem>
+                    <SelectItem value="lifestyle">🌸 生活方式</SelectItem>
+                    <SelectItem value="fashion">👗 时尚穿搭</SelectItem>
+                    <SelectItem value="beauty">� 美妆护肤</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Copy Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
@@ -606,16 +767,45 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Video Style</Label>
+                <Label className="text-xs text-muted-foreground">视频风格</Label>
                 <Select value={scriptType} onValueChange={setScriptType}>
                   <SelectTrigger className="bg-secondary">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="promo">Promotional</SelectItem>
-                    <SelectItem value="tutorial">Tutorial</SelectItem>
-                    <SelectItem value="review">Review</SelectItem>
-                    <SelectItem value="story">Storytelling</SelectItem>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="promo">🎯 宣传推广</SelectItem>
+                    <SelectItem value="tutorial">📚 教程讲解</SelectItem>
+                    <SelectItem value="review">⭐ 评测推荐</SelectItem>
+                    <SelectItem value="story">📖 故事叙述</SelectItem>
+                    <SelectItem value="documentary">🎬 纪录片</SelectItem>
+                    <SelectItem value="vlog">📹 生活日志</SelectItem>
+                    <SelectItem value="cinematic">🎥 电影感</SelectItem>
+                    <SelectItem value="fast-paced">⚡ 快节奏</SelectItem>
+                    <SelectItem value="educational">🎓 教育科普</SelectItem>
+                    <SelectItem value="entertainment">🎪 娱乐搞笑</SelectItem>
+                    <SelectItem value="testimonial">💬 用户评价</SelectItem>
+                    <SelectItem value="product-showcase">🛍️ 产品展示</SelectItem>
+                    <SelectItem value="behind-the-scenes">🎭 幕后花絮</SelectItem>
+                    <SelectItem value="motivational">💪 励志鸡汤</SelectItem>
+                    <SelectItem value="minimalist">⬜ 极简风格</SelectItem>
+                    <SelectItem value="luxury">💎 奢华高端</SelectItem>
+                    <SelectItem value="news">📰 新闻资讯</SelectItem>
+                    <SelectItem value="interview">🎤 访谈对话</SelectItem>
+                    <SelectItem value="comparison">⚖️ 对比分析</SelectItem>
+                    <SelectItem value="challenge">🏆 挑战任务</SelectItem>
+                    <SelectItem value="reaction">😲 反应视频</SelectItem>
+                    <SelectItem value="unboxing">📦 开箱测评</SelectItem>
+                    <SelectItem value="cooking">🍳 美食烹饪</SelectItem>
+                    <SelectItem value="travel">✈️ 旅行探索</SelectItem>
+                    <SelectItem value="fitness">🏋️ 健身运动</SelectItem>
+                    <SelectItem value="music">🎵 音乐MV</SelectItem>
+                    <SelectItem value="dance">💃 舞蹈表演</SelectItem>
+                    <SelectItem value="animation">🎨 动画效果</SelectItem>
+                    <SelectItem value="gaming">🎮 游戏实况</SelectItem>
+                    <SelectItem value="tech">💻 科技数码</SelectItem>
+                    <SelectItem value="lifestyle">🌸 生活方式</SelectItem>
+                    <SelectItem value="fashion">� 时尚穿搭</SelectItem>
+                    <SelectItem value="beauty">💄 美妆护肤</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -652,6 +842,51 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                     {urlError}
                   </p>
                 )}
+              </div>
+
+              {/* Video Style Selection */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">视频风格</Label>
+                <Select value={urlVideoStyle} onValueChange={setUrlVideoStyle}>
+                  <SelectTrigger className="bg-secondary">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="promo">🎯 宣传推广</SelectItem>
+                    <SelectItem value="tutorial">📚 教程讲解</SelectItem>
+                    <SelectItem value="review">⭐ 评测推荐</SelectItem>
+                    <SelectItem value="story">📖 故事叙述</SelectItem>
+                    <SelectItem value="documentary">🎬 纪录片</SelectItem>
+                    <SelectItem value="vlog">📹 生活日志</SelectItem>
+                    <SelectItem value="cinematic">🎥 电影感</SelectItem>
+                    <SelectItem value="fast-paced">⚡ 快节奏</SelectItem>
+                    <SelectItem value="educational">🎓 教育科普</SelectItem>
+                    <SelectItem value="entertainment">🎪 娱乐搞笑</SelectItem>
+                    <SelectItem value="testimonial">💬 用户评价</SelectItem>
+                    <SelectItem value="product-showcase">🛍️ 产品展示</SelectItem>
+                    <SelectItem value="behind-the-scenes">🎭 幕后花絮</SelectItem>
+                    <SelectItem value="motivational">💪 励志鸡汤</SelectItem>
+                    <SelectItem value="minimalist">⬜ 极简风格</SelectItem>
+                    <SelectItem value="luxury">💎 奢华高端</SelectItem>
+                    <SelectItem value="news">📰 新闻资讯</SelectItem>
+                    <SelectItem value="interview">🎤 访谈对话</SelectItem>
+                    <SelectItem value="comparison">⚖️ 对比分析</SelectItem>
+                    <SelectItem value="challenge">🏆 挑战任务</SelectItem>
+                    <SelectItem value="reaction">😲 反应视频</SelectItem>
+                    <SelectItem value="unboxing">📦 开箱测评</SelectItem>
+                    <SelectItem value="cooking">🍳 美食烹饪</SelectItem>
+                    <SelectItem value="travel">✈️ 旅行探索</SelectItem>
+                    <SelectItem value="fitness">🏋️ 健身运动</SelectItem>
+                    <SelectItem value="music">🎵 音乐MV</SelectItem>
+                    <SelectItem value="dance">💃 舞蹈表演</SelectItem>
+                    <SelectItem value="animation">🎨 动画效果</SelectItem>
+                    <SelectItem value="gaming">🎮 游戏实况</SelectItem>
+                    <SelectItem value="tech">💻 科技数码</SelectItem>
+                    <SelectItem value="lifestyle">🌸 生活方式</SelectItem>
+                    <SelectItem value="fashion">👗 时尚穿搭</SelectItem>
+                    <SelectItem value="beauty">� 美妆护肤</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Copy Generation Option */}
@@ -737,7 +972,24 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
       </Card>
 
       {/* Cover Designer Card */}
-      <Card className="border-border bg-card">
+      <Card className="relative border-border bg-card">
+        {/* Loading Overlay for Cover Generation */}
+        {isGeneratingCover && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4 rounded-lg bg-card p-6 shadow-lg border border-border">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="text-sm font-medium text-foreground">
+                  Generating Cover Image...
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  AI is creating your custom cover
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <ImageIcon className="h-4 w-4 text-primary" />
@@ -800,32 +1052,64 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Style Preset</Label>
-            <div className="grid grid-cols-4 gap-2">
-              {coverStyles.map((style) => (
-                <button
-                  key={style.id}
-                  onClick={() => setCoverStyle(style.id)}
-                  className={`flex flex-col items-center gap-1 rounded-lg border p-2 text-xs transition-colors ${coverStyle === style.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary text-muted-foreground hover:border-primary/50"
-                    }`}
-                >
-                  <Palette className="h-4 w-4" />
-                  <span className="text-[10px]">{style.name}</span>
-                </button>
-              ))}
-            </div>
+            <Label className="text-xs text-muted-foreground">风格预设</Label>
+            <Select value={coverStyle} onValueChange={setCoverStyle}>
+              <SelectTrigger className="bg-secondary">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {coverStyles.map((style) => (
+                  <SelectItem key={style.id} value={style.id}>
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-3.5 w-3.5" />
+                      <span>{style.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {generatedCover && (
-            <div className="relative overflow-hidden rounded-lg border border-border">
+            <div className="group relative overflow-hidden rounded-lg border border-border">
               <img
                 src={generatedCover || "/placeholder.svg"}
                 alt="Generated cover"
                 className={`w-full object-cover ${coverSize === "16:9" ? "aspect-video" : coverSize === "9:16" ? "aspect-[9/16]" : coverSize === "1:1" ? "aspect-square" : "aspect-[4/3]"}`}
                 crossOrigin="anonymous"
               />
+              <div className="absolute inset-0 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(generatedCover)
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `cover-${coverStyle}-${Date.now()}.png`
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      window.URL.revokeObjectURL(url)
+                      toast({
+                        title: "下载成功",
+                        description: "封面已保存到下载文件夹",
+                      })
+                    } catch (error) {
+                      toast({
+                        title: "下载失败",
+                        description: error instanceof Error ? error.message : "未知错误",
+                        variant: "destructive",
+                      })
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
               <Badge className="absolute right-2 top-2 bg-primary/80">{coverSize}</Badge>
             </div>
           )}

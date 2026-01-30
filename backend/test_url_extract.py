@@ -23,7 +23,7 @@ async def test_extract_url():
     """测试从URL提取内容"""
     
     # 测试的URL
-    test_url = "https://halo.mosuyang.org"
+    test_url = "https://www.msn.cn/zh-cn/news/other/%E6%98%A8%E6%97%A5%E5%9B%A0%E6%9E%9C%E6%98%A8%E6%97%A5%E4%BA%86-%E8%BF%99%E6%AC%A1%E9%BB%84%E6%99%93%E6%98%8E%E5%92%8C%E6%9D%A8%E9%A2%96%E8%81%94%E6%89%8B-%E7%BB%99%E6%89%80%E6%9C%89%E7%A6%BB%E5%BC%82%E5%A4%AB%E5%A6%BB%E4%B8%8A%E4%BA%86%E4%B8%80%E8%AF%BE/ar-AA1V8psr?ocid=BingHp01&cvid=d2370af40c9943a381eb2e989e8a8393&ei=9"
     
     print("="*60)
     print(f"测试URL内容提取功能")

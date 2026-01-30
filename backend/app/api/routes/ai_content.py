@@ -25,10 +25,15 @@ async def extract_url_content(url: str) -> dict:
     try:
         # 步骤1: 在单独线程中运行同步爬虫（避免asyncio冲突）
         print(f"🚀 开始爬取网站: {url}")
-        await asyncio.to_thread(run_all_scrapers, url)
+        
+        # 确定输出目录
+        scraper_dir = Path(__file__).parent.parent.parent / "scraper"
+        scraper_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 调用爬虫，指定输出目录
+        await asyncio.to_thread(run_all_scrapers, url, str(scraper_dir))
         
         # 步骤2: 读取生成的文件
-        scraper_dir = Path(__file__).parent.parent.parent / "scraper"
         screenshot_path = scraper_dir / "result_full.png"
         html_path = scraper_dir / "result_source.html"
         text_path = scraper_dir / "result_extracted_text.txt"
@@ -147,15 +152,20 @@ async def extract_url_content(url: str) -> dict:
         }
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo") -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None) -> List[SceneContent]:
     """根据提示词生成场景"""
+    # Build keywords context if provided
+    keywords_context = ""
+    if style_keywords and len(style_keywords) > 0:
+        keywords_context = f"\n                        风格关键词：{', '.join(style_keywords)}"
+    
     system_message = f"""你是一个专业的视频内容创作专家。
                         根据用户的提示词和视频风格，生成6-8个场景，每个场景包含：
                         - timestamp: 时间戳（格式：0:00 - 0:05）
                         - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
                         - image: 图片详细信息对象
 
-                        视频风格：{video_style}
+                        视频风格：{video_style}{keywords_context}
                     """
 
     user_prompt = f"""用户需求：{prompt}
@@ -286,13 +296,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo") -
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url)
     try: 
         generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -396,12 +406,12 @@ async def generate_content(request: GenerateContentRequest):
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
-            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo")
+            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords)
 
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords)
 
         elif request.mode == "upload":
             if not request.uploadedAssets or len(request.uploadedAssets) == 0:
@@ -516,7 +526,8 @@ async def generate_cover(request: GenerateCoverRequest):
         # TODO: 实现真实的AI图片生成
         data = await openai_service.generate_image_gemini_format(
             prompt=request.prompt, 
-            style=request.style, 
+            style=request.style,
+            style_keywords=request.styleKeywords,
             theme=request.theme, 
             size=request.size,
             resolution=request.resolution

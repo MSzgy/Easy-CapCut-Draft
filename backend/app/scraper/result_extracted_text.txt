@@ -1,14 +1,23 @@
-页面标题: Mosu
-页面链接: https://halo.mosuyang.org/
---------------------
-抓取到的文章标题/副标题:
-- solana-voting-system
-- Fine-tuning & RL For LLMs: Intro to Post training Module 1: Post-Training Overview
-- Agentic AI
-- 币圈交易指南
-- Post-training of LLMs
+页面标题: Building Code Agents with Hugging Face smolagents - Mosu
+页面链接: https://halo.mosuyang.org/archives/building-code-agents-with-hugging-face-smolagents
+------------------------------------------------------------
+标题列表:
 - Building Code Agents with Hugging Face smolagents
-- Getting Structured LLM Output
-- ACP: Agent Communication Protocol
-- Orchestrating Workflows for GenAI Applications
-- solana
+- Introduction
+- A Brief History of Agents
+- Introduction to Code Agents
+- Secure Code Execution
+- Monitoring and Evaluating your Agent
+- Prompt
+- Build a Deep-Research Agent
+- 微信扫一扫：分享
+- 评论
+
+============================================================
+文章正文:
+============================================================
+本课程是由Huggingface 带来的code agent课程，smolagents是huggingface的框架。本课程讲解了如何安全执行code以及按照ReAct （Thought-Action behavior）的方法搭建相关agent。
+
+在这节为了使得Agnet理解任务更为准确，采用了Multi-Agent。
+
+Building Code Agents with Hugging Face smolagents

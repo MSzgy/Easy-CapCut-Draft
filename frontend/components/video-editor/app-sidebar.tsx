@@ -11,6 +11,7 @@ import {
   Moon,
   Sun,
   Video,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type TabType = "workbench" | "media-vault" | "output-archive"
+export type TabType = "workbench" | "image-studio" | "media-vault" | "output-archive"
 
 interface AppSidebarProps {
   activeTab: TabType
@@ -37,6 +38,12 @@ const navItems = [
     label: "Workbench",
     icon: Layers,
     description: "AI Video Creation Engine",
+  },
+  {
+    id: "image-studio" as TabType,
+    label: "Image Studio",
+    icon: Sparkles,
+    description: "Advanced AI Image Generation",
   },
   {
     id: "media-vault" as TabType,
