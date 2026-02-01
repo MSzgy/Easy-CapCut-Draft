@@ -175,6 +175,7 @@ class OpenAIService:
         style: str,
         theme: str,
         style_keywords: Optional[list] = None,
+        negative_prompt: Optional[str] = None,
         resolution: str = "4k",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
@@ -185,12 +186,17 @@ class OpenAIService:
         if style_keywords and len(style_keywords) > 0:
             keywords_context = f"\n                                    7. 风格关键词参考：{', '.join(style_keywords)}"
         
+        # Build negative prompt context if provided
+        negative_context = ""
+        if negative_prompt and negative_prompt.strip():
+            negative_context = f"\n                                    8. 避免出现的元素：{negative_prompt}"
+        
         system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
                                     1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
                                     2. 符合用户要求
                                     3. 符合平台内容审核标准
                                     4. 主题：{theme}
-                                    5. 风格：{style}{keywords_context}
+                                    5. 风格：{style}{keywords_context}{negative_context}
                                     6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分-适合：
                                     - 奢华生活方式目录
                                     - 纪实肖像展览

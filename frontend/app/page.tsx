@@ -128,7 +128,7 @@ export default function VideoEditorPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background flex-col-reverse lg:flex-row">
       {/* Collapsible Sidebar */}
       <AppSidebar
         activeTab={activeTab}
@@ -142,9 +142,9 @@ export default function VideoEditorPage() {
         {activeTab === "workbench" && (
           <>
             {/* 3-Column Workbench Layout */}
-            <main className="flex flex-1 gap-4 overflow-hidden p-4">
+            <main className="flex flex-1 flex-col gap-4 overflow-auto p-4 lg:flex-row lg:overflow-hidden">
               {/* Column 1: Multi-Modal Input */}
-              <aside className="w-80 shrink-0 overflow-auto xl:w-96">
+              <aside className="w-full shrink-0 overflow-auto lg:w-80 xl:w-96">
                 <ColumnInput onGenerate={handleGenerate} />
               </aside>
 
@@ -159,7 +159,7 @@ export default function VideoEditorPage() {
               </section>
 
               {/* Column 3: AI Orchestrator & JSON Inspector */}
-              <aside className="w-80 shrink-0 overflow-auto xl:w-96">
+              <aside className="w-full shrink-0 overflow-auto lg:w-80 xl:w-96">
                 <ColumnOrchestrator
                   content={generatedContent}
                   isComposing={isComposing}

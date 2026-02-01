@@ -148,7 +148,7 @@ export function ColumnContent({
 
   if (!content) {
     return (
-      <Card className="flex h-full flex-col border-border bg-card/50 backdrop-blur-sm">
+      <Card className="flex lg:h-full flex-col border-border bg-card/50 backdrop-blur-sm">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <FileText className="h-4 w-4 text-primary" />
@@ -189,7 +189,7 @@ export function ColumnContent({
   }
 
   return (
-    <Card className="flex h-full flex-col border-border bg-card">
+    <Card className="flex lg:h-full flex-col border-border bg-card">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-sm font-medium">
           <div className="flex items-center gap-2">

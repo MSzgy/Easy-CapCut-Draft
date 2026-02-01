@@ -82,12 +82,16 @@ export function AppSidebar({
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex h-full flex-col border-r border-border bg-sidebar transition-all duration-300",
-          isCollapsed ? "w-16" : "w-56"
+          "flex border-border bg-sidebar transition-all duration-300",
+          // Mobile: Bottom Navigation
+          "h-16 w-full flex-row items-center justify-around border-t px-2",
+          // Desktop: Sidebar
+          "lg:flex-col lg:border-r lg:border-t-0 lg:h-full",
+          isCollapsed ? "lg:w-16" : "lg:w-56"
         )}
       >
-        {/* Logo Header */}
-        <div className="flex h-14 items-center border-b border-sidebar-border px-3">
+        {/* Logo Header - Desktop Only */}
+        <div className="hidden h-14 items-center border-b border-sidebar-border px-3 lg:flex">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Video className="h-4 w-4 text-primary-foreground" />
@@ -101,7 +105,7 @@ export function AppSidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex flex-1 justify-around lg:block lg:space-y-1 lg:p-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const count = getCount(item.id)
@@ -113,38 +117,55 @@ export function AppSidebar({
                   <button
                     onClick={() => onTabChange(item.id)}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                      "group flex items-center justify-center rounded-lg transition-all",
+                      // Mobile styles
+                      "flex-col gap-1 p-1 text-[10px]",
+                      isActive ? "text-primary" : "text-muted-foreground",
+                      // Desktop styles
+                      "lg:flex-row lg:w-full lg:gap-3 lg:px-3 lg:py-2.5 lg:text-sm lg:font-medium",
                       isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        ? "lg:bg-sidebar-accent lg:text-sidebar-accent-foreground"
+                        : "lg:text-sidebar-foreground/70 lg:hover:bg-sidebar-accent/50 lg:hover:text-sidebar-foreground"
                     )}
                   >
                     <Icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-                    {!isCollapsed && (
-                      <>
-                        <span className="flex-1 text-left">{item.label}</span>
-                        {count > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="h-5 min-w-5 justify-center px-1.5 text-[10px]"
-                          >
-                            {count}
-                          </Badge>
-                        )}
-                      </>
-                    )}
-                    {isCollapsed && count > 0 && (
+
+                    {/* Label - Mobile (always show small) / Desktop (show if not collapsed) */}
+                    <span className={cn(
+                      "lg:text-left",
+                      isCollapsed ? "lg:hidden" : "lg:flex-1"
+                    )}>
+                      {item.label}
+                    </span>
+
+                    {/* Count Badges */}
+                    {!isCollapsed && count > 0 && (
                       <Badge
                         variant="secondary"
-                        className="absolute right-1 top-1 h-4 min-w-4 justify-center px-1 text-[9px]"
+                        className="hidden lg:flex h-5 min-w-5 justify-center px-1.5 text-[10px]"
                       >
                         {count}
                       </Badge>
                     )}
+
+                    {/* Collapsed Sidebar Badge (Desktop only) */}
+                    {isCollapsed && count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="absolute right-1 top-1 hidden lg:flex h-4 min-w-4 justify-center px-1 text-[9px]"
+                      >
+                        {count}
+                      </Badge>
+                    )}
+
+                    {/* Mobile Dot Badge for count */}
+                    {count > 0 && (
+                      <div className="absolute top-2 right-1/4 h-2 w-2 rounded-full bg-primary lg:hidden" />
+                    )}
                   </button>
                 </TooltipTrigger>
                 {isCollapsed && (
-                  <TooltipContent side="right" className="flex flex-col">
+                  <TooltipContent side="right" className="hidden lg:flex flex-col">
                     <span className="font-medium">{item.label}</span>
                     <span className="text-xs text-muted-foreground">{item.description}</span>
                   </TooltipContent>
@@ -154,8 +175,8 @@ export function AppSidebar({
           })}
         </nav>
 
-        {/* Footer Actions */}
-        <div className="space-y-1 border-t border-sidebar-border p-2">
+        {/* Footer Actions - Desktop Only */}
+        <div className="hidden space-y-1 border-t border-sidebar-border p-2 lg:block">
           {/* Theme Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>

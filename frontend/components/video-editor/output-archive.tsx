@@ -198,8 +198,8 @@ export function OutputArchive({
         </CardHeader>
 
         <CardContent className="flex-1 overflow-auto p-4 pt-0">
-          <div className="rounded-lg border border-border">
-            <Table>
+          <div className="rounded-lg border border-border overflow-x-auto">
+            <Table className="min-w-[600px] lg:min-w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[40%]">Name</TableHead>

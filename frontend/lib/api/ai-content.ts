@@ -38,6 +38,7 @@ export interface GenerateCoverRequest {
   style: string
   styleKeywords?: string[]
   prompt?: string
+  negativePrompt?: string
   theme?: string
   size?: string
   resolution?: string

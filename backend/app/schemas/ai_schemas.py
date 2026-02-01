@@ -57,6 +57,7 @@ class GenerateCoverRequest(BaseModel):
     style: str = Field(..., description="封面风格: 3d, minimal, cinematic, gradient")
     styleKeywords: Optional[List[str]] = Field(None, description="风格关键词，用于增强AI理解")
     prompt: Optional[str] = Field(None, description="封面描述")
+    negativePrompt: Optional[str] = Field(None, description="负面提示词，描述不想出现的元素")
     theme: Optional[str] = Field(None, description="视频主题")
     size: Optional[str] = Field(None, description="封面尺寸")
     resolution: Optional[str] = Field(None, description="图片分辨率")

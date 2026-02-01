@@ -120,6 +120,7 @@ export function ImageStudio() {
                 // Call API for each image
                 const response = await aiContentApi.generateCover({
                     prompt: prompt,
+                    negativePrompt: negativePrompt,
                     style: selectedStyle,
                     styleKeywords: style?.keywords,
                     size: aspectRatio,
@@ -210,9 +211,9 @@ export function ImageStudio() {
 
 
     return (
-        <div className="flex h-full gap-4">
+        <div className="flex h-full flex-col gap-4 overflow-auto lg:flex-row lg:overflow-hidden">
             {/* Left Panel - Generation Controls */}
-            <aside className="w-96 shrink-0 space-y-4 overflow-auto">
+            <aside className="w-full shrink-0 space-y-4 overflow-auto lg:w-96">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -424,7 +425,7 @@ export function ImageStudio() {
             </section>
 
             {/* Right Panel - History */}
-            <aside className="w-80 shrink-0 space-y-4 overflow-auto">
+            <aside className="w-full shrink-0 space-y-4 overflow-auto lg:w-80">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center justify-between">

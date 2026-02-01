@@ -152,7 +152,7 @@ export function ColumnOrchestrator({
 
   const generateCapCutJson = () => {
     if (!content) return {}
-    
+
     return {
       version: "5.0.0",
       /* intra_v2: Used by CapCut for internal track references */
@@ -270,7 +270,7 @@ export function ColumnOrchestrator({
   const totalCount = totalCountSelection; // Declare totalCount variable
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex lg:h-full flex-col gap-4">
       {/* AI Layout Engine */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3">
@@ -294,57 +294,52 @@ export function ColumnOrchestrator({
                 {selectedCount}/{totalCount}
               </Badge>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-2">
               <div
                 onClick={() => toggleSelection("script")}
-                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${
-                  selection.script ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
-                }`}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${selection.script ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                  }`}
               >
                 <Checkbox checked={selection.script} onCheckedChange={() => toggleSelection("script")} />
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs">Script</span>
               </div>
-              
+
               <div
                 onClick={() => toggleSelection("images")}
-                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${
-                  selection.images ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
-                }`}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${selection.images ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                  }`}
               >
                 <Checkbox checked={selection.images} onCheckedChange={() => toggleSelection("images")} />
                 <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs">Images</span>
               </div>
-              
+
               <div
                 onClick={() => toggleSelection("cover")}
-                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${
-                  selection.cover ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
-                }`}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${selection.cover ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                  }`}
               >
                 <Checkbox checked={selection.cover} onCheckedChange={() => toggleSelection("cover")} />
                 <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs">Cover</span>
               </div>
-              
+
               <div
                 onClick={() => toggleSelection("audio")}
-                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${
-                  selection.audio ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
-                }`}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${selection.audio ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                  }`}
               >
                 <Checkbox checked={selection.audio} onCheckedChange={() => toggleSelection("audio")} />
                 <Music className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs">Audio</span>
               </div>
-              
+
               <div
                 onClick={() => toggleSelection("subtitles")}
-                className={`col-span-2 flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${
-                  selection.subtitles ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
-                }`}
+                className={`col-span-2 flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${selection.subtitles ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                  }`}
               >
                 <Checkbox checked={selection.subtitles} onCheckedChange={() => toggleSelection("subtitles")} />
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
@@ -368,13 +363,12 @@ export function ColumnOrchestrator({
                   <div className="h-4 w-4 rounded-full border border-border" />
                 )}
                 <span
-                  className={`text-xs ${
-                    step.status === "done"
+                  className={`text-xs ${step.status === "done"
                       ? "text-foreground"
                       : step.status === "processing"
                         ? "text-primary"
                         : "text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   {step.label}
                 </span>
@@ -405,7 +399,7 @@ export function ColumnOrchestrator({
                 )}
                 <span className="text-xs">Export JSON</span>
               </Button>
-              
+
               <Button
                 size="sm"
                 onClick={onGenerateVideo}

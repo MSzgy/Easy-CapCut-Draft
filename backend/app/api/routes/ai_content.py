@@ -528,6 +528,7 @@ async def generate_cover(request: GenerateCoverRequest):
             prompt=request.prompt, 
             style=request.style,
             style_keywords=request.styleKeywords,
+            negative_prompt=request.negativePrompt,
             theme=request.theme, 
             size=request.size,
             resolution=request.resolution

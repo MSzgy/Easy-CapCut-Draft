@@ -496,7 +496,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto pr-2">
+    <div className="flex lg:h-full flex-col gap-4 overflow-y-auto pr-2">
       {/* Input Tabs Card */}
       <Card className="relative border-border bg-card">
         {/* Loading Overlay for Content Generation */}
