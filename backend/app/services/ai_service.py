@@ -1,6 +1,10 @@
 import httpx
 import json
+import base64
+import io
 from typing import Optional, Dict, Any
+# from PIL import Image
+# from rembg import remove
 from app.core.config import settings
 
 
@@ -179,6 +183,11 @@ class OpenAIService:
         resolution: str = "4k",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        # Phase 2 parameters
+        reference_image: Optional[str] = None,
+        denoising_strength: float = 0.7,
+        preserve_composition: bool = False,
+        style_weights: Optional[dict] = None,
     ) -> str:
         """生成图片"""
         # Build keywords context if provided
@@ -191,12 +200,27 @@ class OpenAIService:
         if negative_prompt and negative_prompt.strip():
             negative_context = f"\n                                    8. 避免出现的元素：{negative_prompt}"
         
+        # Build style mixing context if provided
+        style_mix_context = ""
+        if style_weights and len(style_weights) > 0:
+            style_descriptions = [f"{s} ({int(w*100)}%)" for s, w in style_weights.items()]
+            style_mix_context = f"\n                                    9. 风格混合：{', '.join(style_descriptions)}"
+            # Override single style with mixed description
+            style = "混合风格 - " + ", ".join(style_weights.keys())
+        
+        # Build image-to-image context if reference image is provided
+        i2i_context = ""
+        if reference_image:
+            strength_desc = "轻微" if denoising_strength < 0.4 else "中等" if denoising_strength < 0.7 else "强烈"
+            composition_note = "，必须保留原图构图和布局" if preserve_composition else ""
+            i2i_context = f"\n                                    10. 图生图模式：基于参考图片进行{strength_desc}程度的重绘{composition_note}"
+        
         system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
                                     1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
                                     2. 符合用户要求
                                     3. 符合平台内容审核标准
                                     4. 主题：{theme}
-                                    5. 风格：{style}{keywords_context}{negative_context}
+                                    5. 风格：{style}{keywords_context}{negative_context}{style_mix_context}{i2i_context}
                                     6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分-适合：
                                     - 奢华生活方式目录
                                     - 纪实肖像展览
@@ -205,13 +229,24 @@ class OpenAIService:
                                     - 美术摄影收藏
                                 """
         
-        # Map simple resolution names to pixel dimensions if possible, or pass through
-        # But for now, let's assume valid input or default to reasonable value
-        # Actually, let's just pass it to the API prompt or config if supported.
-        # Since I'm not sure of the exact 'imageSize' enum values for this specific endpoint (Gemini beta),
-        # I will keep the 'imageSize' field but update it with the resolution if it matches expected format, 
-        # OR just rely on the model identifying "high quality" etc.
-        # However, to start with, I will pass it to imageConfig.
+        # Prepare content parts
+        user_parts = [{"text": prompt}]
+        
+        # Add reference image if provided (for image-to-image)
+        if reference_image:
+            # Extract base64 data if it's a data URL
+            if reference_image.startswith('data:'):
+                # Format: data:image/jpeg;base64,xxxxx
+                parts = reference_image.split(',', 1)
+                if len(parts) == 2:
+                    mime_part = parts[0].split(';')[0].split(':')[1]  # Extract mime type
+                    base64_data = parts[1]
+                    user_parts.insert(0, {
+                        "inlineData": {
+                            "mimeType": mime_part,
+                            "data": base64_data
+                        }
+                    })
         
         payload = {
             "contents": [
@@ -223,9 +258,7 @@ class OpenAIService:
                 },
                 {   
                     "role": "user",
-                    "parts": [
-                        {"text": prompt}
-                    ]
+                    "parts": user_parts
                 }
             ],
             "generationConfig": {
@@ -437,7 +470,276 @@ class OpenAIService:
 
         return {"raw_response": response}
 
+    async def optimize_prompt(self, prompt: str) -> dict:
+        """优化图片生成提示词"""
+        optimization_prompt = f"""作为AI图片生成提示词优化专家，请优化以下提示词以获得更好的生成效果：
+
+原始提示词：{prompt}
+
+请提供：
+1. 优化后的提示词（更详细、更具体、更适合图片生成）
+2. 3-5条具体的改进建议
+
+要求：
+- 保留用户的核心意图
+- 添加视觉细节描述（光线、色调、构图等）
+- 使用专业的摄影/艺术术语
+- 提高描述的精确度
+
+请以JSON格式返回：
+{{
+    "optimized": "优化后的详细提示词",
+    "suggestions": ["建议1", "建议2", "建议3"]
+}}
+"""
+        
+        response = await self.generate_completion_gemini_format(
+            prompt=optimization_prompt,
+            system_message="你是一个专业的AI图片生成提示词优化专家。",
+            temperature=0.7,
+        )
+        
+        # 尝试解析JSON响应
+        try:
+            import re
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            else:
+                # 如果无法解析JSON，返回默认结构
+                return {
+                    "optimized": response[:500] if len(response) > 500 else response,
+                   "suggestions": ["添加更多视觉细节", "指定光线和色调", "描述构图和视角"]
+                }
+        except Exception as e:
+            # 出错时返回原始提示词
+            return {
+                "optimized": prompt,
+                "suggestions": ["优化失败，请手动改进提示词"]
+            }
+
+    async def transfer_style(
+        self,
+        image_base64: str,
+        art_style: str,
+        intensity: float = 0.8,
+        additional_prompt: str = ""
+    ) -> str:
+        """风格迁移 - 将图片转换为特定艺术风格"""
+        
+        # 艺术风格库
+        STYLE_LIBRARY = {
+            # 艺术大师
+            "vangogh_starry": {
+                "name": "梵高星空",
+                "prompt": "in the style of Vincent van Gogh's Starry Night, swirling brushstrokes, vibrant blues and yellows, post-impressionist masterpiece"
+            },
+            "monet_impressionist": {
+                "name": "莫奈印象派",
+                "prompt": "in the style of Claude Monet, soft light, impressionist painting, pastel colors, gentle brushwork"
+            },
+            "picasso_cubist": {
+                "name": "毕加索立体主义",
+                "prompt": "in the style of Pablo Picasso's cubism, geometric shapes, fragmented perspectives, bold colors"
+            },
+            "ukiyoe": {
+                "name": "日本浮世绘",
+                "prompt": "in the style of Japanese Ukiyo-e woodblock prints, bold outlines, flat colors, traditional Japanese art"
+            },
+            "kandinsky_abstract": {
+                "name": "康定斯基抽象",
+                "prompt": "in the style of Wassily Kandinsky, abstract geometric forms, vibrant colors, expressionist art"
+            },
+            
+            # 流行风格
+            "pixar_animation": {
+                "name": "皮克斯动画",
+                "prompt": "Pixar animation style, 3D rendered, colorful and vibrant, cute character design, family-friendly"
+            },
+            "lego_bricks": {
+                "name": "乐高积木",
+                "prompt": "made of LEGO bricks, blocky construction, colorful plastic pieces, toy-like appearance"
+            },
+            "cyberpunk": {
+                "name": "赛博朋克",
+                "prompt": "cyberpunk style, neon lights, futuristic cityscape, dark and moody, high-tech dystopia"
+            },
+            "vaporwave": {
+                "name": "蒸汽波",
+                "prompt": "vaporwave aesthetic, retro 80s/90s, pink and cyan gradients, glitch art, nostalgic"
+            },
+            "anime": {
+                "name": "日本动漫",
+                "prompt": "anime art style, cel-shaded, vibrant colors, expressive characters, Japanese animation"
+            },
+            
+            # 材质风格
+            "crystal": {
+                "name": "水晶材质",
+                "prompt": "made of transparent crystal, glass-like, refractive surfaces, prismatic light effects"
+            },
+            "metallic": {
+                "name": "金属质感",
+                "prompt": "metallic surface, chrome and steel, reflective, industrial aesthetic"
+            },
+            "wood_carving": {
+                "name": "木雕",
+                "prompt": "carved from wood, wooden texture, crafted sculpture, natural wood grain"
+            },
+            "paper_art": {
+                "name": "纸艺",
+                "prompt": "paper craft style, cut paper art, layered paper, origami-inspired"
+            },
+            "watercolor": {
+                "name": "水彩画",
+                "prompt": "watercolor painting, soft washes, flowing colors, artistic brush effects"
+            }
+        }
+        
+        # 获取风格定义
+        style_def = STYLE_LIBRARY.get(art_style)
+        if not style_def:
+            # 默认风格
+            style_def = {
+                "name": "艺术风格",
+                "prompt": f"artistic style: {art_style}"
+            }
+        
+        # 构建提示词
+        style_prompt = style_def["prompt"]
+        
+        # 根据强度调整提示词
+        if intensity < 0.3:
+            strength_desc = "subtle hint of"
+        elif intensity < 0.6:
+            strength_desc = "moderate"
+        elif intensity < 0.8:
+            strength_desc = "strong"
+        else:
+            strength_desc = "extreme, highly stylized"
+        
+        full_prompt = f"Transform this image with {strength_desc} {style_prompt}. "
+        full_prompt += "IMPORTANT: Preserve the original composition, layout, and main subjects. "
+        full_prompt += "Only change the artistic style and visual treatment. "
+        
+        if additional_prompt:
+            full_prompt += f"{additional_prompt}. "
+        
+        # 使用 image-to-image 模式
+        result = await self.generate_image_gemini_format(
+            prompt=full_prompt,
+            style=art_style,
+            theme="style_transfer",
+            size="16:9",
+            resolution="1024",
+            reference_image=image_base64,
+            denoising_strength=intensity,  # 强度直接映射到重绘强度
+            preserve_composition=True  # 始终保留构图
+        )
+        
+        return result
+
+    # async def generate_sticker(
+    #     self,
+    #     prompt: str,
+    #     style: str = "cartoon",
+    #     remove_background: bool = True
+    # ) -> str:
+    #     """生成贴纸 - 带透明背景的PNG图片"""
+        
+    #     # 风格提示词映射
+    #     STYLE_PROMPTS = {
+    #         "cartoon": "cute cartoon sticker style, simple clean design, bold outlines, vibrant colors, chibi style, kawaii",
+    #         "pixel": "pixel art sticker, 8-bit retro style, pixelated, retro gaming aesthetic, limited color palette",
+    #         "3d": "3D rendered sticker, Pixar style, glossy finish, depth and dimension, smooth surfaces, modern 3D graphics",
+    #         "hand-drawn": "hand-drawn sticker style, sketch-like, artistic lines, watercolor accents, handcrafted feel"
+    #     }
+        
+    #     style_prompt = STYLE_PROMPTS.get(style, STYLE_PROMPTS["cartoon"])
+        
+    #     # 构建完整提示词 - 强调孤立对象和干净背景
+    #     full_prompt = f"{prompt}, {style_prompt}"
+    #     full_prompt += ", isolated object on white background, centered composition, no shadows, clean edges, sticker design"
+    #     full_prompt += ", professional product photography lighting, high contrast with background"
+        
+    #     # 负面提示词 - 避免复杂背景
+    #     negative_prompt = "complex background, messy background, gradients in background, multiple objects, cluttered, busy scene, text, watermark"
+        
+    #     # 生成图片
+    #     image_url = await self.generate_image_gemini_format(
+    #         prompt=full_prompt,
+    #         style=style,
+    #         theme="sticker",
+    #         size="1:1",  # 贴纸通常是方形
+    #         resolution="1024",
+    #         negative_prompt=negative_prompt,
+    #         temperature=0.7
+    #     )
+        
+    #     # 如果需要移除背景
+    #     if remove_background:
+    #         try:
+    #             # 从base64 data URL中提取图片数据
+    #             if image_url.startswith('data:image'):
+    #                 # 移除 "data:image/png;base64," 前缀
+    #                 base64_data = image_url.split(',', 1)[1]
+    #             else:
+    #                 base64_data = image_url
+                
+    #             # 解码base64图片
+    #             image_bytes = base64.b64decode(base64_data)
+    #             input_image = Image.open(io.BytesIO(image_bytes))
+                
+    #             # 使用rembg移除背景
+    #             output_image = remove(input_image)
+                
+    #             # 确保输出是RGBA模式（透明背景）
+    #             if output_image.mode != 'RGBA':
+    #                 output_image = output_image.convert('RGBA')
+                
+    #             # 转换回base64
+    #             buffered = io.BytesIO()
+    #             output_image.save(buffered, format="PNG")
+    #             img_base64 = base64.b64encode(buffered.getvalue()).decode()
+                
+    #             return f"data:image/png;base64,{img_base64}"
+                
+    #         except Exception as e:
+    #             # 如果背景移除失败，返回原图
+    #             print(f"Background removal failed: {str(e)}")
+    #             return image_url
+        
+    #     return image_url
+
+    async def sketch_to_image(
+        self,
+        sketch_base64: str,
+        prompt: str,
+        style: str = "photorealistic"
+    ) -> str:
+        """草图转图片 - 基于用户手绘草图生成精美图片"""
+        
+        # 构建提示词 - 强调基于草图生成
+        full_prompt = f"Based on this rough sketch, create a detailed {style} image: {prompt}"
+        full_prompt += ", professional quality, highly detailed, interpret the sketch accurately"
+        full_prompt += ", preserve the composition and layout from the sketch, enhance with details"
+        
+        # 使用 image-to-image 模式，低denoising让AI更多参考草图结构
+        result = await self.generate_image_gemini_format(
+            prompt=full_prompt,
+            style=style,
+            theme="sketch_to_image",
+            size="1:1",
+            resolution="2k",
+            reference_image=sketch_base64,
+            denoising_strength=0.7,  # 较高denoising让AI有足够创作空间
+            preserve_composition=True  # 保留草图布局
+        )
+        
+        return result
+
     async def close(self):
+
         """关闭HTTP客户端连接"""
         await self.client.aclose()
 

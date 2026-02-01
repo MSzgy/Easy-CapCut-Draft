@@ -14,6 +14,10 @@ import {
     Loader2,
     Plus,
     X,
+    Upload,
+    Palette,
+    Image as ImageIconLucide,
+    Sliders,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Select,
     SelectContent,
@@ -36,6 +42,7 @@ import {
 } from "@/components/ui/collapsible"
 import { useToast } from "@/hooks/use-toast"
 import { aiContentApi } from "@/lib/api/ai-content"
+import { DrawingCanvas } from "./drawing-canvas"
 
 interface GeneratedImage {
     id: string
@@ -67,6 +74,28 @@ const aspectRatios = [
     { id: "3:4", name: "3:4 (Portrait)", value: "3:4" },
 ]
 
+// Phase 3: 艺术风格库 (风格迁移)
+const artStyles = [
+    // 艺术大师
+    { id: "vangogh_starry", name: "🌌 梵高星空", category: "艺术大师", description: "后印象派，旋转笔触" },
+    { id: "monet_impressionist", name: "🌸 莫奈印象派", category: "艺术大师", description: "柔和光线，柔美笔触" },
+    { id: "picasso_cubist", name: "🔷 毕加索立体", category: "艺术大师", description: "立体主义，几何图形" },
+    { id: "ukiyoe", name: "🗾 日本浮世绘", category: "艺术大师", description: "木版画，平面色彩" },
+    { id: "kandinsky_abstract", name: "🎨 康定斯基抽象", category: "艺术大师", description: "抽象几何，鲜艳色彩" },
+    // 流行风格  
+    { id: "pixar_animation", name: "🎬 皮克斯动画", category: "流行风格", description: "3D渲染，可爱角色" },
+    { id: "lego_bricks", name: "🧱 乐高积木", category: "流行风格", description: "积木拼搭，玩具感" },
+    { id: "cyberpunk", name: "⚡ 赛博朋克", category: "流行风格", description: "霓虹灯光，科幻未来" },
+    { id: "vaporwave", name: "🌈 蒸汽波", category: "流行风格", description: "复古80年代，粉蓝渐变" },
+    { id: "anime", name: "⭐ 日本动漫", category: "流行风格", description: "卡通渲染，鲜艳色彩" },
+    // 材质风格
+    { id: "crystal", name: "💎 水晶材质", category: "材质风格", description: "透明晶体，折射光效" },
+    { id: "metallic", name: "🔩 金属质感", category: "材质风格", description: "金属表面，反光效果" },
+    { id: "wood_carving", name: "🪵 木雕", category: "材质风格", description: "木质纹理，雕刻感" },
+    { id: "paper_art", name: "📄 纸艺", category: "材质风格", description: "剪纸层叠，折纸风" },
+    { id: "watercolor", name: "🎨 水彩画", category: "材质风格", description: "水彩晕染，流动色彩" },
+]
+
 const resolutions = [
     { id: "512", name: "512x512 (Fast)", value: "512x512" },
     { id: "768", name: "768x768 (Balanced)", value: "768x768" },
@@ -76,6 +105,9 @@ const resolutions = [
 
 export function ImageStudio() {
     const { toast } = useToast()
+
+    // Phase 2 & 3: Generation mode 
+    const [mode, setMode] = useState<'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image'>('text-to-image')
 
     // Generation settings
     const [prompt, setPrompt] = useState("")
@@ -87,11 +119,79 @@ export function ImageStudio() {
     const [resolution, setResolution] = useState("1024")
     const [advancedOpen, setAdvancedOpen] = useState(false)
 
+    // Phase 2: Image-to-image
+    const [referenceImage, setReferenceImage] = useState<string | null>(null)
+    const [denoisingStrength, setDenoisingStrength] = useState([70])
+    const [preserveComposition, setPreserveComposition] = useState(false)
+
+    // Phase 2: Style mixing
+    const [selectedStyles, setSelectedStyles] = useState<string[]>(["photorealistic"])
+    const [styleWeights, setStyleWeights] = useState<{ [key: string]: number }>({ "photorealistic": 100 })
+
+    // Phase 3: Style transfer
+    const [styleTransferImage, setStyleTransferImage] = useState<string | null>(null)
+    const [selectedArtStyle, setSelectedArtStyle] = useState("pixar_animation")
+    const [styleIntensity, setStyleIntensity] = useState([80])
+
+    // Phase 3: Sketch-to-image
+    const [sketchData, setSketchData] = useState<string | null>(null)
+
     // Generation state
     const [isGenerating, setIsGenerating] = useState(false)
+    const [isOptimizing, setIsOptimizing] = useState(false)
     const [progress, setProgress] = useState(0)
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
     const [history, setHistory] = useState<GeneratedImage[]>([])
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+            toast({
+                title: "文件过大",
+                description: "图片大小不能超过 5MB",
+                variant: "destructive",
+            })
+            return
+        }
+
+        const reader = new FileReader()
+        reader.onload = (event) => {
+            setReferenceImage(event.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+    }
+
+    const handleOptimizePrompt = async () => {
+        if (!prompt.trim()) {
+            toast({
+                title: "提示",
+                description: "请先输入提示词",
+                variant: "default",
+            })
+            return
+        }
+
+        setIsOptimizing(true)
+        try {
+            const result = await aiContentApi.optimizePrompt(prompt)
+            setPrompt(result.optimized)
+            toast({
+                title: "优化成功",
+                description: "提示词已优化",
+            })
+        } catch (error) {
+            toast({
+                title: "优化失败",
+                description: error instanceof Error ? error.message : "未知错误",
+                variant: "destructive",
+            })
+        } finally {
+            setIsOptimizing(false)
+        }
+    }
 
     const handleGenerate = async () => {
         if (!prompt.trim()) {
@@ -103,45 +203,151 @@ export function ImageStudio() {
             return
         }
 
+        if (mode === 'image-to-image' && !referenceImage) {
+            toast({
+                title: "错误",
+                description: "请先上传参考图片",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'style-transfer' && !styleTransferImage) {
+            toast({
+                title: "错误",
+                description: "请先上传要转换风格的照片",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'sketch-to-image' && !sketchData) {
+            toast({
+                title: "错误",
+                description: "请先绘制草图",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'sketch-to-image' && !prompt.trim()) {
+            toast({
+                title: "错误",
+                description: "请输入描述",
+                variant: "destructive",
+            })
+            return
+        }
+
         setIsGenerating(true)
         setProgress(0)
         setGeneratedImages([])
 
         try {
-            // Simulate batch generation
             const batch: GeneratedImage[] = []
 
-            for (let i = 0; i < batchCount; i++) {
-                setProgress(((i + 1) / batchCount) * 100)
+            // Phase 3: Style transfer mode
+            if (mode === 'style-transfer' && styleTransferImage) {
+                for (let i = 0; i < batchCount; i++) {
+                    setProgress(((i + 1) / batchCount) * 100)
 
-                // Get style keywords
-                const style = imageStyles.find(s => s.id === selectedStyle)
+                    const response = await aiContentApi.styleTransfer(
+                        styleTransferImage,
+                        selectedArtStyle,
+                        styleIntensity[0] / 100,
+                        prompt || undefined
+                    )
 
-                // Call API for each image
-                const response = await aiContentApi.generateCover({
-                    prompt: prompt,
-                    negativePrompt: negativePrompt,
-                    style: selectedStyle,
-                    styleKeywords: style?.keywords,
-                    size: aspectRatio,
-                    resolution: resolution,
-                })
-
-                if (response.success) {
-                    const newImage: GeneratedImage = {
-                        id: `img_${Date.now()}_${i}`,
-                        url: response.coverUrl,
-                        prompt: prompt,
-                        style: selectedStyle,
-                        timestamp: new Date().toLocaleString(),
-                        isFavorite: false,
+                    if (response.success) {
+                        const newImage: GeneratedImage = {
+                            id: `img_${Date.now()}_${i}`,
+                            url: response.imageUrl,
+                            prompt: `Style: ${artStyles.find(s => s.id === selectedArtStyle)?.name || selectedArtStyle}`,
+                            style: selectedArtStyle,
+                            timestamp: new Date().toLocaleString(),
+                            isFavorite: false,
+                        }
+                        batch.push(newImage)
                     }
 
-                    batch.push(newImage)
+                    await new Promise(resolve => setTimeout(resolve, 500))
                 }
+            } else if (mode === 'sketch-to-image' && sketchData) {
+                // Phase 3: Sketch-to-image mode
+                for (let i = 0; i < batchCount; i++) {
+                    setProgress(((i + 1) / batchCount) * 100)
 
-                // Small delay between generations
-                await new Promise(resolve => setTimeout(resolve, 500))
+                    const response = await aiContentApi.sketchToImage(
+                        sketchData,
+                        prompt,
+                        selectedStyle
+                    )
+
+                    if (response.success) {
+                        const newImage: GeneratedImage = {
+                            id: `img_${Date.now()}_${i}`,
+                            url: response.imageUrl,
+                            prompt: `Sketch: ${prompt}`,
+                            style: selectedStyle,
+                            timestamp: new Date().toLocaleString(),
+                            isFavorite: false,
+                        }
+                        batch.push(newImage)
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                }
+            } else {
+                // Phase 1 & 2: Normal generation modes
+                for (let i = 0; i < batchCount; i++) {
+                    setProgress(((i + 1) / batchCount) * 100)
+
+                    // Prepare style-related data
+                    let style = selectedStyle
+                    let keywords: string[] | undefined
+                    let weights: { [key: string]: number } | undefined
+
+                    if (mode === 'style-mix' && selectedStyles.length > 0) {
+                        // Use first style as main style, but pass all weights
+                        style = selectedStyles[0]
+                        weights = styleWeights
+                    } else {
+                        const styleObj = imageStyles.find(s => s.id === selectedStyle)
+                        keywords = styleObj?.keywords
+                    }
+
+                    // Call API for each image
+                    const response = await aiContentApi.generateCover({
+                        prompt: prompt,
+                        negativePrompt: negativePrompt,
+                        style: style,
+                        styleKeywords: keywords,
+                        size: aspectRatio,
+                        resolution: resolution,
+                        // Phase 2 parameters
+                        mode: mode,
+                        referenceImage: referenceImage || undefined,
+                        denoisingStrength: denoisingStrength[0] / 100,
+                        preserveComposition: preserveComposition,
+                        styleWeights: weights,
+                    })
+
+                    if (response.success) {
+                        const newImage: GeneratedImage = {
+                            id: `img_${Date.now()}_${i}`,
+                            url: response.coverUrl,
+                            prompt: prompt,
+                            style: mode === 'style-mix' ? selectedStyles.join('+') : selectedStyle,
+                            timestamp: new Date().toLocaleString(),
+                            isFavorite: false,
+                        }
+
+                        batch.push(newImage)
+                    }
+
+                    // Small delay between generations
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                }
             }
 
             setGeneratedImages(batch)
@@ -222,6 +428,100 @@ export function ImageStudio() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Phase 2 & 3: Mode Selector */}
+                        <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
+                            <TabsList className="grid w-full grid-cols-5">
+                                <TabsTrigger value="text-to-image">📝 文本</TabsTrigger>
+                                <TabsTrigger value="image-to-image">🖼️ 图生图</TabsTrigger>
+                                <TabsTrigger value="style-mix">🎨 混合</TabsTrigger>
+                                <TabsTrigger value="style-transfer">🖌️ 风格迁移</TabsTrigger>
+                                <TabsTrigger value="sketch-to-image">✍️ 灵魂画手</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+
+                        {/* Phase 3: Style Transfer Image Upload */}
+                        {mode === 'style-transfer' && (
+                            <div className="space-y-2">
+                                <Label>📸 上传照片</Label>
+                                {!styleTransferImage ? (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                        onClick={() => document.getElementById('style-transfer-upload')?.click()}>
+                                        <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                        <p className="text-sm text-muted-foreground">点击上传要转换风格的照片</p>
+                                        <p className="text-xs text-muted-foreground mt-1">支持 JPG、PNG，最大 5MB</p>
+                                        <input
+                                            id="style-transfer-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0]
+                                                if (!file) return
+                                                if (file.size > 5 * 1024 * 1024) {
+                                                    toast({
+                                                        title: "文件过大",
+                                                        description: "图片大小不能超过 5MB",
+                                                        variant: "destructive",
+                                                    })
+                                                    return
+                                                }
+                                                const reader = new FileReader()
+                                                reader.onload = (event) => {
+                                                    setStyleTransferImage(event.target?.result as string)
+                                                }
+                                                reader.readAsDataURL(file)
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <img src={styleTransferImage} alt="Style Transfer" className="w-full rounded-lg" />
+                                        <Button
+                                            size="icon"
+                                            variant="destructive"
+                                            className="absolute top-2 right-2"
+                                            onClick={() => setStyleTransferImage(null)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Phase 2: Reference Image Upload (for image-to-image mode) */}
+                        {mode === 'image-to-image' && (
+                            <div className="space-y-2">
+                                <Label>📸 参考图片</Label>
+                                {!referenceImage ? (
+                                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                        onClick={() => document.getElementById('image-upload')?.click()}>
+                                        <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                        <p className="text-sm text-muted-foreground">点击上传图片</p>
+                                        <p className="text-xs text-muted-foreground mt-1">支持 JPG、PNG，最大 5MB</p>
+                                        <input
+                                            id="image-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleImageUpload}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <img src={referenceImage} alt="Reference" className="w-full rounded-lg" />
+                                        <Button
+                                            size="icon"
+                                            variant="destructive"
+                                            className="absolute top-2 right-2"
+                                            onClick={() => setReferenceImage(null)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {/* Prompt */}
                         <div className="space-y-2">
                             <Label>📝 图片描述</Label>
@@ -246,22 +546,240 @@ export function ImageStudio() {
                             />
                         </div>
 
-                        {/* Style Selection */}
-                        <div className="space-y-2">
-                            <Label>🎨 艺术风格</Label>
-                            <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[300px]">
-                                    {imageStyles.map((style) => (
-                                        <SelectItem key={style.id} value={style.id}>
-                                            {style.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {/* Phase 2: AI Prompt Optimizer */}
+                        <div>
+                            <Button
+                                onClick={handleOptimizePrompt}
+                                disabled={isOptimizing || !prompt.trim()}
+                                variant="outline"
+                                className="w-full"
+                                size="sm"
+                            >
+                                {isOptimizing ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                        优化中...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="mr-2 h-3 w-3" />
+                                        ✨ 优化提示词
+                                    </>
+                                )}
+                            </Button>
                         </div>
+
+                        {/* Phase 2: Image-to-Image Controls */}
+                        {mode === 'image-to-image' && referenceImage && (
+                            <>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label>🎨 重绘强度</Label>
+                                        <span className="text-sm text-muted-foreground">{denoisingStrength[0]}%</span>
+                                    </div>
+                                    <Slider
+                                        value={denoisingStrength}
+                                        onValueChange={setDenoisingStrength}
+                                        max={100}
+                                        step={5}
+                                        className="w-full"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        值越低，保留原图特征越多；值越高，自由度越大
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="preserve-composition"
+                                        checked={preserveComposition}
+                                        onCheckedChange={(checked) => setPreserveComposition(!!checked)}
+                                    />
+                                    <Label htmlFor="preserve-composition" className="text-sm cursor-pointer">
+                                        📐 保留原图构图和布局
+                                    </Label>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Phase 3: Drawing Canvas (for sketch-to-image mode) */}
+                        {mode === 'sketch-to-image' && (
+                            <div className="space-y-3">
+                                <Label>✍️ 绘制草图</Label>
+                                <DrawingCanvas
+                                    onSketchChange={setSketchData}
+                                    width={400}
+                                    height={400}
+                                />
+                            </div>
+                        )}
+
+                        {/* Phase 3: Sticker Style Selector (for sticker-maker mode))
+                        {mode === 'sticker-maker' && (
+                            <div className="space-y-3">
+                                <Label>🎨 贴纸风格</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div
+                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${stickerStyle === 'cartoon'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                            }`}
+                                        onClick={() => setStickerStyle('cartoon')}
+                                    >
+                                        <div className="font-medium text-sm">🎭 卡通风格</div>
+                                        <div className="text-xs text-muted-foreground mt-1">简洁设计，可爱卡通</div>
+                                    </div>
+                                    <div
+                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${stickerStyle === 'pixel'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                            }`}
+                                        onClick={() => setStickerStyle('pixel')}
+                                    >
+                                        <div className="font-medium text-sm">👾 像素风格</div>
+                                        <div className="text-xs text-muted-foreground mt-1">8位复古像素艺术</div>
+                                    </div>
+                                    <div
+                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${stickerStyle === '3d'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                            }`}
+                                        onClick={() => setStickerStyle('3d')}
+                                    >
+                                        <div className="font-medium text-sm">🎮 3D渲染</div>
+                                        <div className="text-xs text-muted-foreground mt-1">光滑3D质感</div>
+                                    </div>
+                                    <div
+                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${stickerStyle === 'hand-drawn'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                            }`}
+                                        onClick={() => setStickerStyle('hand-drawn')}
+                                    >
+                                        <div className="font-medium text-sm">✏️ 手绘风格</div>
+                                        <div className="text-xs text-muted-foreground mt-1">艺术线条，水彩风</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )} */}
+
+                        {/* Phase 3: Art Style Gallery (for style-transfer mode) */}
+                        {mode === 'style-transfer' && (
+                            <>
+                                <div className="space-y-3">
+                                    <Label>🎨 选择艺术风格</Label>
+                                    <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                                        {artStyles.map((style) => (
+                                            <div
+                                                key={style.id}
+                                                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedArtStyle === style.id
+                                                    ? 'border-primary bg-primary/10'
+                                                    : 'border-border hover:border-primary/50'
+                                                    }`}
+                                                onClick={() => setSelectedArtStyle(style.id)}
+                                            >
+                                                <div className="font-medium text-sm">{style.name}</div>
+                                                <div className="text-xs text-muted-foreground mt-1">{style.description}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label>🎚️ 风格强度</Label>
+                                        <span className="text-sm text-muted-foreground">{styleIntensity[0]}%</span>
+                                    </div>
+                                    <Slider
+                                        value={styleIntensity}
+                                        onValueChange={setStyleIntensity}
+                                        max={100}
+                                        step={10}
+                                        className="w-full"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        值越高，艺术风格越明显；值越低，越接近原图
+                                    </p>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Style Selection - Dynamic based on mode */}
+                        {mode === 'style-mix' ? (
+                            <div className="space-y-3">
+                                <Label>🎨 风格混合 (最多3个)</Label>
+                                <div className="space-y-2">
+                                    {imageStyles.slice(0, 10).map((style) => {
+                                        const isSelected = selectedStyles.includes(style.id)
+                                        const weight = styleWeights[style.id] || 0
+
+                                        return (
+                                            <div key={style.id} className="space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                                        <Checkbox
+                                                            checked={isSelected}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked && selectedStyles.length < 3) {
+                                                                    const newStyles = [...selectedStyles, style.id]
+                                                                    setSelectedStyles(newStyles)
+                                                                    // Initialize weight
+                                                                    const equalWeight = Math.floor(100 / newStyles.length)
+                                                                    const newWeights: { [key: string]: number } = {}
+                                                                    newStyles.forEach(s => newWeights[s] = equalWeight)
+                                                                    setStyleWeights(newWeights)
+                                                                } else if (!checked) {
+                                                                    const newStyles = selectedStyles.filter(s => s !== style.id)
+                                                                    setSelectedStyles(newStyles)
+                                                                    const newWeights = { ...styleWeights }
+                                                                    delete newWeights[style.id]
+                                                                    // Redistribute weights
+                                                                    if (newStyles.length > 0) {
+                                                                        const equalWeight = Math.floor(100 / newStyles.length)
+                                                                        newStyles.forEach(s => newWeights[s] = equalWeight)
+                                                                    }
+                                                                    setStyleWeights(newWeights)
+                                                                }
+                                                            }}
+                                                            disabled={!isSelected && selectedStyles.length >= 3}
+                                                        />
+                                                        <span className="text-sm">{style.name}</span>
+                                                    </label>
+                                                    {isSelected && <span className="text-xs text-muted-foreground">{weight}%</span>}
+                                                </div>
+                                                {isSelected && (
+                                                    <Slider
+                                                        value={[weight]}
+                                                        onValueChange={([v]) => {
+                                                            setStyleWeights(prev => ({ ...prev, [style.id]: v }))
+                                                        }}
+                                                        max={100}
+                                                        step={5}
+                                                        className="w-full"
+                                                    />
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label>🎨 艺术风格</Label>
+                                <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-[300px]">
+                                        {imageStyles.map((style) => (
+                                            <SelectItem key={style.id} value={style.id}>
+                                                {style.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         {/* Style Strength */}
                         <div className="space-y-2">

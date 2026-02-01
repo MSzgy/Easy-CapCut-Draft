@@ -42,6 +42,12 @@ export interface GenerateCoverRequest {
   theme?: string
   size?: string
   resolution?: string
+  // Phase 2 & 3: 高级功能
+  mode?: 'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image'
+  referenceImage?: string // base64
+  denoisingStrength?: number
+  preserveComposition?: boolean
+  styleWeights?: { [styleId: string]: number }
 }
 
 export interface GenerateCoverResponse {
@@ -96,4 +102,95 @@ export const aiContentApi = {
       throw new Error(apiError.detail || 'AI service connection failed')
     }
   },
+
+  /**
+   * 优化提示词
+   */
+  async optimizePrompt(prompt: string): Promise<{
+    success: boolean
+    message: string
+    optimized: string
+    suggestions: string[]
+  }> {
+    try {
+      return await apiClient.post('/ai/optimize-prompt', { prompt })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to optimize prompt')
+    }
+  },
+
+  /**
+   * 风格迁移
+   */
+  async styleTransfer(
+    image: string,
+    artStyle: string,
+    intensity: number = 0.8,
+    prompt?: string
+  ): Promise<{
+    success: boolean
+    message: string
+    imageUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/style-transfer', {
+        image,
+        artStyle,
+        intensity,
+        prompt,
+      })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to transfer style')
+    }
+  },
+
+  /**
+   * 草图转图片
+   */
+  async sketchToImage(
+    sketch: string,
+    prompt: string,
+    style: string = 'photorealistic'
+  ): Promise<{
+    success: boolean
+    message: string
+    imageUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/sketch-to-image', {
+        sketch,
+        prompt,
+        style,
+      })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to convert sketch')
+    }
+  },
+
+  // /**
+  //  * 生成贴纸
+  //  */
+  // async generateSticker(
+  //   prompt: string,
+  //   style: 'cartoon' | 'pixel' | '3d' | 'hand-drawn' = 'cartoon',
+  //   removeBackground: boolean = true
+  // ): Promise<{
+  //   success: boolean
+  //   message: string
+  //   imageUrl: string
+  // }> {
+  //   try {
+  //     return await apiClient.post('/ai/generate-sticker', {
+  //       prompt,
+  //       style,
+  //       removeBackground,
+  //     })
+  //   } catch (error) {
+  //     const apiError = error as ApiError
+  //     throw new Error(apiError.detail || 'Failed to generate sticker')
+  //   }
+  // },
 }

@@ -4,6 +4,14 @@ from app.schemas.ai_schemas import (
     GenerateContentResponse,
     GenerateCoverRequest,
     GenerateCoverResponse,
+    OptimizePromptRequest,
+    OptimizePromptResponse,
+    StyleTransferRequest,
+    StyleTransferResponse,
+    StickerRequest,
+    StickerResponse,
+    SketchToImageRequest,
+    SketchToImageResponse,
     SceneContent
 )
 from app.services.ai_service import openai_service
@@ -523,7 +531,7 @@ async def generate_content(request: GenerateContentRequest):
 async def generate_cover(request: GenerateCoverRequest):
     """生成AI封面"""
     try:
-        # TODO: 实现真实的AI图片生成
+        # Phase 2: 支持高级参数
         data = await openai_service.generate_image_gemini_format(
             prompt=request.prompt, 
             style=request.style,
@@ -531,7 +539,12 @@ async def generate_cover(request: GenerateCoverRequest):
             negative_prompt=request.negativePrompt,
             theme=request.theme, 
             size=request.size,
-            resolution=request.resolution
+            resolution=request.resolution,
+            # Phase 2 新增参数
+            reference_image=request.referenceImage,
+            denoising_strength=request.denoisingStrength or 0.7,
+            preserve_composition=request.preserveComposition or False,
+            style_weights=request.styleWeights
         )
         return GenerateCoverResponse(
             success=True,
@@ -543,4 +556,95 @@ async def generate_cover(request: GenerateCoverRequest):
         raise HTTPException(
             status_code=500,
             detail=f"封面生成失败: {str(e)}"
+        )
+
+
+@router.post("/optimize-prompt", response_model=OptimizePromptResponse)
+async def optimize_prompt(request: OptimizePromptRequest):
+    """优化图片生成提示词"""
+    try:
+        result = await openai_service.optimize_prompt(request.prompt)
+        
+        return OptimizePromptResponse(
+            success=True,
+            message="提示词优化成功",
+            optimized=result.get("optimized", request.prompt),
+            suggestions=result.get("suggestions", [])
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"提示词优化失败: {str(e)}"
+        )
+
+
+@router.post("/style-transfer", response_model=StyleTransferResponse)
+async def style_transfer(request: StyleTransferRequest):
+    """风格迁移 - 将图片转换为艺术风格"""
+    try:
+        result = await openai_service.transfer_style(
+            image_base64=request.image,
+            art_style=request.artStyle,
+            intensity=request.intensity,
+            additional_prompt=request.prompt or ""
+        )
+        
+        return StyleTransferResponse(
+            success=True,
+            message="风格迁移成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"风格迁移失败: {str(e)}"
+        )
+
+
+## 有问题
+# @router.post("/generate-sticker", response_model=StickerResponse)
+# async def generate_sticker(request: StickerRequest):
+#     """生成贴纸 - 自动移除背景，生成透明PNG"""
+#     try:
+#         result = await openai_service.generate_sticker(
+#             prompt=request.prompt,
+#             style=request.style,
+#             remove_background=request.removeBackground
+#         )
+        
+#         return StickerResponse(
+#             success=True,
+#             message="贴纸生成成功",
+#             imageUrl=result
+#         )
+
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#    #         detail=f"贴纸生成失败: {str(e)}"
+#         )
+
+
+@router.post("/sketch-to-image", response_model=SketchToImageResponse)
+async def sketch_to_image(request: SketchToImageRequest):
+    """草图转图片 - 基于用户手绘草图生成精美图片"""
+    try:
+        result = await openai_service.sketch_to_image(
+            sketch_base64=request.sketch,
+            prompt=request.prompt,
+            style=request.style
+        )
+        
+        return SketchToImageResponse(
+            success=True,
+            message="草图转换成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"草图转换失败: {str(e)}"
         )
