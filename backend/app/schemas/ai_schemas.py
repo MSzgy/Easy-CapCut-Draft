@@ -133,3 +133,33 @@ class SketchToImageResponse(BaseModel):
     success: bool
     message: str
     imageUrl: str
+
+
+# Phase 3: AI写真/换脸
+class FacePortraitRequest(BaseModel):
+    """AI写真生成请求"""
+    faceImage: str = Field(..., description="人脸照片 base64 编码")
+    scenePrompt: str = Field(..., description="场景描述，如：商务办公室、海滩度假、古风庭院等")
+    style: str = Field("photorealistic", description="风格：photorealistic, cinematic, artistic等")
+    preserveFace: float = Field(0.3, description="人脸保留强度 0-1，值越低AI创作自由度越高", ge=0, le=1)
+
+
+class FacePortraitResponse(BaseModel):
+    """AI写真生成响应"""
+    success: bool
+    message: str
+    imageUrl: str
+
+
+class FaceSwapRequest(BaseModel):
+    """人脸融合请求"""
+    faceImage: str = Field(..., description="源人脸照片 base64 编码")
+    targetImage: str = Field(..., description="目标场景图片 base64 编码")
+    blendStrength: float = Field(0.7, description="融合强度 0-1，值越高人脸融合越自然", ge=0, le=1)
+
+
+class FaceSwapResponse(BaseModel):
+    """人脸融合响应"""
+    success: bool
+    message: str
+    imageUrl: str

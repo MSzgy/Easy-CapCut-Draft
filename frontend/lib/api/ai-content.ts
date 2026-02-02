@@ -43,7 +43,7 @@ export interface GenerateCoverRequest {
   size?: string
   resolution?: string
   // Phase 2 & 3: 高级功能
-  mode?: 'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image'
+  mode?: 'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image' | 'face-portrait'
   referenceImage?: string // base64
   denoisingStrength?: number
   preserveComposition?: boolean
@@ -167,6 +167,56 @@ export const aiContentApi = {
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to convert sketch')
+    }
+  },
+
+  /**
+   * AI写真生成
+   */
+  async facePortrait(
+    faceImage: string,
+    scenePrompt: string,
+    style: string = 'photorealistic',
+    preserveFace: number = 0.3
+  ): Promise<{
+    success: boolean
+    message: string
+    imageUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/face-portrait', {
+        faceImage,
+        scenePrompt,
+        style,
+        preserveFace,
+      })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to generate face portrait')
+    }
+  },
+
+  /**
+   * 人脸融合
+   */
+  async faceSwap(
+    faceImage: string,
+    targetImage: string,
+    blendStrength: number = 0.7
+  ): Promise<{
+    success: boolean
+    message: string
+    imageUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/face-swap', {
+        faceImage,
+        targetImage,
+        blendStrength,
+      })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to swap face')
     }
   },
 

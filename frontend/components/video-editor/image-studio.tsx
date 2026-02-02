@@ -107,7 +107,7 @@ export function ImageStudio() {
     const { toast } = useToast()
 
     // Phase 2 & 3: Generation mode 
-    const [mode, setMode] = useState<'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image'>('text-to-image')
+    const [mode, setMode] = useState<'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image' | 'face-portrait'>('text-to-image')
 
     // Generation settings
     const [prompt, setPrompt] = useState("")
@@ -135,6 +135,14 @@ export function ImageStudio() {
 
     // Phase 3: Sketch-to-image
     const [sketchData, setSketchData] = useState<string | null>(null)
+
+    // Phase 3: AI Face Portrait
+    const [faceImage, setFaceImage] = useState<string | null>(null)
+    const [faceMode, setFaceMode] = useState<'portrait' | 'swap'>('portrait')
+    const [scenePrompt, setScenePrompt] = useState("")
+    const [targetSwapImage, setTargetSwapImage] = useState<string | null>(null)
+    const [preserveFace, setPreserveFace] = useState([30])
+    const [blendStrength, setBlendStrength] = useState([70])
 
     // Generation state
     const [isGenerating, setIsGenerating] = useState(false)
@@ -194,7 +202,7 @@ export function ImageStudio() {
     }
 
     const handleGenerate = async () => {
-        if (!prompt.trim()) {
+        if (!prompt.trim() && mode !== 'style-transfer' && mode !== 'sketch-to-image' && mode !== 'face-portrait') {
             toast({
                 title: "错误",
                 description: "请输入图片描述",
@@ -234,6 +242,33 @@ export function ImageStudio() {
             toast({
                 title: "错误",
                 description: "请输入描述",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'face-portrait' && !faceImage) {
+            toast({
+                title: "错误",
+                description: "请先上传人脸照片",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'face-portrait' && faceMode === 'portrait' && !scenePrompt.trim()) {
+            toast({
+                title: "错误",
+                description: "请选择场景或输入场景描述",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'face-portrait' && faceMode === 'swap' && !targetSwapImage) {
+            toast({
+                title: "错误",
+                description: "请上传目标场景图片",
                 variant: "destructive",
             })
             return
@@ -289,6 +324,47 @@ export function ImageStudio() {
                             url: response.imageUrl,
                             prompt: `Sketch: ${prompt}`,
                             style: selectedStyle,
+                            timestamp: new Date().toLocaleString(),
+                            isFavorite: false,
+                        }
+                        batch.push(newImage)
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                }
+            } else if (mode === 'face-portrait' && faceImage) {
+                // Phase 3: AI Face Portrait mode
+                for (let i = 0; i < batchCount; i++) {
+                    setProgress(((i + 1) / batchCount) * 100)
+
+                    let response
+                    let promptText = ''
+
+                    if (faceMode === 'portrait') {
+                        // AI写真模式
+                        response = await aiContentApi.facePortrait(
+                            faceImage,
+                            scenePrompt,
+                            selectedStyle,
+                            preserveFace[0] / 100
+                        )
+                        promptText = `Portrait: ${scenePrompt}`
+                    } else {
+                        // 人脸融合模式
+                        response = await aiContentApi.faceSwap(
+                            faceImage,
+                            targetSwapImage!,
+                            blendStrength[0] / 100
+                        )
+                        promptText = 'Face Swap'
+                    }
+
+                    if (response.success) {
+                        const newImage: GeneratedImage = {
+                            id: `img_${Date.now()}_${i}`,
+                            url: response.imageUrl,
+                            prompt: promptText,
+                            style: faceMode === 'portrait' ? selectedStyle : 'face-swap',
                             timestamp: new Date().toLocaleString(),
                             isFavorite: false,
                         }
@@ -430,14 +506,218 @@ export function ImageStudio() {
                     <CardContent className="space-y-4">
                         {/* Phase 2 & 3: Mode Selector */}
                         <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
-                            <TabsList className="grid w-full grid-cols-5">
+                            <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="text-to-image">📝 文本</TabsTrigger>
                                 <TabsTrigger value="image-to-image">🖼️ 图生图</TabsTrigger>
                                 <TabsTrigger value="style-mix">🎨 混合</TabsTrigger>
+                            </TabsList>
+                            <TabsList className="grid w-full grid-cols-3 mt-2">
                                 <TabsTrigger value="style-transfer">🖌️ 风格迁移</TabsTrigger>
                                 <TabsTrigger value="sketch-to-image">✍️ 灵魂画手</TabsTrigger>
+                                <TabsTrigger value="face-portrait">👤 AI写真</TabsTrigger>
                             </TabsList>
                         </Tabs>
+
+                        {/* Phase 3: AI Face Portrait - Face Photo Upload */}
+                        {mode === 'face-portrait' && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label>👤 上传人脸照片</Label>
+                                    {!faceImage ? (
+                                        <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                            onClick={() => document.getElementById('face-upload')?.click()}>
+                                            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                            <p className="text-sm text-muted-foreground">点击上传人脸照片</p>
+                                            <p className="text-xs text-muted-foreground mt-1">支持 JPG、PNG，最大 5MB</p>
+                                            <input
+                                                id="face-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0]
+                                                    if (!file) return
+                                                    if (file.size > 5 * 1024 * 1024) {
+                                                        toast({
+                                                            title: "文件过大",
+                                                            description: "图片大小不能超过 5MB",
+                                                            variant: "destructive",
+                                                        })
+                                                        return
+                                                    }
+                                                    const reader = new FileReader()
+                                                    reader.onload = (event) => {
+                                                        setFaceImage(event.target?.result as string)
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <img src={faceImage} alt="Face" className="w-full rounded-lg" />
+                                            <Button
+                                                size="icon"
+                                                variant="destructive"
+                                                className="absolute top-2 right-2"
+                                                onClick={() => setFaceImage(null)}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Mode: AI写真 vs 人脸融合 */}
+                                <div className="space-y-2">
+                                    <Label>🎭 模式选择</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div
+                                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${faceMode === 'portrait'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                                }`}
+                                            onClick={() => setFaceMode('portrait')}
+                                        >
+                                            <div className="font-medium text-sm">📸 AI写真</div>
+                                            <div className="text-xs text-muted-foreground mt-1">生成特定场景写真</div>
+                                        </div>
+                                        <div
+                                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${faceMode === 'swap'
+                                                ? 'border-primary bg-primary/10'
+                                                : 'border-border hover:border-primary/50'
+                                                }`}
+                                            onClick={() => setFaceMode('swap')}
+                                        >
+                                            <div className="font-medium text-sm">🔄 人脸融合</div>
+                                            <div className="text-xs text-muted-foreground mt-1">融合到目标场景</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* AI写真模式：场景选择 */}
+                                {faceMode === 'portrait' && (
+                                    <div className="space-y-2">
+                                        <Label>🏞️ 场景预设</Label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: 'business', name: '💼 商务写真', prompt: 'professional business portrait in modern office' },
+                                                { id: 'casual', name: '👕 休闲写真', prompt: 'casual outdoor portrait, natural lighting' },
+                                                { id: 'traditional', name: '👘 古风写真', prompt: 'traditional Chinese style portrait' },
+                                                { id: 'beach', name: '🏖️ 海滩写真', prompt: 'beach portrait at sunset' },
+                                                { id: 'studio', name: '📷 棚拍写真', prompt: 'professional studio portrait' },
+                                                { id: 'sci-fi', name: '🚀 科幻写真', prompt: 'futuristic sci-fi portrait' },
+                                            ].map((scene) => (
+                                                <Button
+                                                    key={scene.id}
+                                                    variant={scenePrompt === scene.prompt ? 'default' : 'outline'}
+                                                    className="h-auto py-2 px-3 text-xs justify-start"
+                                                    onClick={() => setScenePrompt(scene.prompt)}
+                                                >
+                                                    <span className="truncate">{scene.name}</span>
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        <Textarea
+                                            placeholder="或输入自定义场景描述..."
+                                            value={scenePrompt}
+                                            onChange={(e) => setScenePrompt(e.target.value)}
+                                            rows={2}
+                                            className="resize-none text-sm"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* 人脸融合模式：目标图片上传 */}
+                                {faceMode === 'swap' && (
+                                    <div className="space-y-2">
+                                        <Label>🎯 目标场景图片</Label>
+                                        {!targetSwapImage ? (
+                                            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                                onClick={() => document.getElementById('target-swap-upload')?.click()}>
+                                                <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                                <p className="text-sm text-muted-foreground">上传目标场景图片</p>
+                                                <p className="text-xs text-muted-foreground mt-1">将把人脸融合到这张图片中</p>
+                                                <input
+                                                    id="target-swap-upload"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0]
+                                                        if (!file) return
+                                                        if (file.size > 5 * 1024 * 1024) {
+                                                            toast({
+                                                                title: "文件过大",
+                                                                description: "图片大小不能超过 5MB",
+                                                                variant: "destructive",
+                                                            })
+                                                            return
+                                                        }
+                                                        const reader = new FileReader()
+                                                        reader.onload = (event) => {
+                                                            setTargetSwapImage(event.target?.result as string)
+                                                        }
+                                                        reader.readAsDataURL(file)
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <img src={targetSwapImage} alt="Target" className="w-full rounded-lg" />
+                                                <Button
+                                                    size="icon"
+                                                    variant="destructive"
+                                                    className="absolute top-2 right-2"
+                                                    onClick={() => setTargetSwapImage(null)}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 高级选项 */}
+                                {faceMode === 'portrait' && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label>👤 人脸保留强度</Label>
+                                            <span className="text-sm text-muted-foreground">{preserveFace[0]}%</span>
+                                        </div>
+                                        <Slider
+                                            value={preserveFace}
+                                            onValueChange={setPreserveFace}
+                                            max={100}
+                                            step={10}
+                                            className="w-full"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            值越高，越保留原人脸特征；值越低，AI创作自由度越高
+                                        </p>
+                                    </div>
+                                )}
+
+                                {faceMode === 'swap' && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label>🔄 融合强度</Label>
+                                            <span className="text-sm text-muted-foreground">{blendStrength[0]}%</span>
+                                        </div>
+                                        <Slider
+                                            value={blendStrength}
+                                            onValueChange={setBlendStrength}
+                                            max={100}
+                                            step={10}
+                                            className="w-full"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            值越高，融合越自然；值越低，越保留原场景
+                                        </p>
+                                    </div>
+                                )}
+                            </>
+                        )}
 
                         {/* Phase 3: Style Transfer Image Upload */}
                         {mode === 'style-transfer' && (

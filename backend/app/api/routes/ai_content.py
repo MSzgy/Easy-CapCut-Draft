@@ -12,6 +12,10 @@ from app.schemas.ai_schemas import (
     StickerResponse,
     SketchToImageRequest,
     SketchToImageResponse,
+    FacePortraitRequest,
+    FacePortraitResponse,
+    FaceSwapRequest,
+    FaceSwapResponse,
     SceneContent
 )
 from app.services.ai_service import openai_service
@@ -647,4 +651,51 @@ async def sketch_to_image(request: SketchToImageRequest):
         raise HTTPException(
             status_code=500,
             detail=f"草图转换失败: {str(e)}"
+        )
+
+
+@router.post("/face-portrait", response_model=FacePortraitResponse)
+async def face_portrait(request: FacePortraitRequest):
+    """AI写真生成 - 基于人脸照片生成特定场景下的写真"""
+    try:
+        result = await openai_service.face_portrait(
+            face_image_base64=request.faceImage,
+            scene_prompt=request.scenePrompt,
+            style=request.style,
+            preserve_face=request.preserveFace
+        )
+        
+        return FacePortraitResponse(
+            success=True,
+            message="AI写真生成成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI写真生成失败: {str(e)}"
+        )
+
+
+@router.post("/face-swap", response_model=FaceSwapResponse)
+async def face_swap(request: FaceSwapRequest):
+    """人脸融合 - 将人脸融合到目标图片中"""
+    try:
+        result = await openai_service.face_swap(
+            face_image_base64=request.faceImage,
+            target_image_base64=request.targetImage,
+            blend_strength=request.blendStrength
+        )
+        
+        return FaceSwapResponse(
+            success=True,
+            message="人脸融合成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"人脸融合失败: {str(e)}"
         )
