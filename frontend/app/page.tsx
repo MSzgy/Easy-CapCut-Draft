@@ -19,6 +19,7 @@ export default function VideoEditorPage() {
   const [exportType, setExportType] = useState<"json" | "video" | null>(null)
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([])
   const [outputRecords, setOutputRecords] = useState<OutputRecord[]>([])
+  const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
 
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
@@ -155,6 +156,7 @@ export default function VideoEditorPage() {
                   onContentUpdate={handleContentUpdate}
                   onComposeJson={handleComposeJson}
                   isComposing={isComposing}
+                  storyboardFrames={storyboardFrames}
                 />
               </section>
 
@@ -187,7 +189,7 @@ export default function VideoEditorPage() {
 
         {activeTab === "image-studio" && (
           <main className="flex-1 overflow-hidden p-4">
-            <ImageStudio />
+            <ImageStudio onStoryboardGenerated={setStoryboardFrames} />
           </main>
         )}
 

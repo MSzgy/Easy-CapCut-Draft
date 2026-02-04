@@ -18,6 +18,7 @@ import {
     Palette,
     Image as ImageIconLucide,
     Sliders,
+    Film,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -103,11 +104,15 @@ const resolutions = [
     { id: "2048", name: "2048x2048 (Ultra)", value: "2048x2048" },
 ]
 
-export function ImageStudio() {
+interface ImageStudioProps {
+    onStoryboardGenerated?: (frames: any[]) => void
+}
+
+export function ImageStudio({ onStoryboardGenerated }: ImageStudioProps = {}) {
     const { toast } = useToast()
 
     // Phase 2 & 3: Generation mode 
-    const [mode, setMode] = useState<'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image' | 'face-portrait'>('text-to-image')
+    const [mode, setMode] = useState<'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image' | 'face-portrait' | 'background-removal' | 'background-replacement' | 'storyboard'>('text-to-image')
 
     // Generation settings
     const [prompt, setPrompt] = useState("")
@@ -144,12 +149,78 @@ export function ImageStudio() {
     const [preserveFace, setPreserveFace] = useState([30])
     const [blendStrength, setBlendStrength] = useState([70])
 
+    // Background Removal & Replacement
+    const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
+    const [backgroundSubject, setBackgroundSubject] = useState<'person' | 'object' | 'auto'>('auto')
+    const [backgroundScene, setBackgroundScene] = useState<'office' | 'nature' | 'tech' | 'fantasy' | 'solid' | 'blur'>('nature')
+    const [customBackgroundPrompt, setCustomBackgroundPrompt] = useState("")
+    const [backgroundColor, setBackgroundColor] = useState("#FFFFFF")
+    const [matchLighting, setMatchLighting] = useState(true)
+    const [addDepth, setAddDepth] = useState(true)
+
+    // Storyboard Generation
+    const [storyPrompt, setStoryPrompt] = useState("")
+    const [storyCharacterImage, setStoryCharacterImage] = useState<string | null>(null)
+    const [numFrames, setNumFrames] = useState(6)
+    const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
+    const [expandedStoryboards, setExpandedStoryboards] = useState<Set<string>>(new Set())
+
     // Generation state
     const [isGenerating, setIsGenerating] = useState(false)
     const [isOptimizing, setIsOptimizing] = useState(false)
     const [progress, setProgress] = useState(0)
     const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
     const [history, setHistory] = useState<GeneratedImage[]>([])
+
+    // Shot type translations
+    const shotTypeTranslations: { [key: string]: string } = {
+        'closeup': '特写',
+        'medium': '中景',
+        'wide': '全景',
+        'over_shoulder': '过肩',
+        'birds_eye': '鸟瞰'
+    }
+
+    // Group storyboard images in history
+    const groupStoryboards = (images: GeneratedImage[]) => {
+        const groups: Array<{ type: 'storyboard' | 'single', id: string, images: GeneratedImage[], timestamp: string }> = []
+        const storyboards: { [key: string]: GeneratedImage[] } = {}
+
+        images.forEach(img => {
+            if (img.id.startsWith('story_')) {
+                const storyId = img.timestamp
+                if (!storyboards[storyId]) {
+                    storyboards[storyId] = []
+                }
+                storyboards[storyId].push(img)
+            } else {
+                groups.push({ type: 'single', id: img.id, images: [img], timestamp: img.timestamp })
+            }
+        })
+
+        Object.entries(storyboards).forEach(([storyId, imgs]) => {
+            groups.push({
+                type: 'storyboard',
+                id: `storyboard_${storyId}`,
+                images: imgs.sort((a, b) => parseInt(a.id.split('_')[1]) - parseInt(b.id.split('_')[1])),
+                timestamp: storyId
+            })
+        })
+
+        return groups.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    }
+
+    const toggleStoryboard = (id: string) => {
+        setExpandedStoryboards(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(id)) {
+                newSet.delete(id)
+            } else {
+                newSet.add(id)
+            }
+            return newSet
+        })
+    }
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -202,7 +273,7 @@ export function ImageStudio() {
     }
 
     const handleGenerate = async () => {
-        if (!prompt.trim() && mode !== 'style-transfer' && mode !== 'sketch-to-image' && mode !== 'face-portrait') {
+        if (!prompt.trim() && mode !== 'style-transfer' && mode !== 'sketch-to-image' && mode !== 'face-portrait' && mode !== 'background-removal' && mode !== 'background-replacement' && mode !== 'storyboard') {
             toast({
                 title: "错误",
                 description: "请输入图片描述",
@@ -269,6 +340,24 @@ export function ImageStudio() {
             toast({
                 title: "错误",
                 description: "请上传目标场景图片",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if ((mode === 'background-removal' || mode === 'background-replacement') && !backgroundImage) {
+            toast({
+                title: "错误",
+                description: "请先上传要处理的图片",
+                variant: "destructive",
+            })
+            return
+        }
+
+        if (mode === 'storyboard' && !storyPrompt.trim()) {
+            toast({
+                title: "错误",
+                description: "请输入故事描述",
                 variant: "destructive",
             })
             return
@@ -372,6 +461,93 @@ export function ImageStudio() {
                     }
 
                     await new Promise(resolve => setTimeout(resolve, 500))
+                }
+            } else if ((mode === 'background-removal' || mode === 'background-replacement') && backgroundImage) {
+                // Background Removal & Replacement mode
+                for (let i = 0; i < batchCount; i++) {
+                    setProgress(((i + 1) / batchCount) * 100)
+
+                    let response
+                    let promptText = ''
+
+                    if (mode === 'background-removal') {
+                        // 智能抠图模式
+                        response = await aiContentApi.removeBackground(
+                            backgroundImage,
+                            backgroundSubject,
+                            true
+                        )
+                        promptText = 'Background Removed'
+                    } else {
+                        // 背景替换模式
+                        response = await aiContentApi.replaceBackground(
+                            backgroundImage,
+                            backgroundScene,
+                            customBackgroundPrompt || undefined,
+                            backgroundColor,
+                            matchLighting,
+                            addDepth
+                        )
+                        promptText = `Background: ${customBackgroundPrompt || backgroundScene}`
+                    }
+
+                    if (response.success) {
+                        const newImage: GeneratedImage = {
+                            id: `img_${Date.now()}_${i}`,
+                            url: response.imageUrl,
+                            prompt: promptText,
+                            style: mode === 'background-removal' ? 'cutout' : backgroundScene,
+                            timestamp: new Date().toLocaleString(),
+                            isFavorite: false,
+                        }
+                        batch.push(newImage)
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                }
+            } else if (mode === 'storyboard') {
+                // Storyboard Generation mode
+                setProgress(20)
+
+                try {
+                    const response = await aiContentApi.generateStoryboard(
+                        storyPrompt,
+                        storyCharacterImage || undefined,
+                        numFrames,
+                        selectedStyle
+                    )
+
+                    if (response.success) {
+                        setProgress(100)
+                        setStoryboardFrames(response.frames)
+
+                        // Notify parent component with storyboard data
+                        onStoryboardGenerated?.(response.frames)
+
+                        toast({
+                            title: "生成成功",
+                            description: `故事板生成完成，共${response.frames.length}个分镜`,
+                        })
+
+                        // 同时添加到普通图片列表
+                        response.frames.forEach((frame: any) => {
+                            const newImage: GeneratedImage = {
+                                id: `story_${frame.frameNumber}`,
+                                url: frame.imageUrl,
+                                prompt: frame.description,
+                                style: frame.shotType,
+                                timestamp: new Date().toLocaleString(),
+                                isFavorite: false,
+                            }
+                            batch.push(newImage)
+                        })
+                    }
+                } catch (error) {
+                    toast({
+                        title: "生成失败",
+                        description: error instanceof Error ? error.message : "未知错误",
+                        variant: "destructive",
+                    })
                 }
             } else {
                 // Phase 1 & 2: Normal generation modes
@@ -515,6 +691,13 @@ export function ImageStudio() {
                                 <TabsTrigger value="style-transfer">🖌️ 风格迁移</TabsTrigger>
                                 <TabsTrigger value="sketch-to-image">✍️ 灵魂画手</TabsTrigger>
                                 <TabsTrigger value="face-portrait">👤 AI写真</TabsTrigger>
+                            </TabsList>
+                            <TabsList className="grid w-full grid-cols-2 mt-2">
+                                <TabsTrigger value="background-removal">✂️ 智能抠图</TabsTrigger>
+                                <TabsTrigger value="background-replacement">🌄 背景替换</TabsTrigger>
+                            </TabsList>
+                            <TabsList className="grid w-full grid-cols-1 mt-2">
+                                <TabsTrigger value="storyboard">🎬 故事板生成</TabsTrigger>
                             </TabsList>
                         </Tabs>
 
@@ -716,6 +899,243 @@ export function ImageStudio() {
                                         </p>
                                     </div>
                                 )}
+                            </>
+                        )}
+
+                        {/* Background Removal & Replacement - Image Upload */}
+                        {(mode === 'background-removal' || mode === 'background-replacement') && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label>📸 上传图片</Label>
+                                    {!backgroundImage ? (
+                                        <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                            onClick={() => document.getElementById('background-upload')?.click()}>
+                                            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                            <p className="text-sm text-muted-foreground">点击上传要处理的图片</p>
+                                            <p className="text-xs text-muted-foreground mt-1">支持 JPG、PNG，最大 5MB</p>
+                                            <input
+                                                id="background-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0]
+                                                    if (!file) return
+                                                    if (file.size > 5 * 1024 * 1024) {
+                                                        toast({
+                                                            title: "文件过大",
+                                                            description: "图片大小不能超过 5MB",
+                                                            variant: "destructive",
+                                                        })
+                                                        return
+                                                    }
+                                                    const reader = new FileReader()
+                                                    reader.onload = (event) => {
+                                                        setBackgroundImage(event.target?.result as string)
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <img src={backgroundImage} alt="Background" className="w-full rounded-lg" />
+                                            <Button
+                                                size="icon"
+                                                variant="destructive"
+                                                className="absolute top-2 right-2"
+                                                onClick={() => setBackgroundImage(null)}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Background Removal: Subject Type */}
+                                {mode === 'background-removal' && (
+                                    <div className="space-y-2">
+                                        <Label>🎯 主体类型</Label>
+                                        <Select value={backgroundSubject} onValueChange={(v: any) => setBackgroundSubject(v)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="选择主体类型" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="auto">🤖 自动识别</SelectItem>
+                                                <SelectItem value="person">👤 人物</SelectItem>
+                                                <SelectItem value="object">📦 物品</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {/* Background Replacement: Scene Selection */}
+                                {mode === 'background-replacement' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label>🏞️ 背景场景</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[
+                                                    { id: 'office', name: '💼 现代办公', emoji: '💼' },
+                                                    { id: 'nature', name: '🌳 自然风光', emoji: '🌳' },
+                                                    { id: 'tech', name: '⚡ 科技未来', emoji: '⚡' },
+                                                    { id: 'fantasy', name: '✨ 梦幻场景', emoji: '✨' },
+                                                    { id: 'solid', name: '🎨 纯色背景', emoji: '🎨' },
+                                                    { id: 'blur', name: '💫 模糊背景', emoji: '💫' },
+                                                ].map((scene) => (
+                                                    <Button
+                                                        key={scene.id}
+                                                        variant={backgroundScene === scene.id ? 'default' : 'outline'}
+                                                        className="h-auto py-2 px-3 text-xs justify-start"
+                                                        onClick={() => setBackgroundScene(scene.id as any)}
+                                                    >
+                                                        <span className="truncate">{scene.name}</span>
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Custom Prompt */}
+                                        <div className="space-y-2">
+                                            <Label>💬 自定义场景 (可选)</Label>
+                                            <Textarea
+                                                placeholder="可输入自定义场景描述覆盖预设..."
+                                                value={customBackgroundPrompt}
+                                                onChange={(e) => setCustomBackgroundPrompt(e.target.value)}
+                                                rows={2}
+                                                className="resize-none text-sm"
+                                            />
+                                        </div>
+
+                                        {/* Color Picker for Solid Background */}
+                                        {backgroundScene === 'solid' && (
+                                            <div className="space-y-2">
+                                                <Label>🎨 背景颜色</Label>
+                                                <Input
+                                                    type="color"
+                                                    value={backgroundColor}
+                                                    onChange={(e) => setBackgroundColor(e.target.value)}
+                                                    className="h-12 w-full"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Advanced Options */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id="match-lighting"
+                                                    checked={matchLighting}
+                                                    onCheckedChange={(checked) => setMatchLighting(checked as boolean)}
+                                                />
+                                                <Label htmlFor="match-lighting" className="text-sm cursor-pointer">
+                                                    💡 匹配光照效果
+                                                </Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id="add-depth"
+                                                    checked={addDepth}
+                                                    onCheckedChange={(checked) => setAddDepth(checked as boolean)}
+                                                />
+                                                <Label htmlFor="add-depth" className="text-sm cursor-pointer">
+                                                    🌫️ 添加景深效果
+                                                </Label>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
+
+                        {/* Storyboard Generation UI */}
+                        {mode === 'storyboard' && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label>📖 故事描述</Label>
+                                    <Textarea
+                                        placeholder="输入故事情节，例如：一个年轻冒险家在森林中探险，遭遇神秘生物，最终成为朋友..."
+                                        value={storyPrompt}
+                                        onChange={(e) => setStoryPrompt(e.target.value)}
+                                        rows={4}
+                                        className="resize-none"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        AI将自动把故事拆分为{numFrames}个连续分镜
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>👤 角色参考图 (可选)</Label>
+                                    {!storyCharacterImage ? (
+                                        <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer"
+                                            onClick={() => document.getElementById('story-character-upload')?.click()}>
+                                            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                            <p className="text-sm text-muted-foreground">点击上传角色照片</p>
+                                            <p className="text-xs text-muted-foreground mt-1">可选 - 用于保持角色外观一致</p>
+                                            <input
+                                                id="story-character-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0]
+                                                    if (!file) return
+                                                    if (file.size > 5 * 1024 * 1024) {
+                                                        toast({
+                                                            title: "文件过大",
+                                                            description: "图片大小不能超过 5MB",
+                                                            variant: "destructive",
+                                                        })
+                                                        return
+                                                    }
+                                                    const reader = new FileReader()
+                                                    reader.onload = (event) => {
+                                                        setStoryCharacterImage(event.target?.result as string)
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <img src={storyCharacterImage} alt="Character" className="w-full rounded-lg" />
+                                            <Button
+                                                size="icon"
+                                                variant="destructive"
+                                                className="absolute top-2 right-2"
+                                                onClick={() => setStoryCharacterImage(null)}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>🎞️ 分镜数量: {numFrames}</Label>
+                                    <Slider
+                                        value={[numFrames]}
+                                        onValueChange={(value) => setNumFrames(value[0])}
+                                        min={4}
+                                        max={8}
+                                        step={1}
+                                        className="w-full"
+                                    />
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>4帧</span>
+                                        <span>8帧</span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                                    <p className="text-xs font-medium">💡 使用建议：</p>
+                                    <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+                                        <li>故事情节尽量具体，包含情节发展</li>
+                                        <li>上传角色图可保持人物一致性</li>
+                                        <li>生成时间较长，请耐心等待</li>
+                                    </ul>
+                                </div>
                             </>
                         )}
 
@@ -1190,7 +1610,53 @@ export function ImageStudio() {
                             </div>
                         )}
 
-                        {generatedImages.length > 0 && (
+                        {/* Storyboard Grid Display */}
+                        {mode === 'storyboard' && storyboardFrames.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">故事板 ({storyboardFrames.length}个分镜)</h3>
+                                </div>
+                                <div className="max-h-[600px] overflow-y-auto overflow-x-hidden pr-2">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {storyboardFrames.map((frame: any) => (
+                                            <div key={frame.frameNumber} className="group relative overflow-hidden rounded-lg border bg-card">
+                                                <div className="aspect-video w-full">
+                                                    <img
+                                                        src={frame.imageUrl}
+                                                        alt={`Frame ${frame.frameNumber}`}
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="p-3 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <Badge variant="outline">分镜 {frame.frameNumber}</Badge>
+                                                        <Badge variant="secondary">{shotTypeTranslations[frame.shotType] || frame.shotType}</Badge>
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                                        {frame.description}
+                                                    </p>
+                                                </div>
+                                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button
+                                                        size="icon"
+                                                        variant="secondary"
+                                                        onClick={() => {
+                                                            const img = generatedImages.find(i => i.id === `story_${frame.frameNumber}`)
+                                                            if (img) downloadImage(img, frame.frameNumber - 1)
+                                                        }}
+                                                    >
+                                                        <Download className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Normal Grid Display */}
+                        {mode !== 'storyboard' && generatedImages.length > 0 && (
                             <div className={`grid gap-4 ${batchCount === 1 ? "grid-cols-1" :
                                 batchCount === 2 ? "grid-cols-2" :
                                     batchCount <= 4 ? "grid-cols-2" :
@@ -1238,55 +1704,138 @@ export function ImageStudio() {
                             <p className="text-center text-sm text-muted-foreground">暂无历史记录</p>
                         )}
 
-                        {history.slice(0, 20).map((img) => (
-                            <div key={img.id} className="group relative overflow-hidden rounded-lg border">
-                                <img
-                                    src={img.url}
-                                    alt="History"
-                                    className="aspect-square w-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent">
-                                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                                        <p className="text-xs text-white/80 line-clamp-2">{img.prompt}</p>
-                                        <p className="text-[10px] text-white/60">{img.timestamp}</p>
+                        {groupStoryboards(history).slice(0, 20).map((group) => {
+                            if (group.type === 'storyboard') {
+                                const isExpanded = expandedStoryboards.has(group.id)
+                                const firstImage = group.images[0]
+
+                                return (
+                                    <div key={group.id} className="rounded-lg border overflow-hidden">
+                                        {/* Storyboard Header */}
+                                        <div
+                                            className="flex items-center justify-between p-3 bg-muted/50 cursor-pointer hover:bg-muted"
+                                            onClick={() => toggleStoryboard(group.id)}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Film className="h-4 w-4" />
+                                                <span className="text-sm font-medium">故事板</span>
+                                                <Badge variant="outline" className="text-xs">{group.images.length}帧</Badge>
+                                            </div>
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </div>
+
+                                        {/* Preview Grid (always visible) */}
+                                        <div className="grid grid-cols-3 gap-1 p-1">
+                                            {group.images.slice(0, 3).map((img) => (
+                                                <img
+                                                    key={img.id}
+                                                    src={img.url}
+                                                    alt="Preview"
+                                                    className="aspect-video w-full object-cover rounded"
+                                                />
+                                            ))}
+                                        </div>
+
+                                        {/* Expanded View */}
+                                        {isExpanded && (
+                                            <div className="p-2 space-y-2 border-t">
+                                                {group.images.map((img, idx) => (
+                                                    <div key={img.id} className="group relative overflow-hidden rounded-lg border">
+                                                        <div className="aspect-video">
+                                                            <img
+                                                                src={img.url}
+                                                                alt={`Frame ${idx + 1}`}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent">
+                                                            <div className="absolute bottom-0 left-0 right-0 p-2">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <Badge variant="outline" className="text-xs">分镜 {idx + 1}</Badge>
+                                                                    <Badge variant="secondary" className="text-xs">{shotTypeTranslations[img.style] || img.style}</Badge>
+                                                                </div>
+                                                                <p className="text-xs text-white/80 line-clamp-1">{img.prompt}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="secondary"
+                                                                className="h-7 w-7"
+                                                                onClick={() => downloadImage(img)}
+                                                            >
+                                                                <Download className="h-3 w-3" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="secondary"
+                                                                className="h-7 w-7"
+                                                                onClick={() => deleteImage(img.id)}
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <p className="text-xs text-muted-foreground text-center">{group.timestamp}</p>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <Button
-                                        size="icon"
-                                        variant="secondary"
-                                        className="h-7 w-7"
-                                        onClick={() => toggleFavorite(img.id)}
-                                    >
-                                        <Star className={`h-3 w-3 ${img.isFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
-                                    </Button>
-                                    <Button
-                                        size="icon"
-                                        variant="secondary"
-                                        className="h-7 w-7"
-                                        onClick={() => downloadImage(img)}
-                                    >
-                                        <Download className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                        size="icon"
-                                        variant="secondary"
-                                        className="h-7 w-7"
-                                        onClick={() => regenerateImage(img)}
-                                    >
-                                        <RefreshCw className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                        size="icon"
-                                        variant="secondary"
-                                        className="h-7 w-7"
-                                        onClick={() => deleteImage(img.id)}
-                                    >
-                                        <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
+                                )
+                            } else {
+                                // Single image
+                                const img = group.images[0]
+                                return (
+                                    <div key={img.id} className="group relative overflow-hidden rounded-lg border">
+                                        <img
+                                            src={img.url}
+                                            alt="History"
+                                            className="aspect-square w-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent">
+                                            <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                <p className="text-xs text-white/80 line-clamp-2">{img.prompt}</p>
+                                                <p className="text-[10px] text-white/60">{img.timestamp}</p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                            <Button
+                                                size="icon"
+                                                variant="secondary"
+                                                className="h-7 w-7"
+                                                onClick={() => toggleFavorite(img.id)}
+                                            >
+                                                <Star className={`h-3 w-3 ${img.isFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                                            </Button>
+                                            <Button
+                                                size="icon"
+                                                variant="secondary"
+                                                className="h-7 w-7"
+                                                onClick={() => downloadImage(img)}
+                                            >
+                                                <Download className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                                size="icon"
+                                                variant="secondary"
+                                                className="h-7 w-7"
+                                                onClick={() => regenerateImage(img)}
+                                            >
+                                                <RefreshCw className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                                size="icon"
+                                                variant="secondary"
+                                                className="h-7 w-7"
+                                                onClick={() => deleteImage(img.id)}
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
+                            }
+                        })}
                     </CardContent>
                 </Card>
             </aside>

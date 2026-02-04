@@ -56,6 +56,7 @@ interface ColumnContentProps {
   onContentUpdate: (content: GeneratedOutput) => void
   onComposeJson: () => void
   isComposing: boolean
+  storyboardFrames?: any[]
 }
 
 export function ColumnContent({
@@ -63,6 +64,7 @@ export function ColumnContent({
   onContentUpdate,
   onComposeJson,
   isComposing,
+  storyboardFrames = [],
 }: ColumnContentProps) {
 
   // content = mockGeneratedOutput;
@@ -254,8 +256,8 @@ export function ColumnContent({
                   </div>
                 </div>
 
-                {/* Scene Content Grid */}
-                <div className="grid gap-3 lg:grid-cols-2">
+                {/* Scene Content Grid - Conditional layout based on image availability */}
+                <div className={`grid gap-3 ${(scene.imageUrl || storyboardFrames.length > 0) ? 'lg:grid-cols-2' : ''}`}>
                   {/* Script Section */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -320,104 +322,114 @@ export function ColumnContent({
                     )}
                   </div>
 
-                  {/* Image Section - Multi-Image Selector */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-medium text-muted-foreground">AI SUGGESTIONS</span>
-                      <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => fileInputRefs.current[scene.id]?.click()}
-                              >
-                                <Upload className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Upload custom image</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          ref={(el) => { fileInputRefs.current[scene.id] = el }}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleUploadCustomImage(scene.id, file)
-                          }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleRegenerateImage(scene.id)}
-                          disabled={regeneratingImage === scene.id}
-                        >
-                          <RefreshCw
-                            className={`h-3 w-3 ${regeneratingImage === scene.id ? "animate-spin" : ""}`}
+                  {/* Image Section - Only show if images are available */}
+                  {(scene.imageUrl || (storyboardFrames && storyboardFrames.length > 0)) && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-medium text-muted-foreground">AI SUGGESTIONS</span>
+                        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => fileInputRefs.current[scene.id]?.click()}
+                                >
+                                  <Upload className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Upload custom image</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={(el) => { fileInputRefs.current[scene.id] = el }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleUploadCustomImage(scene.id, file)
+                            }}
                           />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Selected Image Preview */}
-                    <div className="relative overflow-hidden rounded-lg border border-border">
-                      {regeneratingImage === scene.id ? (
-                        <div className="flex aspect-video items-center justify-center bg-secondary">
-                          <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                      ) : (
-                        <>
-                          <img
-                            src={scene.imageUrl || "/placeholder.svg"}
-                            alt={scene.imageDescription}
-                            className="aspect-video w-full object-cover"
-                            crossOrigin="anonymous"
-                          />
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                            <div className="flex items-center gap-1.5 text-white">
-                              <ImageIcon className="h-3 w-3" />
-                              <span className="text-[10px]">{scene.imageDescription}</span>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Image Carousel/Grid */}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {(aiSuggestedImages[index % aiSuggestedImages.length] || []).map((imgUrl, imgIndex) => {
-                        const isSelected = selectedImageIndex[scene.id] === imgIndex ||
-                          (selectedImageIndex[scene.id] === undefined && imgIndex === 0 && scene.imageUrl === imgUrl)
-                        return (
-                          <button
-                            key={imgIndex}
-                            onClick={() => handleSelectImage(scene.id, imgUrl, imgIndex)}
-                            className={`relative aspect-video overflow-hidden rounded-md border-2 transition-all hover:opacity-100 ${isSelected
-                              ? "border-primary opacity-100"
-                              : "border-transparent opacity-60 hover:border-primary/50"
-                              }`}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleRegenerateImage(scene.id)}
+                            disabled={regeneratingImage === scene.id}
                           >
+                            <RefreshCw
+                              className={`h-3 w-3 ${regeneratingImage === scene.id ? "animate-spin" : ""}`}
+                            />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Selected Image Preview */}
+                      <div className="relative overflow-hidden rounded-lg border border-border">
+                        {regeneratingImage === scene.id ? (
+                          <div className="flex aspect-video items-center justify-center bg-secondary">
+                            <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                          </div>
+                        ) : (
+                          <>
                             <img
-                              src={imgUrl || "/placeholder.svg"}
-                              alt={`Option ${imgIndex + 1}`}
-                              className="h-full w-full object-cover"
+                              src={scene.imageUrl || "/placeholder.svg"}
+                              alt={scene.imageDescription}
+                              className="aspect-video w-full object-cover"
                               crossOrigin="anonymous"
                             />
-                            {isSelected && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
-                                <Check className="h-4 w-4 text-primary" />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                              <div className="flex items-center gap-1.5 text-white">
+                                <ImageIcon className="h-3 w-3" />
+                                <span className="text-[10px]">{scene.imageDescription}</span>
                               </div>
-                            )}
-                          </button>
-                        )
-                      })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Image Carousel/Grid */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {(() => {
+                          // Use storyboard frames if available and matches scene index
+                          const frames = storyboardFrames && storyboardFrames.length > 0 ? storyboardFrames : null
+                          const imagesToShow = frames
+                            ? frames.map((f: any) => f.imageUrl)
+                            : (aiSuggestedImages[index % aiSuggestedImages.length] || [])
+
+                          return imagesToShow.map((imgUrl: string, imgIndex: number) => {
+                            const isSelected = selectedImageIndex[scene.id] === imgIndex ||
+                              (selectedImageIndex[scene.id] === undefined && imgIndex === 0 && scene.imageUrl === imgUrl)
+                            return (
+                              <button
+                                key={imgIndex}
+                                onClick={() => handleSelectImage(scene.id, imgUrl, imgIndex)}
+                                className={`relative aspect-video overflow-hidden rounded-md border-2 transition-all hover:opacity-100 ${isSelected
+                                  ? "border-primary opacity-100"
+                                  : "border-transparent opacity-60 hover:border-primary/50"
+                                  }`}
+                              >
+                                <img
+                                  src={imgUrl || "/placeholder.svg"}
+                                  alt={`Option ${imgIndex + 1}`}
+                                  className="h-full w-full object-cover"
+                                  crossOrigin="anonymous"
+                                />
+                                {isSelected && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                                    <Check className="h-4 w-4 text-primary" />
+                                  </div>
+                                )}
+                              </button>
+                            )
+                          })
+                        })()}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}

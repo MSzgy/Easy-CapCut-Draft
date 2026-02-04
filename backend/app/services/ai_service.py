@@ -833,6 +833,279 @@ class OpenAIService:
         
         return result
 
+    async def remove_background(
+        self,
+        image_base64: str,
+        subject: str = "auto",
+        refine_edges: bool = True
+    ) -> str:
+        """智能抠图 - 移除背景，生成透明PNG
+        
+        Args:
+            image_base64: 原始图片的base64编码
+            subject: 主体类型提示 (person/object/auto)
+            refine_edges: 是否精细化边缘
+        """
+        
+        # 构建提示词 - 强调生成透明背景
+        subject_hints = {
+            "person": "the person in the image",
+            "object": "the main object in the image",
+            "auto": "the main subject in the image"
+        }
+        
+        subject_desc = subject_hints.get(subject, subject_hints["auto"])
+        
+        full_prompt = f"Task: Remove the background from this image, keeping only {subject_desc}. "
+        full_prompt += "CRITICAL REQUIREMENTS: "
+        full_prompt += "1. PRESERVE the exact appearance, colors, and details of the subject. "
+        full_prompt += "2. REMOVE everything in the background completely. "
+        full_prompt += "3. Output should have a TRANSPARENT background (alpha channel). "
+        full_prompt += "4. Keep the subject in the same position and size. "
+        
+        if refine_edges:
+            full_prompt += "5. Refine edges carefully - smooth transitions, no jagged edges, preserve fine details like hair. "
+        
+        full_prompt += "The result should be a clean cutout suitable for compositing onto other backgrounds."
+        
+        # 使用 image-to-image 模式，较高denoising让AI重新绘制背景为透明
+        result = await self.generate_image_gemini_format(
+            prompt=full_prompt,
+            style="photorealistic",
+            theme="background_removal",
+            size="1:1",
+            resolution="2k",
+            reference_image=image_base64,
+            denoising_strength=0.3,  # 低denoising保留主体细节
+            preserve_composition=True
+        )
+        
+        return result
+
+    async def replace_background(
+        self,
+        image_base64: str,
+        background_scene: str = "nature",
+        custom_prompt: str = None,
+        background_color: str = "#FFFFFF",
+        match_lighting: bool = True,
+        add_depth: bool = True
+    ) -> str:
+        """背景替换 - 移除原背景，合成到新的AI生成背景
+        
+        Args:
+            image_base64: 原始图片的base64编码
+            background_scene: 背景场景预设
+            custom_prompt: 自定义场景描述（会覆盖预设）
+            background_color: 纯色背景时的颜色
+            match_lighting: 是否匹配光照
+            add_depth: 是否添加景深效果
+        """
+        
+        # 背景场景库
+        BACKGROUND_SCENES = {
+            "office": {
+                "name": "现代办公室",
+                "prompt": "modern office environment, professional workspace, clean desk, soft window lighting, corporate setting, high-end office interior"
+            },
+            "nature": {
+                "name": "自然风光",
+                "prompt": "beautiful natural landscape, outdoor scenery, soft natural lighting, green plants, fresh air, peaceful environment"
+            },
+            "tech": {
+                "name": "科技感",
+                "prompt": "futuristic tech environment, cyberpunk style, neon lights, high-tech laboratory, holographic displays, modern technology"
+            },
+            "fantasy": {
+                "name": "梦幻场景",
+                "prompt": "dreamy fantasy background, soft pastel colors, magical atmosphere, ethereal lighting, floating particles, enchanted environment"
+            },
+            "solid": {
+                "name": "纯色背景",
+                "prompt": f"solid color background {background_color}, smooth gradient, professional studio lighting, clean backdrop"
+            },
+            "blur": {
+                "name": "模糊背景",
+                "prompt": "same background but heavily blurred, bokeh effect, shallow depth of field, professional portrait photography style"
+            }
+        }
+        
+        # 确定背景描述
+        if custom_prompt and custom_prompt.strip():
+            background_desc = custom_prompt
+            scene_name = "自定义场景"
+        else:
+            scene_def = BACKGROUND_SCENES.get(background_scene, BACKGROUND_SCENES["nature"])
+            background_desc = scene_def["prompt"]
+            scene_name = scene_def["name"]
+        
+        # 构建完整提示词
+        full_prompt = f"Task: Replace the background of this image with a new scene: {background_desc}. "
+        full_prompt += "CRITICAL REQUIREMENTS: "
+        full_prompt += "1. PRESERVE the exact appearance of the main subject (person/object) - keep face, body, clothes, colors identical. "
+        full_prompt += "2. ONLY change the background behind the subject. "
+        full_prompt += "3. Keep the subject in the same position, pose, and size. "
+        full_prompt += "4. The new background should be: " + background_desc + ". "
+        
+        if match_lighting:
+            full_prompt += "5. Match the lighting direction and color temperature between the subject and new background for realistic integration. "
+        
+        if add_depth:
+            full_prompt += "6. Add subtle depth of field effect - slightly blur the background to make the subject stand out. "
+        
+        if background_scene == "blur":
+            full_prompt += "SPECIAL: Keep the original background colors and scene, just apply heavy blur/bokeh effect. "
+        
+        full_prompt += "The result should look natural and professionally composited."
+        
+        # 使用 image-to-image 模式
+        result = await self.generate_image_gemini_format(
+            prompt=full_prompt,
+            style="photorealistic",
+            theme="background_replacement",
+            size="1:1",
+            resolution="2k",
+            reference_image=image_base64,
+            denoising_strength=0.6,  # 中等强度，保留主体但允许背景重绘
+            preserve_composition=True
+        )
+        
+        return result
+
+    async def generate_storyboard(
+        self,
+        story_prompt: str,
+        character_image: str = None,
+        num_frames: int = 6,
+        style: str = "photorealistic",
+        shot_types: list = None
+    ) -> list:
+        """生成故事板 - 根据故事生成连续分镜
+        
+        Args:
+            story_prompt: 故事情节描述
+            character_image: 角色参考图（可选）
+            num_frames: 分镜数量（4-8）
+            style: 画面风格
+            shot_types: 偏好的镜头类型
+        
+        Returns:
+            list: 包含每个分镜的字典列表
+        """
+        
+        # 镜头类型库
+        SHOT_TYPES = {
+            "closeup": "close-up shot focusing on character's face and expression",
+            "medium": "medium shot showing character from waist up",
+            "wide": "wide shot showing full scene and environment",
+            "over_shoulder": "over-the-shoulder shot for dialogue or interaction",
+            "birds_eye": "bird's eye view from above"
+        }
+        
+        # 如果没有指定镜头类型，使用默认组合
+        if not shot_types:
+            shot_types = ["medium", "closeup", "wide", "medium", "closeup", "wide"]
+        
+        # 确保有足够的镜头类型
+        while len(shot_types) < num_frames:
+            shot_types.extend(shot_types)
+        shot_types = shot_types[:num_frames]
+        
+        # 第一步：让AI拆分故事为多个场景
+        split_prompt = f"""Given this story: "{story_prompt}"
+
+Please split it into exactly {num_frames} sequential scenes/moments for a storyboard.
+For each scene, provide:
+1. A brief description (1-2 sentences)
+2. The key action or moment
+3. Character's emotion/state
+
+Format your response as a numbered list (1. Scene description, 2. Scene description, etc.)
+Keep descriptions visual and specific for image generation."""
+
+        try:
+            # 调用AI拆分场景
+            split_response = await self.generate_completion(
+                prompt=split_prompt,
+                temperature=0.7
+            )
+            
+            # 解析场景描述
+            scenes = []
+            lines = split_response.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                # 匹配 "1. " 或 "1) " 开头的行
+                if line and (line[0].isdigit() or line.startswith('-')):
+                    # 移除序号
+                    scene_desc = line.split('.', 1)[-1].split(')', 1)[-1].strip()
+                    if scene_desc:
+                        scenes.append(scene_desc)
+            
+            # 如果解析失败，使用简单拆分
+            if len(scenes) < num_frames:
+                scenes = [f"Scene {i+1}: {story_prompt}" for i in range(num_frames)]
+            
+            scenes = scenes[:num_frames]
+            
+        except Exception as e:
+            # 如果AI调用失败，使用简单拆分
+            print(f"Scene splitting failed: {e}")
+            scenes = [f"Scene {i+1}: {story_prompt}" for i in range(num_frames)]
+        
+        # 第二步：为每个场景生成图片
+        frames = []
+        previous_image = None
+        
+        for i, scene_desc in enumerate(scenes):
+            shot_type_key = shot_types[i]
+            shot_type_desc = SHOT_TYPES.get(shot_type_key, SHOT_TYPES["medium"])
+            
+            # 构建完整提示词
+            full_prompt = f"Storyboard frame {i+1}/{num_frames}: {scene_desc}. "
+            full_prompt += f"Camera angle: {shot_type_desc}. "
+            full_prompt += f"Style: {style}, cinematic lighting, professional storyboard quality. "
+            
+            if character_image or previous_image:
+                full_prompt += "CRITICAL: Maintain consistent character appearance - "
+                full_prompt += "same face, same clothing, same physical features. "
+                full_prompt += "ONLY change the pose, expression, and scene background based on the story moment."
+            
+            # 选择参考图：优先用角色图，其次用上一帧
+            reference = character_image if character_image else previous_image
+            
+            try:
+                # 生成分镜图片
+                image_url = await self.generate_image_gemini_format(
+                    prompt=full_prompt,
+                    style=style,
+                    theme="storyboard",
+                    size="16:9",  # 常用的故事板比例
+                    resolution="1024",
+                    reference_image=reference,
+                    denoising_strength=0.5 if reference else 0.7,
+                    preserve_composition=False
+                )
+                
+                # 保存这一帧作为下一帧的参考（如果没有角色图）
+                if not character_image:
+                    previous_image = image_url
+                
+                # 添加到结果
+                frames.append({
+                    "frameNumber": i + 1,
+                    "imageUrl": image_url,
+                    "description": scene_desc,
+                    "shotType": shot_type_key
+                })
+                
+            except Exception as e:
+                print(f"Frame {i+1} generation failed: {e}")
+                # 继续生成下一帧
+                continue
+        
+        return frames
+
     async def close(self):
 
         """关闭HTTP客户端连接"""

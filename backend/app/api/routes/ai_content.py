@@ -16,6 +16,12 @@ from app.schemas.ai_schemas import (
     FacePortraitResponse,
     FaceSwapRequest,
     FaceSwapResponse,
+    BackgroundRemovalRequest,
+    BackgroundRemovalResponse,
+    BackgroundReplacementRequest,
+    BackgroundReplacementResponse,
+    StoryboardRequest,
+    StoryboardResponse,
     SceneContent
 )
 from app.services.ai_service import openai_service
@@ -164,7 +170,56 @@ async def extract_url_content(url: str) -> dict:
         }
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None) -> List[SceneContent]:
+async def generate_images_for_scenes(scenes: List[SceneContent], openai_service):
+    """为场景批量生成图片"""
+    import asyncio
+    
+    async def generate_single_image(scene: SceneContent, index: int):
+        """为单个场景生成图片"""
+        try:
+            # 构建详细的图片生成prompt
+            prompt = scene.imageMetadata.description if scene.imageMetadata else scene.imageDescription
+            
+            # 添加风格和情绪信息
+            if scene.imageMetadata:
+                if scene.imageMetadata.style:
+                    prompt += f", {scene.imageMetadata.style} style"
+                if scene.imageMetadata.mood:
+                    prompt += f", {scene.imageMetadata.mood} mood"
+                if scene.imageMetadata.color_scheme:
+                    prompt += f", {scene.imageMetadata.color_scheme} color scheme"
+            
+            print(f"🎨 Generating image for Scene {index + 1}: {prompt[:50]}...")
+            
+            # 调用图片生成API (使用gemini格式)
+            image_url = await openai_service.generate_image_gemini_format(
+                prompt=prompt,
+                style=scene.imageMetadata.style if scene.imageMetadata and scene.imageMetadata.style else "photorealistic",
+                theme="video_scene",
+                size="16:9",
+                resolution="1024",
+                reference_image=None,
+                denoising_strength=0.7,
+                preserve_composition=False
+            )
+            
+            # 更新场景的imageUrl
+            scene.imageUrl = image_url
+            print(f"✅ Scene {index + 1} 图片生成成功")
+            
+        except Exception as e:
+            print(f"⚠️ Scene {index + 1} 图片生成失败: {str(e)}")
+            # 使用占位图片
+            scene.imageUrl = f"https://images.unsplash.com/photo-{1460925895917+index}?w=400&h=300&fit=crop"
+    
+    # 并行生成所有图片
+    print(f"🚀 开始并行生成 {len(scenes)} 个场景的图片...")
+    tasks = [generate_single_image(scene, i) for i, scene in enumerate(scenes)]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    print(f"✨ 所有场景图片生成完成")
+
+
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
@@ -281,10 +336,14 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
                 id=f"scene_{i+1}",
                 timestamp=scene_data.get("timestamp", f"0:{i*5:02d} - 0:{(i+1)*5:02d}"),
                 script=scene_data.get("script", ""),
-                imageUrl=f"https://images.unsplash.com/photo-{1460925895917+i}?w=400&h=300&fit=crop",
+                imageUrl="",  # 临时为空，稍后通过图片生成填充
                 imageDescription=image_data.get("description", ""),  # 保留兼容性
                 imageMetadata=image_metadata
             ))
+
+        # 并行生成所有场景的图片
+        if scenes and generate_images:
+            await generate_images_for_scenes(scenes, openai_service)
 
         return scenes
 
@@ -308,13 +367,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url)
     try: 
         generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -418,12 +477,22 @@ async def generate_content(request: GenerateContentRequest):
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
-            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords)
+            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages)
+            
+            # 如果不生成图片，清空 imageUrl 以防前端显示占位符
+            if not request.generateImages:
+                for scene in scenes:
+                    scene.imageUrl = ""
 
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages)
+            
+            # 如果不生成图片，清空 imageUrl
+            if not request.generateImages:
+                for scene in scenes:
+                    scene.imageUrl = ""
 
         elif request.mode == "upload":
             if not request.uploadedAssets or len(request.uploadedAssets) == 0:
@@ -457,7 +526,12 @@ async def generate_content(request: GenerateContentRequest):
 
                     # 基于图片识别结果生成场景
                     basic_description = await openai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}")
+                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages)
+                    
+                    # 如果不生成图片，清空 imageUrl
+                    if not request.generateImages:
+                        for scene in scenes:
+                            scene.imageUrl = ""
                     
                     # 生成文案 (如果需要)
                     if request.copyStyle:
@@ -698,4 +772,78 @@ async def face_swap(request: FaceSwapRequest):
         raise HTTPException(
             status_code=500,
             detail=f"人脸融合失败: {str(e)}"
+        )
+
+
+@router.post("/remove-background", response_model=BackgroundRemovalResponse)
+async def remove_background(request: BackgroundRemovalRequest):
+    """智能抠图 - 自动移除背景，生成透明PNG"""
+    try:
+        result = await openai_service.remove_background(
+            image_base64=request.image,
+            subject=request.subject,
+            refine_edges=request.refineEdges
+        )
+        
+        return BackgroundRemovalResponse(
+            success=True,
+            message="背景移除成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"背景移除失败: {str(e)}"
+        )
+
+
+@router.post("/replace-background", response_model=BackgroundReplacementResponse)
+async def replace_background(request: BackgroundReplacementRequest):
+    """背景替换 - 移除原背景，合成新的AI生成背景"""
+    try:
+        result = await openai_service.replace_background(
+            image_base64=request.image,
+            background_scene=request.backgroundScene,
+            custom_prompt=request.customPrompt,
+            background_color=request.backgroundColor or "#FFFFFF",
+            match_lighting=request.matchLighting,
+            add_depth=request.addDepth
+        )
+        
+        return BackgroundReplacementResponse(
+            success=True,
+            message="背景替换成功",
+            imageUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"背景替换失败: {str(e)}"
+        )
+
+
+@router.post("/generate-storyboard", response_model=StoryboardResponse)
+async def generate_storyboard(request: StoryboardRequest):
+    """生成故事板 - 根据故事生成连续分镜"""
+    try:
+        frames = await openai_service.generate_storyboard(
+            story_prompt=request.storyPrompt,
+            character_image=request.characterImage,
+            num_frames=request.numFrames,
+            style=request.style,
+            shot_types=request.shotTypes
+        )
+        
+        return StoryboardResponse(
+            success=True,
+            message=f"故事板生成成功，共{len(frames)}个分镜",
+            frames=frames
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"故事板生成失败: {str(e)}"
         )

@@ -41,6 +41,7 @@ class GenerateContentRequest(BaseModel):
     
     # 通用字段
     copyStyle: Optional[str] = Field(None, description="文案风格")
+    generateImages: bool = Field(True, description="是否生成场景配图")
 
 
 class GenerateContentResponse(BaseModel):
@@ -163,3 +164,60 @@ class FaceSwapResponse(BaseModel):
     success: bool
     message: str
     imageUrl: str
+
+
+# Background Removal & Replacement
+class BackgroundRemovalRequest(BaseModel):
+    """背景移除请求"""
+    image: str = Field(..., description="原始图片 base64 编码")
+    subject: Literal["person", "object", "auto"] = Field("auto", description="主体类型提示")
+    refineEdges: bool = Field(True, description="是否精细化边缘处理")
+
+
+class BackgroundRemovalResponse(BaseModel):
+    """背景移除响应"""
+    success: bool
+    message: str
+    imageUrl: str  # PNG with transparent background
+
+
+class BackgroundReplacementRequest(BaseModel):
+    """背景替换请求"""
+    image: str = Field(..., description="原始图片 base64 编码")
+    backgroundScene: Literal["office", "nature", "tech", "fantasy", "solid", "blur"] = Field("nature", description="背景场景预设")
+    customPrompt: Optional[str] = Field(None, description="自定义场景描述")
+    backgroundColor: Optional[str] = Field("#FFFFFF", description="纯色背景颜色（仅当backgroundScene=solid时使用）")
+    matchLighting: bool = Field(True, description="是否匹配光照")
+    addDepth: bool = Field(True, description="是否添加景深效果")
+
+
+class BackgroundReplacementResponse(BaseModel):
+    """背景替换响应"""
+    success: bool
+    message: str
+    imageUrl: str
+
+
+# Storyboard Generation
+class StoryboardFrame(BaseModel):
+    """故事板单个分镜"""
+    frameNumber: int = Field(..., description="分镜序号")
+    imageUrl: str = Field(..., description="分镜图片 base64")
+    description: str = Field(..., description="分镜场景描述")
+    shotType: str = Field(..., description="镜头类型")
+
+
+class StoryboardRequest(BaseModel):
+    """故事板生成请求"""
+    storyPrompt: str = Field(..., description="故事情节描述")
+    characterImage: Optional[str] = Field(None, description="角色参考图 base64（可选）")
+    numFrames: int = Field(6, description="分镜数量 4-8", ge=4, le=8)
+    style: str = Field("photorealistic", description="画面风格")
+    shotTypes: Optional[List[str]] = Field(None, description="偏好镜头类型")
+
+
+class StoryboardResponse(BaseModel):
+    """故事板生成响应"""
+    success: bool
+    message: str
+    frames: List[StoryboardFrame]

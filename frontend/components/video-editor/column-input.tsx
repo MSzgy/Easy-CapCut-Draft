@@ -206,6 +206,13 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   // Image Preview State
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
 
+  // Storyboard Generation State
+  const [generateStoryboard, setGenerateStoryboard] = useState(false)
+  const [storyboardNumFrames, setStoryboardNumFrames] = useState(6)
+
+  // Scene Image Generation State
+  const [generateSceneImages, setGenerateSceneImages] = useState(true) // 默认生成图片
+
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -368,6 +375,48 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
     setCrawlerSummary([])
 
     try {
+      // Check if storyboard generation is enabled
+      if (generateStoryboard) {
+        // Prepare prompt based on active tab
+        let storyPrompt = ""
+        if (activeTab === "prompt") {
+          storyPrompt = prompt
+        } else if (activeTab === "upload" && uploadedAssets.length > 0) {
+          storyPrompt = "根据提供的素材生成分镜故事板"
+        } else if (activeTab === "url") {
+          storyPrompt = `根据网页内容 (${url}) 生成分镜故事板`
+        }
+
+        const response = await aiContentApi.generateStoryboard(
+          storyPrompt || "生成故事板分镜",
+          undefined, // character image - can be added later
+          storyboardNumFrames,
+          scriptType // use selected style
+        )
+
+        if (response.success && response.frames) {
+          // Convert storyboard frames to scenes format
+          const scenes: SceneContent[] = response.frames.map((frame: any, idx: number) => ({
+            id: `scene_${idx + 1}`,
+            timestamp: `0:${(idx * 3).toString().padStart(2, '0')} - 0:${((idx + 1) * 3).toString().padStart(2, '0')}`,
+            script: frame.description,
+            imageUrl: frame.imageUrl,
+            imageDescription: `分镜 ${frame.frameNumber} - ${frame.shotType}`
+          }))
+
+          onGenerate({ scenes, coverUrl: generatedCover || undefined })
+
+          toast({
+            title: "故事板生成成功",
+            description: `已生成${response.frames.length}个分镜`,
+          })
+        }
+
+        setIsGenerating(false)
+        return
+      }
+
+      // Normal content generation flow
       if (activeTab === "url") {
         await simulateCrawler()
       }
@@ -384,6 +433,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         styleKeywords: selectedStyle ? videoStyleKeywords[selectedStyle] : undefined,
         url: activeTab === "url" ? url : undefined,
         copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
+        generateImages: generateSceneImages, // 新增：控制是否生成场景图片
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
           id: asset.id,
           name: asset.name,
@@ -394,8 +444,14 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
       })
 
       if (response.success) {
+        // Explicitly clear images if the toggle is off, just in case backend returns something
+        const processedScenes = response.scenes.map(s => ({
+          ...s,
+          imageUrl: generateSceneImages ? s.imageUrl : "",
+        }));
+
         onGenerate({
-          scenes: response.scenes,
+          scenes: processedScenes,
           coverUrl: response.coverUrl || generatedCover || undefined,
           copy: response.copy
         })
@@ -726,6 +782,63 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                 </Select>
               </div>
 
+              {/* Storyboard Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="storyboard-upload"
+                    checked={generateStoryboard}
+                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="storyboard-upload"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    🎬 生成故事板分镜
+                  </label>
+                </div>
+
+                {generateStoryboard && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
+                      <SelectTrigger className="bg-secondary h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4个分镜</SelectItem>
+                        <SelectItem value="6">6个分镜</SelectItem>
+                        <SelectItem value="8">8个分镜</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
+              {!generateStoryboard && (
+                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="scene-images-upload"
+                      checked={generateSceneImages}
+                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="scene-images-upload"
+                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      🖼️ 生成场景配图
+                    </label>
+                  </div>
+                  {!generateSceneImages && (
+                    <p className="pl-6 text-[10px] text-muted-foreground">
+                      仅生成文本脚本，不生成AI图片（更快速）
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Copy Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
@@ -809,6 +922,63 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Storyboard Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="storyboard-prompt"
+                    checked={generateStoryboard}
+                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="storyboard-prompt"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    🎬 生成故事板分镜
+                  </label>
+                </div>
+
+                {generateStoryboard && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
+                      <SelectTrigger className="bg-secondary h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4个分镜</SelectItem>
+                        <SelectItem value="6">6个分镜</SelectItem>
+                        <SelectItem value="8">8个分镜</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
+              {!generateStoryboard && (
+                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="scene-images-prompt"
+                      checked={generateSceneImages}
+                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="scene-images-prompt"
+                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      🖼️ 生成场景配图
+                    </label>
+                  </div>
+                  {!generateSceneImages && (
+                    <p className="pl-6 text-[10px] text-muted-foreground">
+                      仅生成文本脚本，不生成AI图片（更快速）
+                    </p>
+                  )}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="url" className="mt-3 space-y-3">
@@ -888,6 +1058,65 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Storyboard Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="storyboard-url"
+                    checked={generateStoryboard}
+                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="storyboard-url"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    🎬 生成故事板分镜
+                  </label>
+                </div>
+
+                {generateStoryboard && (
+                  <div className="space-y-1.5 pl-6">
+                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
+                      <SelectTrigger className="bg-secondary h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4个分镜</SelectItem>
+                        <SelectItem value="6">6个分镜</SelectItem>
+                        <SelectItem value="8">8个分镜</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+
+
+              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
+              {!generateStoryboard && (
+                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="scene-images-url"
+                      checked={generateSceneImages}
+                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="scene-images-url"
+                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      🖼️ 生成场景配图
+                    </label>
+                  </div>
+                  {!generateSceneImages && (
+                    <p className="pl-6 text-[10px] text-muted-foreground">
+                      仅生成文本脚本，不生成AI图片（更快速）
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Copy Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
