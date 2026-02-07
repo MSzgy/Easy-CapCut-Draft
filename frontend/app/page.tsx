@@ -10,6 +10,8 @@ import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vau
 import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
 import { ImageStudio } from "@/components/video-editor/image-studio"
 
+import { ConfigPage } from "@/components/video-editor/config-page"
+
 export default function VideoEditorPage() {
   const [activeTab, setActiveTab] = useState<TabType>("workbench")
   const [generatedContent, setGeneratedContent] = useState<GeneratedOutput | null>(null)
@@ -20,6 +22,7 @@ export default function VideoEditorPage() {
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([])
   const [outputRecords, setOutputRecords] = useState<OutputRecord[]>([])
   const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
+  const [modelProvider, setModelProvider] = useState<"gemini" | "huggingface">("gemini")
 
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
@@ -189,7 +192,10 @@ export default function VideoEditorPage() {
 
         {activeTab === "image-studio" && (
           <main className="flex-1 overflow-hidden p-4">
-            <ImageStudio onStoryboardGenerated={setStoryboardFrames} />
+            <ImageStudio
+              onStoryboardGenerated={setStoryboardFrames}
+              modelProvider={modelProvider}
+            />
           </main>
         )}
 
@@ -208,6 +214,15 @@ export default function VideoEditorPage() {
               records={outputRecords}
               onDelete={handleDeleteRecord}
               onReEdit={() => setActiveTab("workbench")}
+            />
+          </main>
+        )}
+
+        {activeTab === "configuration" && (
+          <main className="flex-1 overflow-hidden p-4">
+            <ConfigPage
+              provider={modelProvider}
+              setProvider={setModelProvider}
             />
           </main>
         )}

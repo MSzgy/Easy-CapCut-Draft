@@ -12,6 +12,7 @@ import {
   Sun,
   Video,
   Sparkles,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +24,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type TabType = "workbench" | "image-studio" | "media-vault" | "output-archive"
+export type TabType = "workbench" | "image-studio" | "media-vault" | "output-archive" | "configuration"
 
 interface AppSidebarProps {
   activeTab: TabType
@@ -56,6 +57,12 @@ const navItems = [
     label: "Output Archive",
     icon: Archive,
     description: "Export History & Downloads",
+  },
+  {
+    id: "configuration" as TabType,
+    label: "Configuration",
+    icon: Settings,
+    description: "Global settings & preferences",
   },
 ]
 

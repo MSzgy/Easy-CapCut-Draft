@@ -106,9 +106,10 @@ const resolutions = [
 
 interface ImageStudioProps {
     onStoryboardGenerated?: (frames: any[]) => void
+    modelProvider?: "gemini" | "huggingface"
 }
 
-export function ImageStudio({ onStoryboardGenerated }: ImageStudioProps = {}) {
+export function ImageStudio({ onStoryboardGenerated, modelProvider = "gemini" }: ImageStudioProps = {}) {
     const { toast } = useToast()
 
     // Phase 2 & 3: Generation mode 
@@ -582,6 +583,7 @@ export function ImageStudio({ onStoryboardGenerated }: ImageStudioProps = {}) {
                         denoisingStrength: denoisingStrength[0] / 100,
                         preserveComposition: preserveComposition,
                         styleWeights: weights,
+                        provider: modelProvider,
                     })
 
                     if (response.success) {

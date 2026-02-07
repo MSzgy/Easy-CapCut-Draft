@@ -49,6 +49,7 @@ export interface GenerateCoverRequest {
   denoisingStrength?: number
   preserveComposition?: boolean
   styleWeights?: { [styleId: string]: number }
+  provider?: "gemini" | "huggingface"
 }
 
 export interface GenerateCoverResponse {

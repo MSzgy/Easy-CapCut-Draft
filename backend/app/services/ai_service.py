@@ -1,6 +1,7 @@
 import httpx
 import json
 import base64
+from gradio_client import Client, handle_file
 import io
 from typing import Optional, Dict, Any
 # from PIL import Image
@@ -1179,8 +1180,14 @@ Keep descriptions visual and specific for image generation."""
         height: int = 1024,
         width: int = 1024,
         num_inference_steps: int = 9,
-        seed: int = 42,
+        seed: int = 32,
         randomize_seed: bool = True,
+        theme: str = "",
+        style: str = "",
+        keywords: str = "",
+        negative_prompt: str = "",
+        style_mix: str = "",
+        i2i: str = "",
     ) -> str:
         """使用 Hugging Face 生成图片
         
@@ -1195,15 +1202,27 @@ Keep descriptions visual and specific for image generation."""
         Returns:
             str: 生成的图片 base64 编码（data URL 格式）
         """
+        # system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
+        #                             1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
+        #                             2. 符合用户要求
+        #                             3. 符合平台内容审核标准
+        #                             4. 主题：{theme}
+        #                             5. 风格：{style}{keywords}{negative_prompt}{style_mix}{i2i}
+        #                             6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分-适合：
+        #                             - 奢华生活方式目录
+        #                             - 纪实肖像展览
+        #                             - 医学或人类学可视化
+        #                             - 优质品牌叙事活动
+        #                             - 美术摄影收藏
+        #                         """
+        # prompt = system_message + prompt
         try:
-            from gradio_client import Client
-            import base64
             
             # 在线程中运行同步的 Gradio 客户端调用
             import asyncio
             
             def run_gradio_client():
-                client = Client("Imosu/Z-Image-Turbo")
+                client = Client("Imosu/Z-Image-Turbo", token=settings.HF_TOKEN)
                 return client.predict(
                     prompt=prompt,
                     height=height,
@@ -1216,49 +1235,152 @@ Keep descriptions visual and specific for image generation."""
             
             # 异步运行
             result = await asyncio.to_thread(run_gradio_client)
-            
-            # 根据 API 文档，result 是一个 tuple: (image_dict, seed_used)
-            # image_dict 包含: {path, url, size, orig_name, mime_type, is_stream, meta}
+            print(result)
+            # 根据 API 文档，result 是一个 tuple: (image_path, seed_used)
+            # 或者 (image_dict, seed_used) 取决于 API 版本
             if isinstance(result, tuple) and len(result) >= 1:
                 image_info = result[0]
                 seed_used = result[1] if len(result) > 1 else seed
                 
-                # 优先使用 path（本地文件）
-                if image_info.get('path'):
-                    file_path = image_info['path']
+                # 处理返回的是字符串路径的情况
+                if isinstance(image_info, str):
+                    file_path = image_info
                     with open(file_path, 'rb') as f:
                         image_data = base64.b64encode(f.read()).decode()
-                    
-                    # 根据 mime_type 确定图片格式
-                    mime_type = image_info.get('mime_type', 'image/png')
-                    return f"data:{mime_type};base64,{image_data}"
+                    return f"data:image/png;base64,{image_data}"
                 
-                # 如果有 url，直接返回（如果是 base64 编码）
-                elif image_info.get('url'):
-                    url = image_info['url']
-                    # 如果已经是 data URL，直接返回
-                    if url.startswith('data:'):
-                        return url
-                    # 如果是 base64 字符串，转换为 data URL
-                    elif not url.startswith('http'):
+                # 处理返回的是字典的情况
+                elif isinstance(image_info, dict):
+                    # 优先使用 path（本地文件）
+                    if image_info.get('path'):
+                        file_path = image_info['path']
+                        with open(file_path, 'rb') as f:
+                            image_data = base64.b64encode(f.read()).decode()
+                        
+                        # 根据 mime_type 确定图片格式
                         mime_type = image_info.get('mime_type', 'image/png')
-                        return f"data:{mime_type};base64,{url}"
-                    # 如果是 HTTP URL，需要下载
-                    else:
-                        import httpx
-                        async with httpx.AsyncClient() as http_client:
-                            response = await http_client.get(url)
-                            response.raise_for_status()
-                            image_data = base64.b64encode(response.content).decode()
+                        return f"data:{mime_type};base64,{image_data}"
+                    
+                    # 如果有 url，直接返回（如果是 base64 编码）
+                    elif image_info.get('url'):
+                        url = image_info['url']
+                        # 如果已经是 data URL，直接返回
+                        if url.startswith('data:'):
+                            return url
+                        # 如果是 base64 字符串，转换为 data URL
+                        elif not url.startswith('http'):
                             mime_type = image_info.get('mime_type', 'image/png')
-                            return f"data:{mime_type};base64,{image_data}"
+                            return f"data:{mime_type};base64,{url}"
+                        # 如果是 HTTP URL，需要下载
+                        else:
+                            import httpx
+                            async with httpx.AsyncClient() as http_client:
+                                response = await http_client.get(url)
+                                response.raise_for_status()
+                                image_data = base64.b64encode(response.content).decode()
+                                mime_type = image_info.get('mime_type', 'image/png')
+                                return f"data:{mime_type};base64,{image_data}"
+                    else:
+                        raise Exception("API 返回的图片信息中没有 path 或 url")
                 else:
-                    raise Exception("API 返回的图片信息中没有 path 或 url")
+                    raise Exception(f"不支持的图片信息类型: {type(image_info)}")
             else:
                 raise Exception(f"API 返回格式不符合预期: {type(result)}")
             
         except Exception as e:
             raise Exception(f"Hugging Face 图片生成失败: {str(e)}")
+
+    async def generate_video_huggingface(
+        self,
+        input_image: str,
+        prompt: str,
+        steps: int = 6,
+        negative_prompt: str = "色调艳丽, 过曝, 静态, 细节模糊不清, 字幕, 风格, 作品, 画作, 画面, 静止, 整体发灰, 最差质量, 低质量, JPEG压缩残留, 丑陋的, 残缺的, 多余的手指, 画得不好的手部, 画得不好的脸部, 畸形的, 毁容的, 形态畸形的肢体, 手指融合, 静止不动的画面, 杂乱的背景, 三条腿, 背景人很多, 倒着走",
+        duration_seconds: float = 3.5,
+        guidance_scale: float = 1.0,
+        guidance_scale_2: float = 1.0,
+        seed: int = 42,
+        randomize_seed: bool = True,
+    ) -> str:
+        """使用 Hugging Face 生成视频
+        
+        Args:
+            input_image: 输入图片的 URL 或文件路径
+            prompt: 视频生成提示词
+            steps: 推理步数
+            negative_prompt: 负面提示词
+            duration_seconds: 视频时长（秒）
+            guidance_scale: 引导尺度
+            guidance_scale_2: 第二引导尺度
+            seed: 随机种子
+            randomize_seed: 是否随机种子
+            
+        Returns:
+            str: 生成的视频文件路径
+        """
+        try:
+            
+            # 在线程中运行同步的 Gradio 客户端调用
+            import asyncio
+            
+            def run_gradio_client():
+                client = Client("Imosu/Dream-wan2-2-faster-Pro", token=settings.HF_TOKEN)
+                return client.predict(
+                    input_image=handle_file(input_image),
+                    prompt=prompt,
+                    steps=steps,
+                    negative_prompt=negative_prompt,
+                    duration_seconds=duration_seconds,
+                    guidance_scale=guidance_scale,
+                    guidance_scale_2=guidance_scale_2,
+                    seed=seed,
+                    randomize_seed=randomize_seed,
+                    api_name="/generate_video"
+                )
+            
+            # 异步运行
+            result = await asyncio.to_thread(run_gradio_client)
+            
+            # 根据 API 返回值处理结果
+            # result 通常是 (video_path, seed) 或者 video_path 字符串
+            if isinstance(result, tuple) and len(result) >= 1:
+                video_info = result[0]
+                
+                # 处理返回的是字符串路径的情况
+                if isinstance(video_info, str):
+                    return video_info
+                
+                # 处理返回的是字典的情况
+                elif isinstance(video_info, dict):
+                    if video_info.get('path'):
+                        return video_info['path']
+                    elif video_info.get('url'):
+                        return video_info['url']
+                    else:
+                        raise Exception(f"API 返回的视频信息格式不符合预期: {video_info}")
+                else:
+                    raise Exception(f"不支持的视频信息类型: {type(video_info)}")
+            elif isinstance(result, str):
+                # 如果直接返回字符串路径
+                return result
+            elif isinstance(result, dict):
+                # 如果直接返回字典
+                if result.get('path'):
+                    return result['path']
+                elif result.get('url'):
+                    return result['url']
+                else:
+                    raise Exception(f"API 返回的视频信息格式不符合预期: {result}")
+            else:
+                raise Exception(f"API 返回格式不符合预期: {type(result)}")
+            
+        except Exception as e:
+            raise Exception(f"Hugging Face 视频生成失败: {str(e)}")
+
+    async def close(self):
+
+        """关闭HTTP客户端连接"""
+        await self.client.aclose()
 
     async def close(self):
 

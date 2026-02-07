@@ -24,7 +24,9 @@ from app.schemas.ai_schemas import (
     StoryboardResponse,
     SceneContent,
     HuggingFaceImageRequest,
-    HuggingFaceImageResponse
+    HuggingFaceImageResponse,
+    HuggingFaceVideoRequest,
+    HuggingFaceVideoResponse
 )
 from app.services.ai_service import openai_service
 from typing import List
@@ -577,21 +579,47 @@ async def generate_content(request: GenerateContentRequest):
 async def generate_cover(request: GenerateCoverRequest):
     """生成AI封面"""
     try:
-        # Phase 2: 支持高级参数
-        data = await openai_service.generate_image_gemini_format(
-            prompt=request.prompt, 
-            style=request.style,
-            style_keywords=request.styleKeywords,
-            negative_prompt=request.negativePrompt,
-            theme=request.theme, 
-            size=request.size,
-            resolution=request.resolution,
-            # Phase 2 新增参数
-            reference_image=request.referenceImage,
-            denoising_strength=request.denoisingStrength or 0.7,
-            preserve_composition=request.preserveComposition or False,
-            style_weights=request.styleWeights
-        )
+        if request.provider == "huggingface":
+            # 解析分辨率
+            width, height = 1024, 1024
+            if request.resolution:
+                try:
+                    # 尝试解析 "1024x1024" 格式
+                    if 'x' in request.resolution.lower():
+                        parts = request.resolution.lower().split('x')
+                        if len(parts) == 2:
+                            width = int(parts[0])
+                            height = int(parts[1])
+                    # 尝试解析 "1024" 格式
+                    elif request.resolution.isdigit():
+                        size = int(request.resolution)
+                        width, height = size, size
+                except:
+                    print(f"分辨率解析失败: {request.resolution}, 使用默认值 1024x1024")
+            
+            data = await openai_service.generate_image_huggingface(
+                prompt=request.prompt,
+                width=width,
+                height=height,
+                # 其他参数暂且使用默认值，后续可扩展
+            )
+        else:
+            # Phase 2: 支持高级参数 (Gemini)
+            data = await openai_service.generate_image_gemini_format(
+                prompt=request.prompt, 
+                style=request.style,
+                style_keywords=request.styleKeywords,
+                negative_prompt=request.negativePrompt,
+                theme=request.theme, 
+                size=request.size,
+                resolution=request.resolution,
+                # Phase 2 新增参数
+                reference_image=request.referenceImage,
+                denoising_strength=request.denoisingStrength or 0.7,
+                preserve_composition=request.preserveComposition or False,
+                style_weights=request.styleWeights
+            )
+            
         return GenerateCoverResponse(
             success=True,
             message="封面生成成功",
@@ -843,4 +871,36 @@ async def generate_image_huggingface(request: HuggingFaceImageRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Hugging Face 图片生成失败: {str(e)}"
+        )
+
+
+@router.post("/generate-video-hf", response_model=HuggingFaceVideoResponse)
+async def generate_video_huggingface(request: HuggingFaceVideoRequest):
+    """使用 Hugging Face 模型生成视频
+    
+    这个端点使用 Hugging Face 的 Dream-wan2-2-faster-Pro 模型，
+    从静态图片生成动态视频内容。
+    """
+    try:
+        result = await openai_service.generate_video_huggingface(
+            input_image=request.inputImage,
+            prompt=request.prompt,
+            steps=request.steps,
+            negative_prompt=request.negativePrompt,
+            duration_seconds=request.durationSeconds,
+            guidance_scale=request.guidanceScale,
+            guidance_scale_2=request.guidanceScale2,
+            seed=request.seed,
+            randomize_seed=request.randomizeSeed
+        )
+        
+        return HuggingFaceVideoResponse(
+            success=True,
+            message="视频生成成功",
+            videoUrl=result
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hugging Face 视频生成失败: {str(e)}"
         )

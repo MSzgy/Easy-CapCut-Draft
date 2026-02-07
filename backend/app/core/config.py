@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     WEB_TOOL_MODEL: str = "gemini-2.5-flash"
     IMAGE_MODEL: str = "gemini-3-pro-image-preview"
     OPENAI_MAX_TOKENS: int = 200000
+    HF_TOKEN: str = ""  # Hugging Face API Token
 
     # 可选的Claude配置
     ANTHROPIC_API_KEY: str = ""

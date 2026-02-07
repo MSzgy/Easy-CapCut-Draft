@@ -68,6 +68,7 @@ class GenerateCoverRequest(BaseModel):
     denoisingStrength: Optional[float] = Field(0.7, description="重绘强度 0-1，值越低保留原图越多")
     preserveComposition: Optional[bool] = Field(False, description="是否保留原图构图")
     styleWeights: Optional[dict] = Field(None, description="风格权重映射，如 {'cyberpunk': 0.6, 'watercolor': 0.4}")
+    provider: Optional[Literal["gemini", "huggingface"]] = Field("gemini", description="AI provider: gemini or huggingface")
 
 
 class GenerateCoverResponse(BaseModel):
@@ -239,4 +240,28 @@ class HuggingFaceImageResponse(BaseModel):
     success: bool
     message: str
     imageUrl: str
+
+
+# Hugging Face Video Generation
+class HuggingFaceVideoRequest(BaseModel):
+    """Hugging Face 视频生成请求"""
+    inputImage: str = Field(..., description="输入图片的 URL 或文件路径")
+    prompt: str = Field(..., description="视频生成提示词")
+    steps: int = Field(6, description="推理步数", ge=1, le=50)
+    negativePrompt: str = Field(
+        "色调艳丽, 过曝, 静态, 细节模糊不清, 字幕, 风格, 作品, 画作, 画面, 静止, 整体发灰, 最差质量, 低质量, JPEG压缩残留, 丑陋的, 残缺的, 多余的手指, 画得不好的手部, 画得不好的脸部, 畸形的, 毁容的, 形态畸形的肢体, 手指融合, 静止不动的画面, 杂乱的背景, 三条腿, 背景人很多, 倒着走",
+        description="负面提示词"
+    )
+    durationSeconds: float = Field(3.5, description="视频时长（秒）", ge=1.0, le=10.0)
+    guidanceScale: float = Field(1.0, description="引导尺度", ge=0.0, le=20.0)
+    guidanceScale2: float = Field(1.0, description="第二引导尺度", ge=0.0, le=20.0)
+    seed: int = Field(42, description="随机种子")
+    randomizeSeed: bool = Field(True, description="是否随机种子")
+
+
+class HuggingFaceVideoResponse(BaseModel):
+    """Hugging Face 视频生成响应"""
+    success: bool
+    message: str
+    videoUrl: str
 
