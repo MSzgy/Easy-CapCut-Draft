@@ -20,8 +20,6 @@ const nextConfig = {
       // 如果你使用了 Server Actions 并且报错，也可以在这里配置
       allowedOrigins: ["192.168.71.29:3000", "localhost:3000"],
     },
-    // 这是针对你看到的这个警告的配置
-    allowedDevOrigins: ["192.168.71.29:3000"],
   },
   async headers() {
     return [

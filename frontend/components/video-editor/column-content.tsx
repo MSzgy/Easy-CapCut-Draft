@@ -391,7 +391,8 @@ export function ColumnContent({
                         )}
                       </div>
 
-                      {/* Image Carousel/Grid */}
+                      {/* Image Carousel/Grid - Hidden for now, only show single main image */}
+                      {/* TODO: Uncomment when multiple suggestions feature is needed
                       <div className="grid grid-cols-4 gap-1.5">
                         {(() => {
                           // Use storyboard frames if available and matches scene index
@@ -428,6 +429,7 @@ export function ColumnContent({
                           })
                         })()}
                       </div>
+                      */}
                     </div>
                   )}
                 </div>

@@ -221,3 +221,22 @@ class StoryboardResponse(BaseModel):
     success: bool
     message: str
     frames: List[StoryboardFrame]
+
+
+# Hugging Face Image Generation
+class HuggingFaceImageRequest(BaseModel):
+    """Hugging Face 图片生成请求"""
+    prompt: str = Field(..., description="图片生成提示词")
+    height: int = Field(1024, description="图片高度", ge=512, le=2048)
+    width: int = Field(1024, description="图片宽度", ge=512, le=2048)
+    numInferenceSteps: int = Field(9, description="推理步数，越高质量越好但越慢", ge=1, le=50)
+    seed: int = Field(42, description="随机种子")
+    randomizeSeed: bool = Field(True, description="是否随机种子")
+
+
+class HuggingFaceImageResponse(BaseModel):
+    """Hugging Face 图片生成响应"""
+    success: bool
+    message: str
+    imageUrl: str
+

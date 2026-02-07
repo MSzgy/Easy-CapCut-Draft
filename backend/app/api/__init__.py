@@ -10,6 +10,10 @@ router.include_router(test.router, prefix="/test", tags=["Test"])
 # 注册AI内容生成路由
 router.include_router(ai_content.router, prefix="/ai", tags=["AI Content"])
 
+# 注册视频生成路由
+from app.api.routes import video_gen
+router.include_router(video_gen.router, prefix="/video", tags=["Video Generation"])
+
 # 导入子路由（稍后会创建）
 # from app.api.routes import projects, media, scripts, covers, music, drafts
 

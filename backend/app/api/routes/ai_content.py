@@ -22,7 +22,9 @@ from app.schemas.ai_schemas import (
     BackgroundReplacementResponse,
     StoryboardRequest,
     StoryboardResponse,
-    SceneContent
+    SceneContent,
+    HuggingFaceImageRequest,
+    HuggingFaceImageResponse
 )
 from app.services.ai_service import openai_service
 from typing import List
@@ -170,52 +172,105 @@ async def extract_url_content(url: str) -> dict:
         }
 
 
-async def generate_images_for_scenes(scenes: List[SceneContent], openai_service):
-    """为场景批量生成图片"""
-    import asyncio
+async def generate_images_for_scenes(scenes: List[SceneContent], openai_service, unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True):
+    """为场景批量生成图片，保持风格一致性
     
-    async def generate_single_image(scene: SceneContent, index: int):
+    Args:
+        scenes: 场景列表
+        openai_service: AI服务实例
+        unified_style: 统一视觉风格（如 "cinematic", "minimal" 等）
+        style_keywords: 风格关键词列表，增强风格一致性
+        use_style_reference: 是否使用第一张图片作为风格参考
+    """
+    total_scenes = len(scenes)
+    style_reference_image: str = None  # 存储第一张图片作为风格参考
+    
+    async def generate_single_image(scene: SceneContent, index: int, style_ref: str = None):
         """为单个场景生成图片"""
         try:
-            # 构建详细的图片生成prompt
-            prompt = scene.imageMetadata.description if scene.imageMetadata else scene.imageDescription
+            # 构建基础prompt
+            base_prompt = scene.imageMetadata.description if scene.imageMetadata else scene.imageDescription
             
-            # 添加风格和情绪信息
+            # 添加统一风格约束前缀（确保分镜风格一致）- 不使用标签格式避免被渲染成文字
+            style_prefix = ""
+            if unified_style:
+                style_prefix = f"Visual style: {unified_style}. "
+            
+            # 如果有风格参考图片，添加风格参考提示（强调只参考风格，不复制内容）
+            if style_ref:
+                style_prefix += "Use the reference image ONLY for style guidance (color palette, lighting, artistic style, character appearance). Generate NEW and DIFFERENT scene content as described below. Do NOT copy the reference image content. "
+            
+            # 添加风格关键词后缀
+            keywords_suffix = ""
+            if style_keywords and len(style_keywords) > 0:
+                keywords_suffix = f". Style keywords: {', '.join(style_keywords)}"
+            
+            # 组合完整prompt
+            prompt = style_prefix + base_prompt
+            
+            # 添加场景自身的风格和情绪信息
             if scene.imageMetadata:
-                if scene.imageMetadata.style:
-                    prompt += f", {scene.imageMetadata.style} style"
                 if scene.imageMetadata.mood:
                     prompt += f", {scene.imageMetadata.mood} mood"
                 if scene.imageMetadata.color_scheme:
                     prompt += f", {scene.imageMetadata.color_scheme} color scheme"
             
-            print(f"🎨 Generating image for Scene {index + 1}: {prompt[:50]}...")
+            # 关键：禁止在图片中渲染任何文字
+            prompt += ". CRITICAL: DO NOT render any text, labels, titles, watermarks, or descriptions in the image. Pure visual content only, NO text overlays"
+            prompt += keywords_suffix
             
-            # 调用图片生成API (使用gemini格式)
+            ref_status = "with style ref" if style_ref else "first image"
+            print(f"🎨 Generating Scene {index + 1} ({ref_status}): {prompt[:70]}...")
+            
+            # 确定统一的风格
+            final_style = unified_style if unified_style else (scene.imageMetadata.style if scene.imageMetadata and scene.imageMetadata.style else "photorealistic")
+            
+            # 调用图片生成API
+            # 使用较高的 denoising_strength (0.75-0.8) 允许内容变化，同时保持风格一致
+            # 第一张图无参考，后续图片使用第一张作为风格参考
+            denoising = 0.78 if style_ref else 0.7
+            
             image_url = await openai_service.generate_image_gemini_format(
                 prompt=prompt,
-                style=scene.imageMetadata.style if scene.imageMetadata and scene.imageMetadata.style else "photorealistic",
+                style=final_style,
+                style_keywords=style_keywords,
                 theme="video_scene",
                 size="16:9",
                 resolution="1024",
-                reference_image=None,
-                denoising_strength=0.7,
-                preserve_composition=False
+                reference_image=style_ref,
+                denoising_strength=denoising,
+                preserve_composition=False  # 不保留构图，只保留风格
             )
             
             # 更新场景的imageUrl
             scene.imageUrl = image_url
             print(f"✅ Scene {index + 1} 图片生成成功")
             
+            return image_url
+            
         except Exception as e:
             print(f"⚠️ Scene {index + 1} 图片生成失败: {str(e)}")
             # 使用占位图片
             scene.imageUrl = f"https://images.unsplash.com/photo-{1460925895917+index}?w=400&h=300&fit=crop"
+            return None
     
-    # 并行生成所有图片
-    print(f"🚀 开始并行生成 {len(scenes)} 个场景的图片...")
-    tasks = [generate_single_image(scene, i) for i, scene in enumerate(scenes)]
-    await asyncio.gather(*tasks, return_exceptions=True)
+    print(f"🚀 开始生成 {len(scenes)} 个场景的图片（统一风格: {unified_style or 'default'}，风格参考: {'启用' if use_style_reference else '禁用'}）...")
+    
+    if use_style_reference:
+        # 策略：用第一张图作为所有后续图片的风格参考
+        for i, scene in enumerate(scenes):
+            if i == 0:
+                # 第一张图：直接生成，作为风格基准
+                style_reference_image = await generate_single_image(scene, i, None)
+            else:
+                # 后续图片：使用第一张作为风格参考
+                await generate_single_image(scene, i, style_reference_image)
+    else:
+        # 并行生成（不使用风格参考）
+        import asyncio
+        tasks = [generate_single_image(scene, i, None) for i, scene in enumerate(scenes)]
+        await asyncio.gather(*tasks, return_exceptions=True)
+    
     print(f"✨ 所有场景图片生成完成")
 
 
@@ -341,9 +396,9 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
                 imageMetadata=image_metadata
             ))
 
-        # 并行生成所有场景的图片
+        # 并行生成所有场景的图片（传递统一风格参数保持一致性）
         if scenes and generate_images:
-            await generate_images_for_scenes(scenes, openai_service)
+            await generate_images_for_scenes(scenes, openai_service, video_style, style_keywords)
 
         return scenes
 
@@ -375,93 +430,6 @@ async def generate_scenes_from_url(url: str, video_style: str = None, copy_style
         generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
         scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images)
         return scenes, generated_copy
-    except Exception as e:
-        print(f"从URL生成场景失败: {str(e)}")
-        raise
-    # # 2. 生成文案 (如果需要)
-    # if copy_style:
-    #     content_text = f"{web_content['title']}\n{web_content['description']}\n{web_content['main_content']}"
-    #     try:
-    #         generated_copy = await openai_service.generate_copy(content_text, copy_style)
-    #     except Exception as e:
-    #         print(f"文案生成失败: {str(e)}")
-    
-    # # 3. 使用AI分析网页内容并生成场景
-    # system_message = f"""你是一个专业的视频内容创作专家。
-    #                     根据用户的提示词和视频风格，生成6-8个场景，每个场景包含：
-    #                     - timestamp: 时间戳（格式：0:00 - 0:05）
-    #                     - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
-    #                     - image: 图片详细信息对象
-
-    #                     视频风格：{video_style}
-    #                 """
-
-    # user_prompt = f"""网页内容：
-    #                 标题：{web_content['title']}
-    #                 描述：{web_content['description']}
-    #                 关键词：{', '.join(web_content['keywords'])}
-    #                 主要内容：{web_content['main_content']}
-
-    #                 请生成6个场景，以JSON数组格式返回，每个场景包含：   
-    #                 {{
-    #                     "timestamp": "时间戳",
-    #                     "script": "脚本内容",
-    #                     "image": {{
-    #                         "description": "图片描述(用于AI生成图片)",
-    #                         "tags": ["标签1", "标签2", "标签3"],
-    #                         "mood": "情绪/氛围",
-    #                         "color_scheme": "主要色调",
-    #                         "composition": "构图说明",
-    #                         "style": "视觉风格",
-    #                         "subjects": ["主体对象1", "主体对象2"],
-    #                         "scene_type": "场景类型"
-    #                     }}
-    #                 }}
-
-    #                 只返回JSON数组，不要其他说明文字。
-    #                 """
-    # try:
-    #     response = await openai_service.generate_completion_gemini_format(
-    #         prompt=user_prompt,
-    #         system_message=system_message,
-    #         temperature=0.7,
-    #         max_tokens=5000
-    #     )
-
-    #     # 简化处理，返回模拟场景
-    #     scenes = [
-    #         SceneContent(
-    #             id="scene_1",
-    #             timestamp="0:00 - 0:03",
-    #             script=f"介绍网站：{web_content['title']}",
-    #             imageUrl="https://images.unsplash.com/photo-1460925895917?w=400&h=300&fit=crop",
-    #             imageDescription="Website hero section"
-    #         ),
-    #         SceneContent(
-    #             id="scene_2",
-    #             timestamp="0:03 - 0:10",
-    #             script=web_content['description'],
-    #             imageUrl="https://images.unsplash.com/photo-1551288049?w=400&h=300&fit=crop",
-    #             imageDescription="Main features"
-    #         ),
-    #         SceneContent(
-    #             id="scene_3",
-    #             timestamp="0:10 - 0:20",
-    #             script="详细特性展示",
-    #             imageUrl="https://images.unsplash.com/photo-1553877522?w=400&h=300&fit=crop",
-    #             imageDescription="Feature details"
-    #         ),
-    #         SceneContent(
-    #             id="scene_4",
-    #             timestamp="0:20 - 0:30",
-    #             script="访问网站了解更多",
-    #             imageUrl="https://images.unsplash.com/photo-1559028012?w=400&h=300&fit=crop",
-    #             imageDescription="Call to action"
-    #         )
-    #     ]
-
-    #     return scenes, generated_copy
-
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
         raise
@@ -846,4 +814,33 @@ async def generate_storyboard(request: StoryboardRequest):
         raise HTTPException(
             status_code=500,
             detail=f"故事板生成失败: {str(e)}"
+        )
+
+
+@router.post("/generate-image-hf", response_model=HuggingFaceImageResponse)
+async def generate_image_huggingface(request: HuggingFaceImageRequest):
+    """使用 Hugging Face Turbo 模型生成图片
+    
+    这个端点使用 Hugging Face 的 Z-Image-Turbo 模型，提供快速的图片生成能力。
+    适合需要快速生成图片原型的场景。
+    """
+    try:
+        result = await openai_service.generate_image_huggingface(
+            prompt=request.prompt,
+            height=request.height,
+            width=request.width,
+            num_inference_steps=request.numInferenceSteps,
+            seed=request.seed,
+            randomize_seed=request.randomizeSeed
+        )
+        
+        return HuggingFaceImageResponse(
+            success=True,
+            message="图片生成成功",
+            imageUrl=result
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hugging Face 图片生成失败: {str(e)}"
         )

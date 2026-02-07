@@ -1,0 +1,27 @@
+meta {
+  name: generate-image-hf
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:8000/api/ai/generate-image-hf
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "prompt": "Young Chinese woman in red Hanfu, intricate embroidery. Impeccable makeu, red floral forehead pattern. Elaborate high bun, golden phoenix headdress, red flowers, beads. Holds round folding fan with lady, trees, bird. Neon lightning-bolt lamp, bright yellow glow, above extended left palm. Soft-lit outdoor night background, silhuetted tiered pagoda, blurred colorful distant lights.",
+    "height": "1024",
+    "width": "1024",
+    "num_inference_steps": "9",
+    "seed": "42",
+    "randomize_seed": "True"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

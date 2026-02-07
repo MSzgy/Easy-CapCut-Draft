@@ -1061,13 +1061,15 @@ Keep descriptions visual and specific for image generation."""
             shot_type_key = shot_types[i]
             shot_type_desc = SHOT_TYPES.get(shot_type_key, SHOT_TYPES["medium"])
             
-            # 构建完整提示词
-            full_prompt = f"Storyboard frame {i+1}/{num_frames}: {scene_desc}. "
+            # 构建完整提示词 - 注意：不要在prompt中包含可能被渲染成文字的内容
+            full_prompt = f"{scene_desc}. "
             full_prompt += f"Camera angle: {shot_type_desc}. "
-            full_prompt += f"Style: {style}, cinematic lighting, professional storyboard quality. "
+            full_prompt += f"Style: {style}, cinematic lighting, professional photography quality. "
+            # 关键：明确禁止在图片中渲染任何文字
+            full_prompt += "CRITICAL: DO NOT render any text, labels, titles, descriptions, frame numbers, or watermarks in the image. The image should contain ONLY visual content with NO text overlays whatsoever. "
             
             if character_image or previous_image:
-                full_prompt += "CRITICAL: Maintain consistent character appearance - "
+                full_prompt += "Maintain consistent character appearance - "
                 full_prompt += "same face, same clothing, same physical features. "
                 full_prompt += "ONLY change the pose, expression, and scene background based on the story moment."
             
@@ -1104,7 +1106,159 @@ Keep descriptions visual and specific for image generation."""
                 # 继续生成下一帧
                 continue
         
-        return frames
+                return frames
+                
+            except Exception as e:
+                print(f"Storyboard generation failed: {e}")
+                # 空列表
+                return []
+    
+    # Video Generation Services
+    # -------------------------------------------------------------------------
+    
+    def generate_full_video_project(
+        self,
+        project_id: str,
+        script_data: dict,
+        image_paths: list,
+        audio_paths: list,
+        mode: str = "capcut", # or "direct"
+        ai_enhanced: bool = False
+    ) -> str:
+        """
+        Generates a complete video project (CapCut Draft or MP4) from given assets.
+        
+        Args:
+            project_id: Unique identifier
+            script_data: Dict containing script sections/subtitles
+            image_paths: List of absolute paths to generated images
+            audio_paths: List of absolute paths to generated TTS audios
+            mode: "capcut" for .zip draft, "direct" for .mp4
+            ai_enhanced: If True, uses I2V models to animate images (only for 'direct' mode currently)
+            
+        Returns:
+            Absolute path to the generated file (.zip or .mp4)
+        """
+        from app.services.video.manager import VideoManager
+        
+        # Initialize Video Manager
+        # We use a dedicated output directory
+        video_output_dir = os.path.join(settings.UPLOAD_DIR, "video_outputs")
+        manager = VideoManager(output_base_dir=video_output_dir)
+        
+        # Create Timeline from raw assets
+        # Assuming script_data['sections'] corresponds to images/audio
+        # This mapping logic might need refinement based on exact script structure
+        
+        # Simplified assumption for MVP: 
+        # script_data = [{"text": "...", "duration": 5.0}, ...]
+        sections = script_data.get("sections", [])
+        if not sections and script_data.get("subtitles"):
+             # Fallback: estimate sections from subtitles or just use length of images
+             sections = [{"duration": 5.0} for _ in image_paths]
+             
+        timeline = manager.create_timeline_from_script(
+            project_id=project_id,
+            script_sections=sections,
+            images=image_paths,
+            audio_files=audio_paths
+        )
+        
+        # Generate
+        output_path = manager.process_video_generation(
+            timeline=timeline, 
+            mode=mode, 
+            ai_enhanced=ai_enhanced
+        )
+        
+        return output_path
+
+    async def generate_image_huggingface(
+        self,
+        prompt: str,
+        height: int = 1024,
+        width: int = 1024,
+        num_inference_steps: int = 9,
+        seed: int = 42,
+        randomize_seed: bool = True,
+    ) -> str:
+        """使用 Hugging Face 生成图片
+        
+        Args:
+            prompt: 图片生成提示词
+            height: 图片高度
+            width: 图片宽度
+            num_inference_steps: 推理步数（越高质量越好但越慢）
+            seed: 随机种子
+            randomize_seed: 是否随机种子
+            
+        Returns:
+            str: 生成的图片 base64 编码（data URL 格式）
+        """
+        try:
+            from gradio_client import Client
+            import base64
+            
+            # 在线程中运行同步的 Gradio 客户端调用
+            import asyncio
+            
+            def run_gradio_client():
+                client = Client("Imosu/Z-Image-Turbo")
+                return client.predict(
+                    prompt=prompt,
+                    height=height,
+                    width=width,
+                    num_inference_steps=num_inference_steps,
+                    seed=seed,
+                    randomize_seed=randomize_seed,
+                    api_name="/generate_image"
+                )
+            
+            # 异步运行
+            result = await asyncio.to_thread(run_gradio_client)
+            
+            # 根据 API 文档，result 是一个 tuple: (image_dict, seed_used)
+            # image_dict 包含: {path, url, size, orig_name, mime_type, is_stream, meta}
+            if isinstance(result, tuple) and len(result) >= 1:
+                image_info = result[0]
+                seed_used = result[1] if len(result) > 1 else seed
+                
+                # 优先使用 path（本地文件）
+                if image_info.get('path'):
+                    file_path = image_info['path']
+                    with open(file_path, 'rb') as f:
+                        image_data = base64.b64encode(f.read()).decode()
+                    
+                    # 根据 mime_type 确定图片格式
+                    mime_type = image_info.get('mime_type', 'image/png')
+                    return f"data:{mime_type};base64,{image_data}"
+                
+                # 如果有 url，直接返回（如果是 base64 编码）
+                elif image_info.get('url'):
+                    url = image_info['url']
+                    # 如果已经是 data URL，直接返回
+                    if url.startswith('data:'):
+                        return url
+                    # 如果是 base64 字符串，转换为 data URL
+                    elif not url.startswith('http'):
+                        mime_type = image_info.get('mime_type', 'image/png')
+                        return f"data:{mime_type};base64,{url}"
+                    # 如果是 HTTP URL，需要下载
+                    else:
+                        import httpx
+                        async with httpx.AsyncClient() as http_client:
+                            response = await http_client.get(url)
+                            response.raise_for_status()
+                            image_data = base64.b64encode(response.content).decode()
+                            mime_type = image_info.get('mime_type', 'image/png')
+                            return f"data:{mime_type};base64,{image_data}"
+                else:
+                    raise Exception("API 返回的图片信息中没有 path 或 url")
+            else:
+                raise Exception(f"API 返回格式不符合预期: {type(result)}")
+            
+        except Exception as e:
+            raise Exception(f"Hugging Face 图片生成失败: {str(e)}")
 
     async def close(self):
 
