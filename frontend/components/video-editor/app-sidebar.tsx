@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type TabType = "workbench" | "image-studio" | "media-vault" | "output-archive" | "configuration"
+export type TabType = "workbench" | "image-studio" | "video-studio" | "media-vault" | "output-archive" | "configuration"
 
 interface AppSidebarProps {
   activeTab: TabType
@@ -45,6 +45,12 @@ const navItems = [
     label: "Image Studio",
     icon: Sparkles,
     description: "Advanced AI Image Generation",
+  },
+  {
+    id: "video-studio" as TabType,
+    label: "Video Studio",
+    icon: Video,
+    description: "AI Video Generation from Images",
   },
   {
     id: "media-vault" as TabType,

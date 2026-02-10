@@ -9,6 +9,7 @@ import { SmartTimeline } from "@/components/video-editor/smart-timeline"
 import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vault"
 import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
 import { ImageStudio } from "@/components/video-editor/image-studio"
+import { VideoStudio } from "@/components/video-editor/video-studio"
 
 import { ConfigPage } from "@/components/video-editor/config-page"
 
@@ -196,6 +197,12 @@ export default function VideoEditorPage() {
               onStoryboardGenerated={setStoryboardFrames}
               modelProvider={modelProvider}
             />
+          </main>
+        )}
+
+        {activeTab === "video-studio" && (
+          <main className="flex-1 overflow-hidden p-4">
+            <VideoStudio />
           </main>
         )}
 

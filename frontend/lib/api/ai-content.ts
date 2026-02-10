@@ -332,4 +332,34 @@ export const aiContentApi = {
       throw new Error(apiError.detail || 'Failed to generate storyboard')
     }
   },
+
+  /**
+   * 图片音频转视频
+   */
+  async generateVideoImageAudio(request: {
+    firstFrame: string
+    endFrame?: string
+    prompt?: string
+    duration?: number
+    inputVideo?: string
+    generationMode?: 'Image-to-Video' | 'Video-to-Video'
+    enhancePrompt?: boolean
+    seed?: number
+    randomizeSeed?: boolean
+    height?: number
+    width?: number
+    cameraLora?: string
+    audioPath?: string
+  }): Promise<{
+    success: boolean
+    message: string
+    videoUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/generate-video-image-audio', request)
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to generate video from image and audio')
+    }
+  },
 }

@@ -1352,7 +1352,9 @@ Keep descriptions visual and specific for image generation."""
                 
                 # 处理返回的是字典的情况
                 elif isinstance(video_info, dict):
-                    if video_info.get('path'):
+                    if video_info.get('video'):
+                        return video_info['video']
+                    elif video_info.get('path'):
                         return video_info['path']
                     elif video_info.get('url'):
                         return video_info['url']
@@ -1365,7 +1367,9 @@ Keep descriptions visual and specific for image generation."""
                 return result
             elif isinstance(result, dict):
                 # 如果直接返回字典
-                if result.get('path'):
+                if result.get('video'):
+                    return result['video']
+                elif result.get('path'):
                     return result['path']
                 elif result.get('url'):
                     return result['url']
@@ -1376,6 +1380,122 @@ Keep descriptions visual and specific for image generation."""
             
         except Exception as e:
             raise Exception(f"Hugging Face 视频生成失败: {str(e)}")
+
+    async def generate_video_image_audio(
+        self,
+        first_frame: str,
+        end_frame: Optional[str] = None,
+        prompt: str = "Make this image come alive with cinematic motion, smooth animation",
+        duration: int = 5,
+        input_video: Optional[str] = None,
+        generation_mode: str = "Image-to-Video",
+        enhance_prompt: bool = True,
+        seed: int = 10,
+        randomize_seed: bool = True,
+        height: int = 512,
+        width: int = 768,
+        camera_lora: str = "No LoRA",
+        audio_path: Optional[str] = None,
+    ) -> str:
+        """使用 Hugging Face image_audio_to_video 生成视频"""
+        try:
+            import asyncio
+            import tempfile
+            import os
+
+            # Helper to process input (URL, Path, or Base64)
+            def process_input(input_val):
+                if not input_val:
+                    return None
+                
+                # Check for Base64 Data URI
+                if input_val.startswith("data:"):
+                    try:
+                        header, encoded = input_val.split(",", 1)
+                        data = base64.b64decode(encoded)
+                        
+                        # Determine extension
+                        ext = ".bin"
+                        if "image/jpeg" in header: ext = ".jpg"
+                        elif "image/png" in header: ext = ".png"
+                        elif "audio/mpeg" in header: ext = ".mp3"
+                        elif "audio/wav" in header: ext = ".wav"
+                        elif "video/mp4" in header: ext = ".mp4"
+                        
+                        # Create temp file
+                        tfile = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+                        tfile.write(data)
+                        tfile.close()
+                        return handle_file(tfile.name)
+                    except Exception as e:
+                        print(f"Base64 processing error: {e}")
+                        raise e
+                
+                # URL or Path
+                return handle_file(input_val)
+
+            def run_gradio_client():
+                client = Client("Imosu/image_audio_to_video", token=settings.HF_TOKEN)
+                
+                # Process inputs
+                p_first_frame = process_input(first_frame)
+                p_end_frame = process_input(end_frame)
+                p_input_video = process_input(input_video)
+                p_audio_path = process_input(audio_path)
+                
+                return client.predict(
+                    first_frame=p_first_frame,
+                    end_frame=p_end_frame,
+                    prompt=prompt,
+                    duration=duration,
+                    input_video=p_input_video,
+                    generation_mode=generation_mode,
+                    enhance_prompt=enhance_prompt,
+                    seed=seed,
+                    randomize_seed=randomize_seed,
+                    height=height,
+                    width=width,
+                    camera_lora=camera_lora,
+                    audio_path=p_audio_path,
+                    api_name="/generate_video"
+                )
+            
+            # 异步运行
+            result = await asyncio.to_thread(run_gradio_client)
+            print(result)
+            # 根据 API 返回值处理结果
+            if isinstance(result, tuple) and len(result) >= 1:
+                video_info = result[0]
+                
+                if isinstance(video_info, str):
+                    return video_info
+                elif isinstance(video_info, dict):
+                    if video_info.get('video'):
+                        return video_info['video']
+                    elif video_info.get('path'):
+                        return video_info['path']
+                    elif video_info.get('url'):
+                        return video_info['url']
+                    else:
+                        raise Exception(f"API 返回的视频信息格式不符合预期: {video_info}")
+                else:
+                    raise Exception(f"不支持的视频信息类型: {type(video_info)}")
+            elif isinstance(result, str):
+                return result
+            elif isinstance(result, dict):
+                if result.get('video'):
+                    return result['video']
+                elif result.get('path'):
+                    return result['path']
+                elif result.get('url'):
+                    return result['url']
+                else:
+                    raise Exception(f"API 返回的视频信息格式不符合预期: {result}")
+            else:
+                raise Exception(f"API 返回格式不符合预期: {type(result)}")
+            
+        except Exception as e:
+            raise Exception(f"Hugging Face 图片音频转视频生成失败: {str(e)}")
 
     async def close(self):
 

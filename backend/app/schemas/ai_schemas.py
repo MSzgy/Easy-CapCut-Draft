@@ -265,3 +265,34 @@ class HuggingFaceVideoResponse(BaseModel):
     message: str
     videoUrl: str
 
+
+# Image + Audio to Video Generation
+class ImageAudioToVideoRequest(BaseModel):
+    """图片音频转视频请求"""
+    firstFrame: str = Field(..., description="首帧图片 URL 或文件路径")
+    endFrame: Optional[str] = Field(None, description="尾帧图片 URL 或文件路径（可选）")
+    prompt: str = Field(
+        "Make this image come alive with cinematic motion, smooth animation",
+        description="视频生成提示词"
+    )
+    duration: int = Field(5, description="视频时长（秒）", ge=1, le=10)
+    inputVideo: Optional[str] = Field(None, description="输入视频路径（可选）")
+    generationMode: Literal["Image-to-Video", "Video-to-Video"] = Field(
+        "Image-to-Video",
+        description="生成模式"
+    )
+    enhancePrompt: bool = Field(True, description="是否增强提示词")
+    seed: int = Field(10, description="随机种子")
+    randomizeSeed: bool = Field(True, description="是否随机种子")
+    height: int = Field(512, description="视频高度", ge=256, le=1024)
+    width: int = Field(768, description="视频宽度", ge=256, le=1024)
+    cameraLora: str = Field("No LoRA", description="相机运动 LoRA")
+    audioPath: Optional[str] = Field(None, description="音频文件路径（可选）")
+
+
+class ImageAudioToVideoResponse(BaseModel):
+    """图片音频转视频响应"""
+    success: bool
+    message: str
+    videoUrl: str
+

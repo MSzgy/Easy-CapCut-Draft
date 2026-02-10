@@ -26,7 +26,9 @@ from app.schemas.ai_schemas import (
     HuggingFaceImageRequest,
     HuggingFaceImageResponse,
     HuggingFaceVideoRequest,
-    HuggingFaceVideoResponse
+    HuggingFaceVideoResponse,
+    ImageAudioToVideoRequest,
+    ImageAudioToVideoResponse
 )
 from app.services.ai_service import openai_service
 from typing import List
@@ -904,3 +906,41 @@ async def generate_video_huggingface(request: HuggingFaceVideoRequest):
             status_code=500,
             detail=f"Hugging Face 视频生成失败: {str(e)}"
         )
+
+
+@router.post("/generate-video-image-audio", response_model=ImageAudioToVideoResponse)
+async def generate_video_image_audio(request: ImageAudioToVideoRequest):
+    """使用 Hugging Face 图片音频生成视频
+    
+    这个端点使用 Hugging Face 的 image_audio_to_video 模型，
+    从首帧图片（可选尾帧）和音频生成视频内容。
+    支持相机运动 LoRA 预设和多种生成模式。
+    """
+    try:
+        result = await openai_service.generate_video_image_audio(
+            first_frame=request.firstFrame,
+            end_frame=request.endFrame,
+            prompt=request.prompt,
+            duration=request.duration,
+            input_video=request.inputVideo,
+            generation_mode=request.generationMode,
+            enhance_prompt=request.enhancePrompt,
+            seed=request.seed,
+            randomize_seed=request.randomizeSeed,
+            height=request.height,
+            width=request.width,
+            camera_lora=request.cameraLora,
+            audio_path=request.audioPath
+        )
+        
+        return ImageAudioToVideoResponse(
+            success=True,
+            message="视频生成成功",
+            videoUrl=result
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hugging Face 图片音频转视频生成失败: {str(e)}"
+        )
+

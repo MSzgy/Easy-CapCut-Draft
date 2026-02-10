@@ -1,94 +1,715 @@
-<!DOCTYPE html><html lang="en"><head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="theme-color" content="#000000">
-    <meta name="description" content="德勤中国招聘信息,德勤中国最新招聘职位,点击申请职位">
-    <meta name="keywords" content="德勤中国社会招聘,德勤中国校园招聘,德勤中国社招,德勤中国校招,德勤中国招聘,德勤中国招聘官网,德勤中国招聘官方网站">
-    <meta name="renderer" content="webkit">
+<!DOCTYPE html><html lang="zh" class="default"><head>
+  <title>Fine-tuning  &amp; RL For LLMs: Intro to Post training Module 1: Post-Training Overview - Mosu</title>
+  
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta http-equiv="x-dns-prefetch-control" content="on">
+  <meta name="keywords">
+  
+  <meta name="author" content="Mosu">
+  <meta name="site" content="https://halo.mosuyang.org/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Mosu">
+  <meta property="og:url" content="/archives/fine-tuning-and-reinforcement-learning-for-llms-intro-to-post-training">
+  <meta property="og:site_name" content="Fine-tuning  &amp; RL For LLMs: Intro to Post training Module 1: Post-Training Overview - Mosu">
+  <meta property="og:description" content="课程链接 github Module 1: Post-Training Overview Background">
+  <meta property="og:locale" content="zh">
+  <meta property="og:image">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Fine-tuning  &amp; RL For LLMs: Intro to Post training Module 1: Post-Training Overview - Mosu">
+  <meta name="twitter:description" content="课程链接 github Module 1: Post-Training Overview Background">
+  <meta name="twitter:image">
+  <link rel="canonical" href="/archives/fine-tuning-and-reinforcement-learning-for-llms-intro-to-post-training">
+
+  <link rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/css/theme.min.css?mew=1.3.2">
+  <link rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/lib/remixicon@3.5.0/remixicon.min.css">
+  <link rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/css/style.min.css?mew=1.3.2">
+  
+
+  
+    <link data-pjax="" rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/lib/highlightjs@11.5.1/styles/a11y-dark.min.css">
+    <link data-pjax="" rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/css/post.min.css?mew=1.3.2">
+    <link data-pjax="" rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/lib/katex@0.12.0/katex.min.css">
+    <link data-pjax="" rel="preload stylesheet" as="style" href="/themes/theme-dream/assets/css/dshare.min.css?mew=1.3.2">
+  
+
+  <link rel="stylesheet" href="/themes/theme-dream/assets/css/mew-custom.min.css?mew=1.3.2">
+  <link data-pjax="" rel="stylesheet" href="/themes/theme-dream/assets/lib/fancybox@5.3.7/jquery.fancybox.min.css">
+  <link rel="stylesheet" href="/themes/theme-dream/assets/lib/qmsg/qmsg.min.css">
+
+  <link rel="stylesheet" href="/themes/theme-dream/assets/css/cursor.min.css?mew=1.3.2">
+
+  
+  <style>
     
-    
-    <title>社会招聘｜德勤中国</title>
-    <style>
-      #ietips{
-        position: fixed;top: 120px;font-size: 16px;width: 100%;color: #000;line-height: 40px;display: none;text-align: center;z-index: 1000;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+
+    html {
+      --theme: #50bfff;
+      filter: none;
+      --cursor-default:url(/themes/theme-dream/assets/cursor/breeze/Arrow.cur),auto;--cursor-pointer:url(/themes/theme-dream/assets/cursor/breeze/Hand.cur),pointer;--cursor-text:url(/themes/theme-dream/assets/cursor/breeze/IBeam.cur),auto;--cursor-zoom-in:url(/themes/theme-dream/assets/cursor/breeze/Cross.cur),zoom-in;
+    }
+
+    html.night {
+      --theme: #5d93db;
+    }
+
+    body:before {
+      
+    }
+
+    html.night body:before {
+      
+    }
+
+    @media screen and (max-width: 768px) {
+      body:before {
+        
       }
-      #ietips span {display: inline-block;width: 16px;height: 16px;background: #00D26A;line-height: 16px;text-align: center;color: #fff;border-radius: 4px;font-size: 12px;margin: 0 4px;}
-      body, #ietips, #ietips p, #ietips span {margin: 0;font-variant: tabular-nums;font-feature-settings: 'tnum';}
-    </style>
-  <link href="/pb/css/vendor.css?024478b6f04b598e92d1" rel="stylesheet"><link href="/pb/css/social.css?024478b6f04b598e92d1" rel="stylesheet"><style data-styled="" data-styled-version="4.0.2"></style><link data-rh="true" rel="apple-touch-icon" href="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20231008/f00b7e1e-119c-4c42-96f6-90d6b56a1ca0.222.png?v=1770376746283"><link rel="shortcut icon" href="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20231008/f00b7e1e-119c-4c42-96f6-90d6b56a1ca0.222.png?v=1770376746283" type="image/x-icon"></head>
-  <body>
-    <div id="ietips">
-      <p>【温馨提示】检测到您正在使用兼容模式/旧版IE浏览器，功能可能无法正常使用。请使用以下极速模式浏览器获得最佳体验：</p>
-      <p>✅ Chrome | ✅ Firefox | ✅ Edge | ✅ Safari</p>
-    </div>
-    <noscript>
-      You need to enable JavaScript to run this app.
-    </noscript>
-    <div id="root"><div class="layout"><div class="headerPlaceholder "></div><div class="common-header fixed" style="background-color: rgb(255, 255, 255); color: rgba(34, 34, 34, 0.85);"><div class="logo-wrap"><a href="#" target="_self" style="cursor: default;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230630/8dbade91-fbb8-441d-8687-8d55716b74e6.未命名的设计.png" alt="logo" class="logo" style="display: inline;"><img alt="logo" class="logo" style="display: none;"></a></div><ul class="navbar"><li class="nav-item " style="display: none;"><a href="./index.html">首页</a></li><li class="nav-item  active" style="display: none; border-color: rgb(65, 117, 5); color: rgb(34, 34, 34);"><a href="./social.html">加入德勤</a></li><li class="nav-item "><span>加入德勤</span><ul class="subMenu sc-gqjmRU ouxcE" style="display: none;"><li><span>职位列表</span></li><li><a href="./custom.html?parentKey=section_4&amp;pageType=customize_1688106729614">申请指引</a></li><li><a href="./custom.html?parentKey=section_4&amp;pageType=customize_1688106741062">重要信息</a></li></ul></li><li class="nav-item " style="display: none;"><a href="./custom.html?parentKey=section_2&amp;pageType=customize_section_2">德勤中国老友会</a></li><li class="nav-item " style="display: none;"><a href="./custom.html?parentKey=section_3&amp;pageType=customize_section_3">德勤体验</a></li><li class="nav-item " style="display: none;"><span>德勤体验</span><ul class="subMenu sc-gqjmRU ouxcE" style="display: none;"><li><a href="./custom.html?parentKey=section_5&amp;pageType=customize_1688106705182">爱上德勤的101个理由</a></li><li><a href="./custom.html?parentKey=section_5&amp;pageType=customize_1688980661228">内部职业平台 倡导人才流动</a></li><li><a href="./custom.html?parentKey=section_5&amp;pageType=customize_1689219986690">德勤人的生活</a></li></ul></li></ul><div class="langCon" style="color: rgba(34, 34, 34, 0.85); padding-right: 28px;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.68301 7.55325C2.606 8.46476 2.76474 9.38075 3.14396 10.2132C3.52318 11.0456 4.11013 11.7666 4.84841 12.3067C5.5867 12.8468 6.45149 13.1879 7.35968 13.2973C8.26787 13.4067 9.18893 13.2806 10.0343 12.9313C10.111 12.4313 9.94301 11.9513 9.87434 11.7833C9.72101 11.4099 9.21567 10.7719 8.37234 9.88725C8.14701 9.65059 8.16167 9.46859 8.24234 8.92925L8.25101 8.86859C8.30567 8.49925 8.39768 8.28058 9.64101 8.08325C10.273 7.98325 10.439 8.23525 10.669 8.58525L10.7463 8.69992C10.965 9.01992 11.127 9.09325 11.3717 9.20392C11.4817 9.25392 11.6183 9.31725 11.8017 9.42059C12.2363 9.66925 12.2363 9.94992 12.2363 10.5646V10.6346C12.2363 10.8953 12.211 11.1246 12.171 11.3239C12.6826 10.6819 13.0391 9.93041 13.2127 9.12804C13.3864 8.32568 13.3725 7.49407 13.1722 6.69794C12.9719 5.90181 12.5906 5.16266 12.0579 4.53801C11.5252 3.91337 10.8555 3.42009 10.101 3.09659C9.73234 3.34525 9.22634 3.69792 9.04967 3.93992C8.95967 4.06325 8.83167 4.69459 8.41634 4.74659C8.30834 4.75992 8.16234 4.75059 8.00767 4.74059C7.59301 4.71392 7.02634 4.67725 6.84501 5.16992C6.72967 5.48192 6.70967 6.32992 7.08234 6.76992C7.14234 6.83992 7.15367 6.96992 7.11301 7.11592C7.05967 7.30725 6.95234 7.42392 6.91834 7.44792C6.85434 7.41058 6.72634 7.26192 6.63901 7.16125C6.43034 6.91792 6.16901 6.61458 5.83167 6.52125C5.70901 6.48725 5.57434 6.45925 5.44301 6.43125C5.07701 6.35459 4.66301 6.26725 4.56634 6.06192C4.49567 5.91125 4.49634 5.70392 4.49634 5.48525C4.49634 5.20725 4.49634 4.89325 4.36034 4.58858C4.31306 4.47986 4.24358 4.38221 4.15634 4.30192C3.3065 5.18412 2.78624 6.33198 2.68301 7.55259V7.55325ZM1.33301 7.99992C1.33301 4.31792 4.31767 1.33325 7.99967 1.33325C11.6817 1.33325 14.6663 4.31792 14.6663 7.99992C14.6663 11.6819 11.6817 14.6666 7.99967 14.6666C4.31767 14.6666 1.33301 11.6819 1.33301 7.99992Z" fill="rgb(34, 34, 34)"></path></svg><div class="currentLang" style="color: rgb(34, 34, 34);">中文简体<svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M0.5 1.41924L1.41924 0.5L4.95962 4.04038L8.5 0.5L9.41924 1.41924L4.95962 5.87886L0.5 1.41924Z" fill="rgb(34, 34, 34)"></path></svg></div></div><div class="right-nav"><div class="login-btn-wrap" style="display: block;"><span class="login-btn" style="background-color: rgb(65, 117, 5); color: rgb(255, 255, 255); border-radius: 4px;">登录/注册</span></div></div></div><div class="content-wrap" style="min-height: calc(-164px + 100vh);"><div class="ant-carousel"><div class="slick-slider postListBanner slick-initialized" dir="ltr"><div class="slick-list"><div class="slick-track" style="width: 9600px; opacity: 1; transform: translate3d(-1920px, 0px, 0px);"><div data-index="-1" tabindex="-1" class="slick-slide slick-cloned" aria-hidden="true" style="width: 1920px;"><div><div class="banner-item" tabindex="-1" style="width: 100%; display: inline-block;"><a href="#" target="_self" style="cursor: auto;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230712/995b179a-4403-456c-a75e-25cd934787c2.5.png"></a></div></div></div><div data-index="0" class="slick-slide slick-active slick-current" tabindex="-1" aria-hidden="false" style="outline: none; width: 1920px;"><div><div class="banner-item" tabindex="-1" style="width: 100%; display: inline-block;"><a href="#" target="_self" style="cursor: auto;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230712/2fafea77-d2f1-4f66-bb04-142e7dd1f4fe.4.png"></a></div></div></div><div data-index="1" class="slick-slide" tabindex="-1" aria-hidden="true" style="outline: none; width: 1920px;"><div><div class="banner-item" tabindex="-1" style="width: 100%; display: inline-block;"><a href="#" target="_self" style="cursor: auto;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230712/995b179a-4403-456c-a75e-25cd934787c2.5.png"></a></div></div></div><div data-index="2" tabindex="-1" class="slick-slide slick-cloned" aria-hidden="true" style="width: 1920px;"><div><div class="banner-item" tabindex="-1" style="width: 100%; display: inline-block;"><a href="#" target="_self" style="cursor: auto;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230712/2fafea77-d2f1-4f66-bb04-142e7dd1f4fe.4.png"></a></div></div></div><div data-index="3" tabindex="-1" class="slick-slide slick-cloned" aria-hidden="true" style="width: 1920px;"><div><div class="banner-item" tabindex="-1" style="width: 100%; display: inline-block;"><a href="#" target="_self" style="cursor: auto;"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20230712/995b179a-4403-456c-a75e-25cd934787c2.5.png"></a></div></div></div></div></div><ul class="slick-dots slick-dots-bottom" style="display: block;"><li class="slick-active"><button>1</button></li><li class=""><button>2</button></li></ul></div></div><div class="social-content positionContent" style="padding-bottom: 0px;"><div class="searchSidebarCon sc-iwsKbI kfrYAw"><div class="positionNumber">在招职位<span>350</span>个</div><div class="positionSearch"><span class="ant-input-search ant-input-affix-wrapper"><input placeholder="请搜索职位名称或职位描述" class="ant-input" type="text" value=""><span class="ant-input-suffix"><i aria-label="图标: search" tabindex="-1" class="anticon anticon-search ant-input-search-icon"><svg viewBox="64 64 896 896" focusable="false" class="" data-icon="search" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M909.6 854.5L649.9 594.8C690.2 542.7 712 479 712 412c0-80.2-31.3-155.4-87.9-212.1-56.6-56.7-132-87.9-212.1-87.9s-155.5 31.3-212.1 87.9C143.2 256.5 112 331.8 112 412c0 80.1 31.3 155.5 87.9 212.1C256.5 680.8 331.8 712 412 712c67 0 130.6-21.8 182.7-62l259.7 259.6a8.2 8.2 0 0 0 11.6 0l43.6-43.5a8.2 8.2 0 0 0 0-11.6zM570.4 570.4C528 612.7 471.8 636 412 636s-116-23.3-158.4-65.6C211.3 528 188 471.8 188 412s23.3-116.1 65.6-158.4C296 211.3 352.2 188 412 188s116.1 23.2 158.4 65.6S636 352.2 636 412s-23.3 116.1-65.6 158.4z"></path></svg></i></span></span></div><div class="positionCondition"><div class="ant-collapse ant-collapse-borderless ant-collapse-icon-position-left"><div class="ant-collapse-item ant-collapse-no-arrow"><div class="ant-collapse-header" role="button" tabindex="0" aria-expanded="false">工作地点<div class="ant-collapse-extra"><div class="open-btn"><div class="vertical-btn"></div><div class="transverse-btn"></div></div></div></div></div><div class="ant-collapse-item ant-collapse-no-arrow"><div class="ant-collapse-header" role="button" tabindex="0" aria-expanded="false">职位类别<div class="ant-collapse-extra"><div class="open-btn"><div class="vertical-btn"></div><div class="transverse-btn"></div></div></div></div></div><div class="ant-collapse-item ant-collapse-no-arrow"><div class="ant-collapse-header" role="button" tabindex="0" aria-expanded="false">发布时间<div class="ant-collapse-extra"><div class="open-btn"><div class="vertical-btn"></div><div class="transverse-btn"></div></div></div></div></div></div></div></div><div class="position-list-wrap" style="width: 0px; min-width: 0px;"><div class="ant-spin-nested-loading"><div class="ant-spin-container"><div class="list-wrap"><div class="list-card"><div class="card-item-wrap col-1 single"><div id="6985a4cbc9a0a5475c32e467" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Analyst - Indirect Tax - Customs Team - GDC -Beijing(315549)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">税务与商务咨询</span></div></div><div class="pos-summary" title="北京市 "><span class="work-place">北京市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-06 "><div><span class="pub-time">发布时间：2026-02-06</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="69855e57c9a0a5475c32e400" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Consultant/ Senior Consultant - Marketing Technology - Digital - Hong Kong(315546)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">技术与转型</span></div></div><div class="pos-summary" title="香港 "><span class="work-place">香港<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-06 "><div><span class="pub-time">发布时间：2026-02-06</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="6984775ac9a0a5475c32e246" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Associate - Big Bank - Shanghai(315544)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">审计及鉴证</span></div></div><div class="pos-summary" title="上海市 "><span class="work-place">上海市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="69846cc0c9a0a5475c32e23b" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Manager/Senior Manager - Regulatory &amp; Financial Risk - BJ/SH/GZ/SZ(315543)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">战略、风险与企业交易</span></div></div><div class="pos-summary" title="北京市 "><span class="work-place">北京市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="69844bebc9a0a5475c32e1c3" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Delivery (Senior) Consultant-SAP -GDC - Chongqing/Guangzhou/Dalian(315542)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">技术与转型</span></div></div><div class="pos-summary" title="重庆市、大连市、广州市 "><span class="work-place">重庆市、大连市、广州市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="69844439c9a0a5475c32e1b4" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Associate-CoRe-Data Management Services-GDC-Chongqing(315541)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">内部服务部门</span></div></div><div class="pos-summary" title="重庆市 "><span class="work-place">重庆市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="698443d2c9a0a5475c32e1b0" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Analyst - Restructuring Turnaround &amp; Cost Transformation-GDC - Guangzhou(315540)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">战略、风险与企业交易</span></div></div><div class="pos-summary" title="广州市 "><span class="work-place">广州市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="6984339cc9a0a5475c32e19b" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Senior Consultant/ Manager - Identity and Access Management (CyberArk) - Cyber - Hong Kong(315538)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">技术与转型</span></div></div><div class="pos-summary" title="香港 "><span class="work-place">香港<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="6983fa57c9a0a5475c32e140" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Analyst - Business Process Solutions - Global Delivery Center - Shanghai(315537)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">税务与商务咨询</span></div></div><div class="pos-summary" title="上海市 "><span class="work-place">上海市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-05 "><div><span class="pub-time">发布时间：2026-02-05</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="6982fdbdc9a0a5475c32df37" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Senior Consultant/ Manager (Adobe Experience Platform) - Digital - Hong Kong(315536)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">技术与转型</span></div></div><div class="pos-summary" title="香港 "><span class="work-place">香港<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-04 "><div><span class="pub-time">发布时间：2026-02-04</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="6982b355c9a0a5475c32ded3" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Manager/ Senior Manager - M&amp;A - Hong Kong(315535)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">战略、风险与企业交易</span></div></div><div class="pos-summary" title="香港 "><span class="work-place">香港<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-04 "><div><span class="pub-time">发布时间：2026-02-04</span></div></div></div></div><div class="card-item-wrap col-1 single"><div id="68ca1e7f1de9505ab28cd61b" class="list-card-item1"><div class="pos-hd"><div class="pos-tit"><div class="pos-title-item"><span class="top-label">Consultant/Senior Consultant-Strategy and Capital Investment- Strategy Risk and Transactions-Beijing(314854)</span></div><div class="pos-tag-item"><span class="pos-cate" style="background-color: rgba(65, 117, 5, 0.1); color: rgb(65, 117, 5);">战略、风险与企业交易</span></div></div><div class="pos-summary" title="北京市 "><span class="work-place">北京市<span class="split"> | </span></span></div></div><div class="pos-ft" title="发布时间：2026-02-03 "><div><span class="pub-time">发布时间：2026-02-03</span></div></div></div></div></div><div class="sc-kAzzGY jICbfJ"><ul class="ant-pagination" unselectable="unselectable"><li title="上一页" class="ant-pagination-disabled ant-pagination-prev" aria-disabled="true"><a class="ant-pagination-item-link"><i aria-label="图标: left" class="anticon anticon-left"><svg viewBox="64 64 896 896" focusable="false" class="" data-icon="left" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M724 218.3V141c0-6.7-7.7-10.4-12.9-6.3L260.3 486.8a31.86 31.86 0 0 0 0 50.3l450.8 352.1c5.3 4.1 12.9.4 12.9-6.3v-77.3c0-4.9-2.3-9.6-6.1-12.6l-360-281 360-281.1c3.8-3 6.1-7.7 6.1-12.6z"></path></svg></i></a></li><li title="1" class="ant-pagination-item ant-pagination-item-1 ant-pagination-item-active" tabindex="0"><a>1</a></li><li title="2" class="ant-pagination-item ant-pagination-item-2" tabindex="0"><a>2</a></li><li title="3" class="ant-pagination-item ant-pagination-item-3" tabindex="0"><a>3</a></li><li title="4" class="ant-pagination-item ant-pagination-item-4" tabindex="0"><a>4</a></li><li title="5" class="ant-pagination-item ant-pagination-item-5 ant-pagination-item-before-jump-next" tabindex="0"><a>5</a></li><li title="向后 5 页" tabindex="0" class="ant-pagination-jump-next ant-pagination-jump-next-custom-icon"><a class="ant-pagination-item-link"><div class="ant-pagination-item-container"><i aria-label="图标: double-right" class="anticon anticon-double-right ant-pagination-item-link-icon"><svg viewBox="64 64 896 896" focusable="false" class="" data-icon="double-right" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M533.2 492.3L277.9 166.1c-3-3.9-7.7-6.1-12.6-6.1H188c-6.7 0-10.4 7.7-6.3 12.9L447.1 512 181.7 851.1A7.98 7.98 0 0 0 188 864h77.3c4.9 0 9.6-2.3 12.6-6.1l255.3-326.1c9.1-11.7 9.1-27.9 0-39.5zm304 0L581.9 166.1c-3-3.9-7.7-6.1-12.6-6.1H492c-6.7 0-10.4 7.7-6.3 12.9L751.1 512 485.7 851.1A7.98 7.98 0 0 0 492 864h77.3c4.9 0 9.6-2.3 12.6-6.1l255.3-326.1c9.1-11.7 9.1-27.9 0-39.5z"></path></svg></i><span class="ant-pagination-item-ellipsis">•••</span></div></a></li><li title="30" class="ant-pagination-item ant-pagination-item-30" tabindex="0"><a>30</a></li><li title="下一页" tabindex="0" class=" ant-pagination-next" aria-disabled="false"><a class="ant-pagination-item-link"><i aria-label="图标: right" class="anticon anticon-right"><svg viewBox="64 64 896 896" focusable="false" class="" data-icon="right" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M765.7 486.8L314.9 134.7A7.97 7.97 0 0 0 302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 0 0 0-50.4z"></path></svg></i></a></li><li class="ant-pagination-options"><div class="ant-pagination-options-quick-jumper">跳至<input type="text" value="">页<span><span class="pageButton" style="background-color: rgb(65, 117, 5); border-radius: 4px;">确认</span></span></div></li></ul></div></div></div></div></div></div><div class="fixedToolCon"><div class="sider-btn-wrap" style="width: 94px;"><span class="qrcode" style="background-color: rgb(255, 255, 255); color: rgb(34, 34, 34);"><i aria-label="图标: qrcode" class="anticon anticon-qrcode"><svg viewBox="64 64 896 896" focusable="false" class="" data-icon="qrcode" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M468 128H160c-17.7 0-32 14.3-32 32v308c0 4.4 3.6 8 8 8h332c4.4 0 8-3.6 8-8V136c0-4.4-3.6-8-8-8zm-56 284H192V192h220v220zm-138-74h56c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm194 210H136c-4.4 0-8 3.6-8 8v308c0 17.7 14.3 32 32 32h308c4.4 0 8-3.6 8-8V556c0-4.4-3.6-8-8-8zm-56 284H192V612h220v220zm-138-74h56c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm590-630H556c-4.4 0-8 3.6-8 8v332c0 4.4 3.6 8 8 8h332c4.4 0 8-3.6 8-8V160c0-17.7-14.3-32-32-32zm-32 284H612V192h220v220zm-138-74h56c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm194 210h-48c-4.4 0-8 3.6-8 8v134h-78V556c0-4.4-3.6-8-8-8H556c-4.4 0-8 3.6-8 8v332c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8V644h78v102c0 4.4 3.6 8 8 8h190c4.4 0 8-3.6 8-8V556c0-4.4-3.6-8-8-8zM746 832h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8zm142 0h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8z"></path></svg></i></span><div class="code-img"><img src="https://ehjobs.deloitte.com.cn/fileServer/files/DeloitteChinaEH/wecruit/20231106/c2e6a6a6-207d-4fc8-a278-c30d551162fa.webwxgetmsgimg (31).jpg" alt=""><span style="color: rgb(34, 34, 34);"></span></div></div></div></div><div class="ftWrap" style="background-color: rgb(255, 255, 255);"><div class="ft" style="color: rgb(34, 34, 34);"><div class="footerLink items"><div class="ant-divider ant-divider-vertical" role="separator" style="margin-right: 16px; background: rgb(34, 34, 34);"></div><img src="/pb//img/gongan.png?d0289dc0a46fc5b15b3363ffa78cf6c7" alt=""><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31010102007416" target="_blank" style="color: rgb(34, 34, 34); margin-right: 8px;">沪公网安备 31010102007416号</a><a href="https://beian.miit.gov.cn/" target="_blank" style="color: rgb(34, 34, 34); margin-left: 8px;">沪ICP备10000326号-6</a></div></div></div></div></div>
-    <script>
-    /* ie浏览器提示 */
-    function isIeBrowser() {
-      const ua = window.navigator.userAgent;
-      const msie = ua.indexOf('MSIE '); // IE 10 或更早
-      const trident = ua.indexOf('Trident/'); // IE 11
-      const documentMode = document.documentMode; // 可用于确定文档模式
-
-      return msie > 0 || trident > 0 || documentMode;
+      html.night body:before {
+        
+      }
     }
-
-    if (isIeBrowser()) {
-      document.getElementById("ietips").style.display = 'block'
-    }
+  </style>
+  <script>
+    window.logger = console.log;
     
-    /* 兼容ie  scrollTo  nodeList的forEach方法*/
-    if (!window.scrollTo) {
-      window.scrollTo = function (x, y) {
-        window.pageXOffset = x;
-        window.pageYOffset = y;
-      };
-    }
-    if (!window.scrollBy) {
-      window.scrollBy = function (x, y) {
-        window.pageXOffset += x;
-        window.pageYOffset += y;
-      };
-    }
-    if (!document.body.scrollTo) {
-      Element.prototype.scrollTo = function (x, y) {
-        this.scrollLeft = x;
-        this.scrollTop = y;
-      };
-    }
-    if (!document.body.scrollBy) {
-      Element.prototype.scrollBy = function (x, y) {
-        this.scrollLeft += x;
-        this.scrollTop += y;
-      };
-    }
-    if (window.NodeList && !NodeList.prototype.forEach) {
-        NodeList.prototype.forEach = function (callback, thisArg) {
-            thisArg = thisArg || window
-            for (var i = 0; i < this.length; i++) {
-                callback.call(thisArg, this[i], i, this)
-            }
-        }
-    }
-    // window.addEventListener('resize', setHtmlFont, false);
-    // window.addEventListener('load', setHtmlFont, false);
+    console.logStorage = [];
+    console.log = function (message, ...optionalParams) {
+      console.logStorage.push(()=>window.logger(message, optionalParams));
+      if (console.logStorage.length > 100) {
+        console.logStorage.shift()
+      }
+    };
+    console.logPrint = function () {
+      for (let logItem of console.logStorage) {
+        logItem();
+      }
+    };
+    
+    /** 主题配置 */
+    const DreamConfig = {};
+    DreamConfig["theme_version"] = "1.3.2";
+    DreamConfig["theme_base"] = "/themes/theme-dream/assets";
+    DreamConfig["code_fold_line"] = "100";
+      DreamConfig["document_hidden_title"] = "Bye";
+      DreamConfig["document_visible_title"] = "hI";
+      
+      
+      DreamConfig["notice_show_mode"] = 'index';
+      
+      
+      
+      
+      
+      DreamConfig["effects_sakura_mode"] = "day";
+      DreamConfig["effects_snowflake_mode"] = "day";
+      DreamConfig["effects_universe_mode"] = "night";
+      
+      
+      DreamConfig["enable_toutiao_push"] = true;
+      DreamConfig["show_img_name"] = true;
+      DreamConfig["load_progress"] = "center";
+      
+      
 
-    //   function setHtmlFont() {
-    //     var designSize = 1920; // 设计图尺寸
+    /** 配置主题模式 */
+    DreamConfig["default_theme"] = 'light';
+    (function(){
+      let isNight = DreamConfig.default_theme === 'system'? matchMedia('(prefers-color-scheme: dark)').matches : localStorage.getItem('night') || DreamConfig.default_theme === 'night';
+      if (isNight.toString() === 'true') {
+        localStorage.setItem('night', 'true');
+        document.documentElement.classList.add('night');
+      } else {
+        localStorage.setItem('night', 'false');
+      }
+    })();
+  </script>
 
-    //     var html = document.documentElement;
 
-    //     var wW = html.clientWidth;// 窗口宽度
-    //     var rem = wW * 100 / designSize; 
+  <script src="/themes/theme-dream/assets/lib/jquery@3.5.1/jquery.min.js"></script>
 
-    //     document.documentElement.style.fontSize = rem + 'px';
-    //   }
-    </script>
-  <script type="text/javascript" src="/pb/js/vendor.js?024478b6f04b598e92d1"></script><script type="text/javascript" src="/pb/js/social.js?024478b6f04b598e92d1"></script>
+  
+  
+  
+  
+<meta name="google-site-verification" content="h32E4AD0FPkwZK-uVG_cMqMH7qjS_MEPcNyynAdXTkI">
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var codeBlocks = document.querySelectorAll('.code-block');
+    codeBlocks.forEach(function (block) {
+        var toggleButton = document.createElement('div');
+        toggleButton.className = 'toggle-button';
+        toggleButton.textContent = '展开/折叠代码';
+        block.appendChild(toggleButton);
+        
+        toggleButton.addEventListener('click', function () {
+            block.classList.toggle('expanded');=
+        });
+    });
+});
+</script>
+<meta content="Halo 2.18.0" name="generator"><meta name="description" content="课程链接 github Module 1: Post-Training Overview Background"><script src="/plugins/PluginLive2d/assets/static/js/live2d-autoload.min.js" defer=""></script>
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+    live2d.init("/plugins/PluginLive2d/assets/static/", {
+  "apiPath" : "https://api.zsq.im/live2d/",
+  "hitokotoApi" : "https://v1.hitokoto.cn",
+  "showHitokoto" : true,
+  "isAiChat" : false,
+  "aiChatBaseSetting" : {
+    "timeout" : 10,
+    "chunkTimeout" : 10,
+    "showChatMessageTimeout" : 10
+  },
+  "modelTexturesId" : 53,
+  "isForceUseDefaultConfig" : false,
+  "modelId" : 1,
+  "tools" : [ "hitokoto", "asteroids", "switch-model", "switch-texture", "photo", "info", "quit" ],
+  "isTools" : true,
+  "copyContent" : true,
+  "backSite" : true,
+  "backSiteTip" : "哇，你终于回来了～",
+  "selectorTips" : [ ],
+  "openConsole" : true,
+  "copyContentTip" : "你都复制了些什么呀，转载要记得加上出处哦！",
+  "openConsoleTip" : "你是想要看看我的小秘密吗？",
+  "firstOpenSite" : true,
+  "loadTime" : "defer",
+  "consoleShowStatu" : false,
+  "live2dLocation" : "left",
+  "photoName" : "live2d",
+  "tips" : "/themes/theme-dream/assets/live2d/tips.json"
+})
 
-</body></html>
+})
+
+</script>
+<!-- plugin-comment-widget start -->
+<script src="/plugins/PluginCommentWidget/assets/static/comment-widget.iife.js?version=2.4.0"></script>
+<link rel="stylesheet" href="/plugins/PluginCommentWidget/assets/static/style.css?version=2.4.0">
+<!-- plugin-comment-widget end -->
+<!-- PluginSearchWidget start -->
+<script src="/plugins/PluginSearchWidget/assets/static/search-widget.iife.js?version=1.6.2" async=""></script>
+<link rel="stylesheet" href="/plugins/PluginSearchWidget/assets/static/style.css?version=1.6.2">
+<!-- PluginSearchWidget end -->
+<script async="" defer="" src="/halo-tracker.js" data-group="content.halo.run" data-plural="posts" data-name="a5a88c81-4e6d-4217-a716-d0cb7376c0f9"></script>
+<link rel="icon" href="/upload/C0406488-F563-446F-B78F-8D29F0F2B7DA_1_105_c.jpeg">
+</head>
+    <body class="move-up">
+    <search-modal></search-modal><header class="navbar">
+    <div class="navbar-above">
+        <div class="container">
+            <i class="ri-list-unordered navbar-slideicon"></i>
+            <a class="navbar-item logo-title" href="https://halo.mosuyang.org/">
+                Mosu
+                
+            </a>
+            <nav class="navbar-nav active-animate">
+                
+                    <a class="item current" href="/" title="首页">
+                        
+                        首页
+                    </a>
+                    
+                
+            </nav>
+            <div class="navbar-search">
+                <button onclick="javascript:SearchWidget.open();" class="submit" aria-label="搜索按钮" style="border-radius: 17px;"><i class="ri-search-line"></i></button>
+            </div>
+            <i class="ri-search-line navbar-searchicon" onclick="javascript:SearchWidget.open();"></i>
+        </div>
+    </div>
+
+    <div class="navbar-slideout">
+        <div class="navbar-slideout-wrap">
+            <div class="navbar-slideout-author">
+                <img width="50" height="50" src="" alt="已删除用户" class="avatar">
+                <div class="info">
+                    <p class="link">已删除用户</p>
+                    <p class="motto">该用户已被删除。</p>
+                </div>
+            </div>
+            <ul class="navbar-slideout-menu">
+                <li class="item">
+                    
+                    
+                    
+                    
+                    
+                    <div>
+                        <i class="ri-edit-circle-line"></i>
+                        <span>累计撰写 <strong>54</strong> 篇文章</span>
+                    </div>
+                </li>
+                <li class="item">
+                    
+                    
+                    
+                    <div>
+                        <i class="ri-apps-line"></i>
+                        <span>累计创建 <strong>23</strong> 个分类</span>
+                    </div>
+                    
+                    
+                </li>
+                <li class="item">
+                    <div>
+                        <i class="ri-pie-chart-line"></i>
+                        <span>累计收获 <strong>3018</strong> 次访问</span>
+                    </div>
+                    
+                    
+                    
+                    
+                    
+                </li>
+            </ul>
+            <ul class="navbar-slideout-menu not-toc">
+                <li>
+                    <a class="link panel in" href="#" rel="nofollow">
+                        <span>导航</span>
+                        <i class="ri-arrow-right-s-line"></i>
+                    </a>
+                    <ul class="slides panel-body panel-side-menu" style="display: block;">
+                        <li>
+                            <a class="link current" href="/" title="首页">首页</a>
+                            
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+            <ul class="navbar-slideout-menu is-toc">
+                <a class="link in" href="#" rel="nofollow"><span>目录</span></a>
+                <div class="toc-content"><ul class="menu-list"><li><a data-id="#module-1%3A-post-training-overview" class="is-active"><i class="ri-attachment-2"></i>Module 1: Post-Training Overview</a><ul class="menu-list"><li><a data-id="#background" class="is-active"><i class="ri-attachment-2"></i>Background</a></li><li><a data-id="#where-post-training(fine-tuning-and-rl)-fits-into-llm-training" class=""><i class="ri-attachment-2"></i>Where post-training(fine-tuning and RL) fits into LLM training</a></li><li><a data-id="#intuitions-bechind-fine-tuning-and-rl"><i class="ri-attachment-2"></i>Intuitions bechind fine-tuning and RL</a></li><li><a data-id="#key-components-to-making-fine-tuning-and-rl-work"><i class="ri-attachment-2"></i>Key components to making fine-tuning and RL work</a></li><li><a data-id="#post-training-example%3A-reasoning"><i class="ri-attachment-2"></i>Post-training example: Reasoning</a></li><li><a data-id="#post-training-example%3A-safety-and-security(rlaif)"><i class="ri-attachment-2"></i>Post-training example: Safety and security(RLAIF)</a></li><li><a data-id="#post-training-in-the-wild"><i class="ri-attachment-2"></i>Post-training in the wild</a><ul class="menu-list"><li><a data-id="#deepseek"><i class="ri-attachment-2"></i>DeepSeek</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9A%E5%BC%BA%E5%8C%96%E6%8E%A8%E7%90%86%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段一：强化推理能力</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9A%E8%9E%8D%E5%90%88%E9%80%9A%E7%94%A8%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段二：融合通用能力</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#qwen"><i class="ri-attachment-2"></i>Qwen</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-1"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA-1"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E4%B8%8E-deepseek-%E6%B5%81%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94%E5%92%8C%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>与 DeepSeek 流程的对比和总结</a></li></ul></li><li><a data-id="#llama"><i class="ri-attachment-2"></i>Llama</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-2"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>核心概念解析</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90-1"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E4%BA%AE%E7%82%B9%EF%BC%9A%E8%BF%AD%E4%BB%A3%E5%BE%AA%E7%8E%AF%EF%BC%88the-llama-herd-of-models%EF%BC%89"><i class="ri-attachment-2"></i>核心亮点：迭代循环（The Llama herd of models）</a></li><li><a data-id="#%E6%80%BB%E7%BB%93%E4%B8%8E%E5%AF%B9%E6%AF%94"><i class="ri-attachment-2"></i>总结与对比</a></li></ul></li><li><a data-id="#%E5%BC%80%E6%BA%90%E5%BA%93-(open-source-libraries)"><i class="ri-attachment-2"></i>开源库 (Open-Source Libraries)</a><ul class="menu-list"><li><a data-id="#%E4%BA%91%E6%9C%8D%E5%8A%A1%E4%B8%8E%E5%B9%B3%E5%8F%B0-(cloud-services-%26-platforms)"><i class="ri-attachment-2"></i>云服务与平台 (Cloud Services &amp; Platforms)</a></li><li><a data-id="#%E6%80%BB%E7%BB%93-1"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#%E9%99%84%E6%B3%A8"><i class="ri-attachment-2"></i>附注</a><ul class="menu-list"><li><a data-id="#%E5%89%8D%E6%8F%90%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8E%B0%E5%9C%A8%E5%8F%AF%E4%BB%A5%E5%9C%A8-mac-%E4%B8%8A%E5%BE%AE%E8%B0%83%EF%BC%9F"><i class="ri-attachment-2"></i>前提：为什么现在可以在 Mac 上微调？</a></li><li><a data-id="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C%EF%BC%9A%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%EF%BC%9F"><i class="ri-attachment-2"></i>准备工作：你需要什么？</a></li><li><a data-id="#%E8%AF%A6%E7%BB%86%E6%AD%A5%E9%AA%A4%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83%E4%B8%80%E4%B8%AA%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>详细步骤：从零开始微调一个模型</a><ul class="menu-list"><li><a data-id="#%E7%AC%AC-1-%E6%AD%A5%EF%BC%9A%E5%88%9B%E5%BB%BA%E5%B9%B6%E6%BF%80%E6%B4%BB-python-%E7%8E%AF%E5%A2%83"><i class="ri-attachment-2"></i>第 1 步：创建并激活 Python 环境</a></li><li><a data-id="#%E7%AC%AC-2-%E6%AD%A5%EF%BC%9A%E5%AE%89%E8%A3%85-mlx-%E5%8F%8A%E7%9B%B8%E5%85%B3%E4%BE%9D%E8%B5%96"><i class="ri-attachment-2"></i>第 2 步：安装 MLX 及相关依赖</a></li><li><a data-id="#%E7%AC%AC-3-%E6%AD%A5%EF%BC%9A%E8%8E%B7%E5%8F%96%E5%AE%98%E6%96%B9%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><i class="ri-attachment-2"></i>第 3 步：获取官方示例代码</a></li><li><a data-id="#%E7%AC%AC-4-%E6%AD%A5%EF%BC%9A%E5%87%86%E5%A4%87%E5%BE%AE%E8%B0%83%E6%95%B0%E6%8D%AE"><i class="ri-attachment-2"></i>第 4 步：准备微调数据</a></li><li><a data-id="#%E7%AC%AC-5-%E6%AD%A5%EF%BC%9A%E9%80%89%E6%8B%A9%E6%A8%A1%E5%9E%8B%E5%B9%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83"><i class="ri-attachment-2"></i>第 5 步：选择模型并开始微调</a></li><li><a data-id="#%E7%AC%AC-6-%E6%AD%A5%EF%BC%9A%E6%B5%8B%E8%AF%95%E5%BE%AE%E8%B0%83%E5%90%8E%E7%9A%84%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>第 6 步：测试微调后的模型</a></li></ul></li><li><a data-id="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E5%92%8C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><i class="ri-attachment-2"></i>注意事项和最佳实践</a></li></ul></li></ul></li></ul></li></ul></div>
+            </ul>
+        </div>
+    </div>
+
+    <div class="navbar-mask"></div>
+</header>
+
+    
+    <section class="section">
+      <div class="container">
+        <div class="columns">
+          <div class="column column-main">
+            
+
+    
+
+    
+
+    
+
+    <div class="card">
+        <div class="card-content main">
+            
+                <h1 class="title">Fine-tuning  &amp; RL For LLMs: Intro to Post training Module 1: Post-Training Overview</h1>
+                <div class="meta">
+                    <ul class="breadcrumb">
+                        <li>2026-01-11 17:09</li>
+                        <li><i class="ri-eye-line"></i>28</li>
+                        <li class="is-hidden-mobile"><i class="ri-question-answer-line"></i>1
+                        </li>
+                        <li><i class="ri-thumb-up-line"></i>1</li>
+                        <li><i class="ri-quill-pen-line"></i>33945</li>
+                    </ul>
+                    <div class="level-item">
+                        <a href="/categories/finetuning">finetuning</a><a href="/categories/rl">RL</a><a href="/categories/modelyuan-li">Model原理</a>&nbsp;
+                    </div>
+                </div>
+                <hr>
+            
+
+            <div data-id="a5a88c81-4e6d-4217-a716-d0cb7376c0f9" data-target="Post" class="main-content article"><p style=""><a href="https://corporate.deeplearning.ai/courses/fine-tuning-and-reinforcement-learning-for-llms-intro-to-post-training/lesson/rm98gb4q/conversation-between-sharon-zhou-and-andrew-ng" target="_blank">课程链接</a></p><p style=""><a href="https://github.com/MSzgy/Fine-tuning-RL-For-LLMs-Intro-to-Post-training" target="_blank">github</a></p><h1 style="scroll-margin: 1em;" id="module-1%3A-post-training-overview">Module 1: Post-Training Overview</h1><h2 style="scroll-margin: 1em;" id="background">Background</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.14.57.png"><img src="/upload/截屏2026-01-06%2022.14.57.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2020.23.39.png"><img src="/upload/截屏2026-01-05%2020.23.39.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2021.40.28.png"><img src="/upload/截屏2026-01-05%2021.40.28.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2021.41.54.png"><img src="/upload/截屏2026-01-05%2021.41.54.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="where-post-training(fine-tuning-and-rl)-fits-into-llm-training">Where post-training(fine-tuning and RL) fits into LLM training</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2021.45.54.png"><img src="/upload/截屏2026-01-05%2021.45.54.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2021.50.41.png"><img src="/upload/截屏2026-01-05%2021.50.41.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2021.51.38.png"><img src="/upload/截屏2026-01-05%2021.51.38.png" width="989px" height="508px" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2022.08.49.png"><img src="/upload/截屏2026-01-05%2022.08.49.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2022.24.16.png"><img src="/upload/截屏2026-01-05%2022.24.16.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2022.39.20.png"><img src="/upload/截屏2026-01-05%2022.39.20.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2023.01.34.png"><img src="/upload/截屏2026-01-05%2023.01.34.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2023.02.21.png"><img src="/upload/截屏2026-01-05%2023.02.21.png" width="991px" height="519px" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.22.24-szhv.png"><img src="/upload/截屏2026-01-10%2023.22.24-szhv.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2023.04.28.png"><img src="/upload/截屏2026-01-05%2023.04.28.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-05%2023.05.10.png"><img src="/upload/截屏2026-01-05%2023.05.10.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="intuitions-bechind-fine-tuning-and-rl">Intuitions bechind fine-tuning and RL</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2021.30.05.png"><img src="/upload/截屏2026-01-06%2021.30.05.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.14.35.png"><img src="/upload/截屏2026-01-06%2022.14.35.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2021.40.38.png"><img src="/upload/截屏2026-01-06%2021.40.38.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.06.57.png"><img src="/upload/截屏2026-01-06%2022.06.57.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.08.53.png"><img src="/upload/截屏2026-01-06%2022.08.53.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.09.38.png"><img src="/upload/截屏2026-01-06%2022.09.38.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="key-components-to-making-fine-tuning-and-rl-work">Key components to making fine-tuning and RL work</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.12.44.png"><img src="/upload/截屏2026-01-06%2022.12.44.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.15.39.png"><img src="/upload/截屏2026-01-06%2022.15.39.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.16.59.png"><img src="/upload/截屏2026-01-06%2022.16.59.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.18.48.png"><img src="/upload/截屏2026-01-06%2022.18.48.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.20.45.png"><img src="/upload/截屏2026-01-06%2022.20.45.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.21.18.png"><img src="/upload/截屏2026-01-06%2022.21.18.png" width="990px" height="563px" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.21.52.png"><img src="/upload/截屏2026-01-06%2022.21.52.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.23.23.png"><img src="/upload/截屏2026-01-06%2022.23.23.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.24.24.png"><img src="/upload/截屏2026-01-06%2022.24.24.png" width="991px" height="665px" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.26.23.png"><img src="/upload/截屏2026-01-06%2022.26.23.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.28.43.png"><img src="/upload/截屏2026-01-06%2022.28.43.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.31.46.png"><img src="/upload/截屏2026-01-06%2022.31.46.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="post-training-example%3A-reasoning">Post-training example: Reasoning</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.33.54.png"><img src="/upload/截屏2026-01-06%2022.33.54.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.35.25.png"><img src="/upload/截屏2026-01-06%2022.35.25.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.36.34.png"><img src="/upload/截屏2026-01-06%2022.36.34.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.38.31.png"><img src="/upload/截屏2026-01-06%2022.38.31.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.40.20.png"><img src="/upload/截屏2026-01-06%2022.40.20.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="post-training-example%3A-safety-and-security(rlaif)"><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-06%2022.42.00.png"><img src="/upload/截屏2026-01-06%2022.42.00.png" width="100%" height="100%" style="display: inline-block"></div></div>Post-training example: Safety and security(RLAIF)</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.22.24.png"><img src="/upload/截屏2026-01-10%2023.22.24.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.23.12.png"><img src="/upload/截屏2026-01-10%2023.23.12.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.24.38.png"><img src="/upload/截屏2026-01-10%2023.24.38.png" width="991px" height="529px" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.26.03.png"><img src="/upload/截屏2026-01-10%2023.26.03.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.27.17.png"><img src="/upload/截屏2026-01-10%2023.27.17.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.28.40.png"><img src="/upload/截屏2026-01-10%2023.28.40.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.31.07.png"><img src="/upload/截屏2026-01-10%2023.31.07.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-10%2023.32.42.png"><img src="/upload/截屏2026-01-10%2023.32.42.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h2 style="scroll-margin: 1em;" id="post-training-in-the-wild">Post-training in the wild</h2><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2012.31.38.png"><img src="/upload/截屏2026-01-11%2012.31.38.png" width="100%" height="100%" style="display: inline-block"></div></div></p><h3 style="scroll-margin: 1em;" id="deepseek">DeepSeek</h3><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2012.32.37.png"><img src="/upload/截屏2026-01-11%2012.32.37.png" width="991px" height="435px" style="display: inline-block"></div></div></p><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87"><strong>总体目标</strong></h4><p style="line-height: 1.6">这张图展示了如何从一个基础语言模型（<strong>DS-V3-Base</strong>）通过一个复杂的多阶段训练过程，最终得到一个在<strong>推理能力</strong>和<strong>通用能力</strong>上都非常强大的新模型（<strong>DS-R1</strong>）。</p><p style="line-height: 1.6">整个流程可以分为两个核心阶段：</p><ol><li><p style=""><strong>第一阶段：强化推理能力 (Reasoning Enhancement)</strong></p></li><li><p style=""><strong>第二阶段：融合通用能力 (Balancing with General Skills)</strong></p></li></ol><p style="line-height: 1.6">下面我们来分步解析这个流程。</p><hr><h4 style="scroll-margin: 1em;" id="%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9A%E5%BC%BA%E5%8C%96%E6%8E%A8%E7%90%86%E8%83%BD%E5%8A%9B"><strong>阶段一：强化推理能力</strong></h4><p style="line-height: 1.6">这个阶段的目标是把一个通用的基础模型，专门训练成一个“推理高手”。</p><p style="line-height: 1.6"><strong>第 1 步：首次微调 (Fine-Tuning)</strong></p><ul><li><p style=""><strong>输入</strong>：<code>DS-V3-Base</code> 模型。这是一个已经预训练好、具备基础语言能力的模型。</p></li><li><p style=""><strong>训练数据</strong>：<code>Long CoT Data (~K samples)</code>。</p><ul><li><p style=""><code>CoT</code> 是 "Chain of Thought"（思维链）的缩写。这种数据包含了详细的、一步一步的推理过程。</p></li><li><p style=""><code>Long</code> 指的是这些推理过程很长、很复杂。</p></li></ul></li><li><p style=""><strong>过程</strong>：在这一步，模型通过学习这些详细的推理范例，初步掌握了如何像人一样进行分步思考来解决复杂问题。</p></li></ul><p style="line-height: 1.6"><strong>第 2 步：基于规则奖励的强化学习 (Rule-based RL for Reasoning)</strong></p><ul><li><p style=""><strong>输入</strong>：上一步微调过的模型。</p></li><li><p style=""><strong>训练数据</strong>：<code>Reasoning: CoT, Math, etc. (144K samples)</code>。这是一批专门用于推理任务的数据，例如思维链问题、数学题等。</p></li><li><p style=""><strong>过程</strong>：这里使用了强化学习（RL）技术。</p><ul><li><p style="">模型会尝试自己去生成问题的解答过程。</p></li><li><p style="">系统会根据一套预设的<strong>规则</strong>（Rule-based Reward）来判断模型生成的每一步推理是否正确、是否符合逻辑。例如，在数学题中，一个计算步骤是否正确。</p></li><li><p style="">正确的步骤会得到“奖励”，错误的会得到“惩罚”。通过这种方式，模型被“激励”去产生更准确、更连贯的推理路径。</p></li></ul></li><li><p style=""><strong>产出</strong>：<code>Reasoning-Oriented RL Checkpoint</code>。</p><ul><li><p style="">这是一个<strong>中间模型</strong>，可以理解为一个“专精于推理”的版本。它在解决逻辑、数学等问题上表现出色，但可能在通用对话或创意写作方面能力有所下降。</p></li></ul></li></ul><hr><h4 style="scroll-margin: 1em;" id="%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9A%E8%9E%8D%E5%90%88%E9%80%9A%E7%94%A8%E8%83%BD%E5%8A%9B"><strong>阶段二：融合通用能力</strong></h4><p style="line-height: 1.6">这个阶段的目标是在保持强大推理能力的同时，重新补强模型的通用对话和指令遵循能力，使其成为一个更全能的模型。</p><p style="line-height: 1.6"><strong>第 3 步：数据过滤与二次微调 (Filter &amp; Second Fine-Tuning)</strong></p><ul><li><p style=""><strong>输入</strong>：<code>Reasoning-Oriented RL Checkpoint</code> (推理专精模型)。</p></li><li><p style=""><strong>训练数据</strong>：这里使用了两种数据。</p><ol><li><p style=""><code>Reasoning Data (600K samples)</code>：这是一个更大规模的推理数据集。值得注意的是 <strong>"Filter"</strong> 这个词，它暗示这个数据集可能是用上一步的“推理专精模型”自己生成或过滤筛选出来的，以确保数据的高质量和与模型能力的契合。</p></li><li><p style=""><code>Non-Reasoning Data (200K samples)</code>：这是一批非推理类型的数据，比如普通的问答、对话、文本摘要、翻译等。</p></li></ol></li><li><p style=""><strong>过程</strong>：将上述两种数据混合在一起，对“推理专精模型”进行新一轮的微调。这一步的目的是<strong>“平衡”</strong>——在巩固推理能力的同时，让模型“回忆”起并加强其通用技能。</p></li></ul><p style="line-height: 1.6"><strong>第 4 步：最终的强化学习 (Final RL)</strong></p><ul><li><p style=""><strong>输入</strong>：上一步二次微调过的模型。</p></li><li><p style=""><strong>过程</strong>：与第 2 步类似，再次使用强化学习。但这次的奖励机制是针对<strong>非推理任务</strong>的（<code>Rule-based Reward for Non-Reasoning</code>）。</p><ul><li><p style="">这意味着系统会根据规则来判断模型在执行通用指令（如“写一首诗”、“总结这段文字”）时的表现。</p></li><li><p style="">这一步确保了模型在提供通用、无害、有帮助的回答方面也表现优异，而不仅仅是一个逻辑推理机器。</p></li></ul></li></ul><hr><h4 style="scroll-margin: 1em;" id="%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA"><strong>最终产出</strong></h4><p style="line-height: 1.6"><strong>DS-R1 模型</strong></p><ul><li><p style="">经过以上所有步骤，最终得到的模型就是 <code>DS-R1</code>。</p></li><li><p style="">理论上，<code>DS-R1</code> 既继承了第一阶段训练出的强大推理能力，又通过第二阶段的平衡训练，具备了优秀的通用对话和指令遵循能力，成为一个更加全面和强大的语言模型。</p></li></ul><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E7%BB%93"><strong>总结</strong></h4><p style="line-height: 1.6">简单来说，DeepSeek-R1 的训练过程就像培养一个学生：</p><ol><li><p style=""><strong>打好基础</strong>（<code>DS-V3-Base</code>）。</p></li><li><p style=""><strong>专项突破</strong>：先让他死磕数学和逻辑题，成为一个“理科状元”（<code>Reasoning-Oriented RL Checkpoint</code>）。</p></li><li><p style=""><strong>文理兼修</strong>：然后让他用学到的理科思维去梳理更多的理科知识，同时大量补充文科和常识知识，防止偏科（<code>Second Fine-Tuning</code>）。</p></li><li><p style=""><strong>综合考评</strong>：最后在综合考试中，不仅考他的理科能力，也考他的文科素养和表达能力，让他成为一个全面发展的优等生（<code>Final RL</code>）。</p></li></ol><p style="line-height: 1.6">这个流程的设计非常精妙，体现了当前大模型训练中“先专后通、分阶段优化”的前沿思想。</p><h3 style="scroll-margin: 1em;" id="qwen">Qwen</h3><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.01.48.png"><img src="/upload/截屏2026-01-11%2013.01.48.png" width="991px" height="398px" style="display: inline-block"></div></div></p><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-1"><strong>总体目标</strong></h4><p style="line-height: 1.6">与 DeepSeek 类似，Qwen 的目标也是从一个通用的基础模型出发，通过一系列精细的训练步骤，显著提升模型的性能，特别是<strong>推理能力</strong>和<strong>指令遵循能力</strong>，最终产出像 <code>Qwen3-235B-A22B</code> 和 <code>Qwen3-32B</code> 这样的高性能模型。</p><p style="line-height: 1.6">整个流程由四个主要阶段组成，我们可以将其看作并行与串行相结合的复杂流水线。</p><hr><h4 style="scroll-margin: 1em;" id="%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90"><strong>分阶段解析</strong></h4><p style="line-height: 1.6"><strong>第 1 阶段：长思维链冷启动 (Stage 1: Long-CoT Cold Start)</strong></p><ul><li><p style=""><strong>输入</strong>: <code>Base Models</code>。这是 Qwen 团队预训练好的基础语言模型。</p></li><li><p style=""><strong>过程</strong>: 这一步属于<strong>微调（Fine-tuning）</strong>。</p><ul><li><p style=""><code>Long-CoT</code>: 和 DeepSeek 一样，这里也使用了“长思维链”（Long Chain-of-Thought）数据。这意味着模型学习的是包含详细、复杂推理步骤的范例。</p></li><li><p style=""><code>Cold Start</code>（冷启动）: 这个术语暗示基础模型在这一步之前，可能没有经过太多针对思维链的专门训练。这是它第一次系统性地、大规模地接触并学习如何进行深度推理。</p></li></ul></li><li><p style=""><strong>产出</strong>: 一个初步掌握了按步骤解决复杂问题能力的新模型。这个模型是后续两个并行阶段的共同起点。</p></li></ul><p style="line-height: 1.6"><strong>阶段 2 和 3：并行的能力增强路径</strong></p><p style="line-height: 1.6">从第 1 阶段出来后，流程分成了两条并行的路径（Stage 2 和 Stage 3），这非常有趣，说明 Qwen 团队试图从两个不同的角度来优化模型。</p><p style="line-height: 1.6"><strong>第 2 阶段：推理强化学习 (Stage 2: Reasoning RL)</strong></p><ul><li><p style=""><strong>输入</strong>: 来自第 1 阶段的模型。</p></li><li><p style=""><strong>过程</strong>: 这是一个专注于<strong>推理</strong>的强化学习（Reinforcement Learning）阶段。</p><ul><li><p style="">模型会针对推理任务（如数学、代码、逻辑题）生成答案。</p></li><li><p style="">系统通过奖励模型（Reward Model）或规则来评估答案的正确性，并给予反馈。</p></li><li><p style="">这个过程“强迫”模型提升其在逻辑推理上的准确度和可靠性。这与 DeepSeek 的第一阶段 RL 非常相似。</p></li></ul></li></ul><p style="line-height: 1.6"><strong>第 3 阶段：思考模式融合 (Stage 3: Thinking Mode Fusion)</strong></p><ul><li><p style=""><strong>输入</strong>: 同样来自第 1 阶段的模型。</p></li><li><p style=""><strong>过程</strong>: 这是 Qwen 流程中一个非常<strong>创新和独特</strong>的步骤，也属于<strong>微调（Fine-tuning）</strong>。</p><ul><li><p style=""><strong>“Thinking Mode”（思考模式）</strong>: 指的是模型解决问题的不同策略。例如，对于一个简单问题，模型可以直接回答；对于一个复杂问题，模型应该启动“思维链模式”，一步步分析和推理。</p></li><li><p style=""><strong>“Fusion”（融合）</strong>: 在这个阶段，模型被训练去“融合”这两种或多种模式。它学习的不仅仅是如何推理，更是<strong>“何时”以及“如何”选择最合适的思考模式</strong>。比如，通过微调，让模型看到简单问题时就简洁回答，看到复杂问题时就自动生成详细的思考过程。</p></li></ul></li><li><p style=""><strong>目的</strong>: 这一步的目标是让模型变得更“智能”，能够根据任务的复杂度自适应地调整其响应策略，而不是对所有问题都采用冗长的思维链。</p></li></ul><p style="line-height: 1.6"><strong>第 4 阶段：通用强化学习 (Stage 4: General RL)</strong></p><ul><li><p style=""><strong>输入</strong>: 来自第 2 阶段和第 3 阶段的训练成果。这里的箭头汇合意味着，进入第 4 阶段的模型<strong>同时整合了前面两个阶段的能力</strong>。它既经过了纯粹的推理能力强化（Stage 2），又学会了如何智能地选择思考模式（Stage 3）。</p></li><li><p style=""><strong>过程</strong>: 这是一个通用的强化学习阶段。</p><ul><li><p style="">与 DeepSeek 的最后一步类似，这个阶段的目标是平衡模型的各项能力，确保它在通用对话、遵循指令、安全性、帮助性等方面都表现出色。</p></li><li><p style="">它确保模型在变得更会“思考”的同时，也仍然是一个优秀、可靠的通用 AI 助手。</p></li></ul></li></ul><hr><h4 style="scroll-margin: 1em;" id="%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA-1"><strong>最终产出</strong></h4><ul><li><p style=""><strong>Qwen3-235B-A22B / Qwen3-32B</strong>: 这些是最终产出的模型名称。</p><ul><li><p style=""><code>32B</code> 很可能指 320 亿参数的模型。</p></li><li><p style=""><code>235B-A22B</code> 可能表示一个混合专家（MoE, Mixture-of-Experts）模型，总参数量为 2350 亿，但在推理时只激活 220 亿参数。</p></li></ul></li><li><p style="">这些模型是整个复杂训练流程的结晶，理论上它们既是推理高手，又懂得如何根据情境调整策略，并且在通用能力上也非常均衡。</p></li></ul><h4 style="scroll-margin: 1em;" id="%E4%B8%8E-deepseek-%E6%B5%81%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94%E5%92%8C%E6%80%BB%E7%BB%93"><strong>与 DeepSeek 流程的对比和总结</strong></h4><ul><li><p style=""><strong>相似之处</strong>: 两者都采用了“<strong>微调 -&gt; 强化学习</strong>”的基本模式，都特别强调了<strong>长思维链（Long-CoT）</strong>和<strong>推理强化学习（Reasoning RL）</strong>的重要性。</p></li><li><p style=""><strong>关键区别</strong>: Qwen 流程图中的 <strong>“思考模式融合”（Thinking Mode Fusion）</strong> 是一个显著的亮点。它不是简单地增强推理，而是教模型如何“元认知”——即“思考如何思考”。这可能让 Qwen 模型在面对不同难度的问题时，表现得更加灵活和高效。DeepSeek 的流程更偏向于线性的“增强-再平衡”，而 Qwen 的流程中有一个“分路-融合”的并行结构，策略上更加精巧。</p></li></ul><p style="line-height: 1.6">总而言之，Qwen 的训练流程像是在培养一个不仅会解难题，还懂得“小题小作，大题大作”的聪明的学生。这在提升模型效率和回答质量方面可能具有重要优势。</p><h3 style="scroll-margin: 1em;" id="llama">Llama</h3><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.07.38.png"><img src="/upload/截屏2026-01-11%2013.07.38.png" width="991px" height="500px" style="display: inline-block"></div></div></p><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-2"><strong>总体目标</strong></h4><p style="line-height: 1.6">该流程的核心目标，是将一个预训练好的基础模型，通过一系列精心设计的<strong>监督微调（SFT）</strong>和<strong>基于人类偏好的强化学习（RL）</strong>，打造成一个在<strong>帮助性（Helpfulness）</strong>和<strong>安全性（Safety）</strong>上都达到顶尖水平的、与人类价值观对齐的指令遵循模型。</p><p style="line-height: 1.6">这个流程最大的特点是其<strong>迭代性</strong>和<strong>精细的数据工程</strong>。</p><hr><h4 style="scroll-margin: 1em;" id="%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E8%A7%A3%E6%9E%90"><strong>核心概念解析</strong></h4><p style="line-height: 1.6">在深入流程之前，我们先理解几个关键术语：</p><ul><li><p style=""><strong>SFT (Supervised Fine-Tuning/监督微调)</strong>: 使用高质量的“指令-回答”对来训练模型，教模型如何遵循指令并给出好的回答。这是教模型“做什么”的阶段。</p></li><li><p style=""><strong>Reward Model (RM/奖励模型)</strong>: 一个独立的模型，它的工作是给一个模型的回答打分，分数高低代表人类对这个回答的偏好程度。它学习的是人类的价值观和偏好。</p></li><li><p style=""><strong>DPO (Direct Preference Optimization/直接偏好优化)</strong>: 这是 RLHF (基于人类反馈的强化学习) 的一种更新、更高效的实现方式。传统的 RLHF（如 PPO）需要先训练一个奖励模型，然后用复杂的强化学习算法去优化语言模型。而 DPO 则更直接，它利用“更好/更差”（chosen/rejected）的偏好数据对，直接微调语言模型本身，使其更倾向于生成“更好”的回答，而不是“更差”的。它在效果类似的情况下，训练过程通常更稳定、更简单。</p></li></ul><hr><h4 style="scroll-margin: 1em;" id="%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90-1"><strong>分阶段解析</strong></h4><p style="line-height: 1.6">整个流程可以看作一个“数据-模型”双驱动的迭代循环。我们从数据流开始看。</p><p style="line-height: 1.6"><strong>第 1 步：生成多样化的候选回答</strong></p><ul><li><p style=""><strong>输入</strong>: <code>Collected Prompts</code> (收集到的指令)。这是一切的起点，是大量多样的用户问题或指令。</p></li><li><p style=""><strong>过程</strong>: 使用一个“种子”模型（<code>Best models from previous rounds</code>，即上一轮迭代中最好的模型），对每一个指令生成 <strong>K 个</strong>不同的回答（<code>K Generations per Prompt</code>）。</p></li><li><p style=""><strong>目的</strong>: 创造一个包含各种质量回答的“素材库”，为后续的微调和偏好学习提供原材料。</p></li></ul><p style="line-height: 1.6"><strong>第 2 步：训练奖励模型 (Reward Model Training)</strong></p><ul><li><p style=""><strong>输入</strong>: <code>Pairwise Annotated and Specialized Per-Capability Binary Preference Data</code>。这是一个非常关键的数据集，我们来拆解一下：</p><ul><li><p style=""><code>Pairwise Annotated</code> (成对标注): 人类标注员会看到同一个指令的两个不同回答，并选出“更好”的一个。这就构成了一个（指令, 更好的回答, 更差的回答）的数据对。</p></li><li><p style=""><code>Specialized Per-Capability</code> (按能力专门化): 标注不仅仅是笼统地说“哪个好”，而是针对特定能力，比如“哪个的逻辑推理更强？”或“哪个的文笔更好？”。</p></li><li><p style=""><code>Binary Preference</code> (二元偏好): 标注结果是二选一，简单直接。</p></li></ul></li><li><p style=""><strong>过程</strong>: 使用这些成对的偏好数据来训练 <code>Reward Model</code>。奖励模型的目标就是学会模仿人类的这种判断能力。</p></li><li><p style=""><strong>产出</strong>: 一个强大的 <code>Reward Model</code>，它能够为任何回答打出代表人类偏好程度的分数。</p></li></ul><p style="line-height: 1.6"><strong>第 3 步：通过高质量数据进行监督微调 (SFT)</strong></p><ul><li><p style=""><strong>路径 1 - 拒绝采样 (Rejection Sampling)</strong>:</p><ul><li><p style=""><strong>过程</strong>: 利用上一步训练好的 <code>Reward Model</code>，对第 1 步生成的 K 个回答进行打分。然后，只保留分数最高的那个回答。</p></li><li><p style=""><strong>产出</strong>: <code>SFT Data</code>。这是一个高质量的“指令-最佳回答”数据集，它是通过奖励模型自动筛选出来的，而非完全人工编写。</p></li></ul></li><li><p style=""><strong>路径 2 - 专门能力数据 (Specialized SFT Data)</strong>:</p><ul><li><p style=""><strong>来源</strong>: 图中显示，这个数据也来源于偏好数据，可能包含了为特定能力（如代码、数学）准备的高质量范例。</p></li></ul></li><li><p style=""><strong>整合与训练</strong>:</p><ul><li><p style="">将上述两种 SFT 数据结合起来，对模型进行监督微调，得到 <code>SFT Model</code>。这一步强化了模型遵循指令和生成高质量内容的基础能力。</p></li></ul></li></ul><p style="line-height: 1.6"><strong>第 4 步：通过直接偏好优化进行对齐 (DPO Training)</strong></p><ul><li><p style=""><strong>输入</strong>:</p><ol><li><p style=""><code>SFT Model</code>: 经过基础能力加强的模型。</p></li><li><p style=""><code>Pairwise...Preference Data</code>: 之前用于训练奖励模型的人类偏好数据。</p></li></ol></li><li><p style=""><strong>过程</strong>: 进行 <code>DPO Training</code>。模型被要求同时看到“更好”和“更差”的两个回答。训练的目标是，<strong>增加模型生成“更好”回答的概率，同时降低生成“更差”回答的概率</strong>。</p></li><li><p style=""><strong>产出</strong>: <code>Final DPO Model</code>。这是一个经过人类偏好对齐的最终模型。它不仅知道如何回答问题，更知道如何用人类喜欢的方式来回答。</p></li></ul><h4 style="scroll-margin: 1em;" id="%E6%A0%B8%E5%BF%83%E4%BA%AE%E7%82%B9%EF%BC%9A%E8%BF%AD%E4%BB%A3%E5%BE%AA%E7%8E%AF%EF%BC%88the-llama-herd-of-models%EF%BC%89"><strong>核心亮点：迭代循环（The Llama herd of models）</strong></h4><p style="line-height: 1.6">这张图最精髓的部分在于它是一个闭环。</p><ul><li><p style=""><code>Final DPO Model</code> 在完成一轮训练后，会成为 <code>Best models from previous rounds</code> 中的一员。</p></li><li><p style="">在下一轮迭代开始时，会从这些“最佳模型”中选出一个，作为新的“种子”模型（<code>Best model for next round</code>），去为新的 Prompts 生成 K 个回答（回到第 1 步）。</p></li></ul><p style="line-height: 1.6">这个过程被称为 "The Llama herd of models" (Llama 模型群)。这意味着 Meta 不是只训练一个模型，而是在<strong>持续地、一轮一轮地迭代优化</strong>他们的模型和数据。新一轮的模型比上一轮更强，因此能生成更高质量的候选回答和偏好数据，从而训练出更强的奖励模型和最终模型。这是一个飞轮效应，让模型能力和数据质量螺旋式上升。</p><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E7%BB%93%E4%B8%8E%E5%AF%B9%E6%AF%94"><strong>总结与对比</strong></h4><ul><li><p style=""><strong>与 DeepSeek/Qwen 的区别</strong>:</p><ul><li><p style=""><strong>RL 方法</strong>: Llama 3 明确使用了 <strong>DPO</strong>，而另外两个流程图中提到的是泛指的 RL。DPO 是目前工业界非常流行的高效对齐技术。</p></li><li><p style=""><strong>数据工程的透明度</strong>: Llama 的流程图非常详细地展示了如何通过<strong>拒绝采样 (Rejection Sampling)</strong> 和<strong>成对偏好数据 (Pairwise Data)</strong> 来系统性地构建 SFT 和 DPO 训练数据。</p></li><li><p style=""><strong>迭代本质</strong>: Llama 流程明确地展示了其<strong>多轮迭代</strong>的“模型群”策略，这是一个持续进化的生态系统，而不仅仅是一条线性的训练流水线。</p></li></ul></li></ul><p style="line-height: 1.6">总而言之，Llama 的训练流程像一个高度工业化的精密工厂：通过自动化（奖励模型）和人工监督（偏好标注）相结合的方式，不断“提纯”数据，并利用这些数据在“SFT”和“DPO”两条产线上对模型进行加工，最后通过一个生生不息的迭代循环，持续地产出越来越强大的模型。</p><p style="line-height: 1.6"><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.24.14.png"><img src="/upload/截屏2026-01-11%2013.24.14.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style="line-height: 1.6"><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.25.05.png"><img src="/upload/截屏2026-01-11%2013.25.05.png" width="100%" height="100%" style="display: inline-block"></div></div></p><p style="line-height: 1.6"><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.25.51.png"><img src="/upload/截屏2026-01-11%2013.25.51.png" width="100%" height="100%" style="display: inline-block"></div></div></p><hr><h3 style="scroll-margin: 1em;" id="%E5%BC%80%E6%BA%90%E5%BA%93-(open-source-libraries)"><strong>开源库 (Open-Source Libraries)</strong></h3><p style="">这张图片的标题是 <strong>"Libraries &amp; services for post-training"</strong> (用于后训练的库与服务)。它展示了当前大语言模型（LLM）生态中，用于执行我们之前讨论过的<strong>后训练（Post-training）</strong>任务（如监督微调 SFT、强化学习 RLHF/DPO 等）的主流工具、开源库和云服务平台。</p><p style="line-height: 1.6">简单来说，如果说 DeepSeek、Qwen、Llama 的流程图是<strong>“做什么”的设计蓝图</strong>，那么这张图展示的就是<strong>“用什么做”的工具箱</strong>。它为开发者和研究人员提供了一个实现这些复杂训练流程的武器库。</p><p style="line-height: 1.6">我们可以将这些工具分为两大类：<strong>开源库</strong>（开发者可以在自己的机器或服务器上安装和使用）和<strong>云服务/平台</strong>（通过 API 或专用平台提供微调功能）。</p><p style=""><div class="gallery-item"><div data-fancybox="gallery" href="/upload/截屏2026-01-11%2013.26.31.png"><img src="/upload/截屏2026-01-11%2013.26.31.png" width="991px" height="461px" style="display: inline-block"></div></div></p><p style="line-height: 1.6">这些是开发者可以在本地环境或自己的云服务器上自由部署和修改的软件库。</p><ol><li><p style="line-height: 1.6"><strong>unsloth</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: <strong>极致的效率优化</strong>。Unsloth 通过重写底层训练代码，使得在相同的硬件上，LLM 的微调速度提升 2 倍，内存占用减少高达 60%。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你的显卡显存（VRAM）有限，或者你希望在更短的时间内完成训练，Unsloth 是一个极佳的选择。它与 Hugging Face 生态兼容，可以轻松集成到现有代码中。</p></li></ul></li><li><p style="line-height: 1.6"><strong>huggingface/trl (Transformer Reinforcement Learning Library)</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: Hugging Face 官方推出的用于<strong>强化学习微调</strong>的库。它是实现 RLHF（如 PPO 算法）和 DPO（直接偏好优化）的事实标准之一。图中提到的 <code>SFT Trainer</code> 也是其重要组成部分，专门用于监督微调。</p></li><li><p style=""><strong>开发者视角</strong>: 当你需要实现 Llama 流程图中那样的 SFT 和 DPO 训练时，<code>trl</code> 是最核心、最常用的库之一。</p></li></ul></li><li><p style="line-height: 1.6"><strong>LLaMA-Factory</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: 一个<strong>“一站式”的、易于使用</strong>的 LLM 微调框架。它通过 Web UI 和配置文件，极大地简化了微调过程，支持非常多的开源模型和微调算法（SFT, LoRA, DPO 等）。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你希望快速上手，不想深入研究复杂的训练代码，或者需要在一个项目中尝试多种不同的模型和方法，LLaMA-Factory 是一个非常友好的选择。</p></li></ul></li><li><p style="line-height: 1.6"><strong>pytorch/torchtune</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: 由 PyTorch 团队（Meta）官方推出的、用于微调 LLM 的原生库。它轻量、易于修改和扩展，并且与 PyTorch 生态系统深度集成。它尤其擅长 Llama 系列模型的微调。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你是一个 PyTorch 的忠实用户，希望拥有一个更底层、更“官方”、更具定制性的微调方案，Torchtune 是完美的选择。</p></li></ul></li><li><p style="line-height: 1.6"><strong>Apple mlX Fine-tuning</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: Apple 推出的专门用于其自研芯片（M1/M2/M3 等）的机器学习框架 <code>MLX</code> 的微调功能。它充分利用了 Apple Silicon 独特的统一内存架构，可以在 Mac 电脑上高效地进行模型微调。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你的主要开发设备是 MacBook Pro 或 Mac Studio，并且希望在本地进行模型微调实验，使用 MLX 会获得比传统框架更好的性能体验。</p></li></ul></li><li><p style="line-height: 1.6"><strong>google/tunix</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: Google 开源的一个基于 JAX 的 LLM 微调库。JAX 是一个专注于高性能数值计算的 Python 库，在 Google 的 TPU（张量处理单元）上表现尤其出色。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你的工作环境重度依赖 Google Cloud 和 TPU，或者你是 JAX 框架的爱好者，希望追求极致的训练性能，Tunix 是值得考虑的工具。</p></li></ul></li></ol><hr><h4 style="scroll-margin: 1em;" id="%E4%BA%91%E6%9C%8D%E5%8A%A1%E4%B8%8E%E5%B9%B3%E5%8F%B0-(cloud-services-%26-platforms)"><strong>云服务与平台 (Cloud Services &amp; Platforms)</strong></h4><p style="line-height: 1.6">这些是由大公司提供的商业服务，用户无需管理底层硬件，直接通过 API 或平台界面来微调模型。</p><ol start="7"><li><p style="line-height: 1.6"><strong>OpenAI Supervised fine-tuning</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: OpenAI 提供的官方微调服务。用户可以通过上传自己的数据集（格式为“指令-回答”对），来微调 OpenAI 的基础模型（如 GPT-3.5）。</p></li><li><p style=""><strong>开发者视角</strong>: 如果你想在特定任务上获得比通用 GPT 模型更好的性能，但又不想自己维护复杂的训练基础设施，使用 OpenAI 的 API 是最直接的方式。</p></li></ul></li><li><p style="line-height: 1.6"><strong>together.ai</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: 一个专注于 LLM 的云平台，提供模型推理和微调服务。它的优势在于提供了大量高质量的开源模型，并以相对较低的价格提供高性能的 GPU 资源。</p></li><li><p style=""><strong>开发者视角</strong>: 这是一个性价比很高的选择，既可以快速部署和运行各种开源模型，也提供了方便的微调功能，适合初创公司和个人开发者。</p></li></ul></li><li><p style="line-height: 1.6"><strong>Tinker Thinking Machines</strong>:</p><ul><li><p style=""><strong>核心特点</strong>: 这个 Logo 似乎指向一个更偏向研究或特定领域的公司/项目，专注于构建和理解复杂的智能系统（"Thinking Machines"）。它们可能提供专门的微调服务或咨询。</p></li><li><p style=""><strong>开发者视角</strong>: 这可能代表了那些提供定制化、专家级模型训练服务的供应商。</p></li></ul></li></ol><h4 style="scroll-margin: 1em;" id="%E6%80%BB%E7%BB%93-1"><strong>总结</strong></h4><p style="line-height: 1.6">这张图描绘了一个<strong>百花齐放的 LLM 后训练生态系统</strong>：</p><ul><li><p style=""><strong>巨头入场</strong>: Google (tunix), Meta (torchtune), Apple (mlX), OpenAI 都在构建自己的工具和平台，试图定义标准。</p></li><li><p style=""><strong>生态核心</strong>: Hugging Face (<code>trl</code>) 凭借其庞大的模型库和标准化的工具链，依然是生态的中心。</p></li><li><p style=""><strong>效率为王</strong>: Unsloth 这样的项目表明，在资源受限的情况下，对效率的极致追求有巨大的价值。</p></li><li><p style=""><strong>易用性驱动</strong>: LLaMA-Factory 这类项目降低了普通开发者进入 LLM 微调领域的门槛。</p></li><li><p style=""><strong>云端趋势</strong>: OpenAI 和 together.ai 等服务表明，将微调作为一种简单易用的云服务来提供，是一种重要的商业模式。</p></li></ul><p style="line-height: 1.6">作为一名软件开发者，在选择工具时，你需要考虑：<strong>成本、开发效率、对硬件的控制力、对特定生态的依赖程度以及最终的性能要求</strong>。这张图为你提供了做出这些决策的完整选项列表。</p><h3 style="scroll-margin: 1em;" id="%E9%99%84%E6%B3%A8">附注</h3><p style="">好的，我们来详细讲解一下如何利用你的 Apple 设备（特指搭载了 Apple Silicon 芯片的 Mac）进行大模型的微调。这在以前几乎是不可能的，但现在得益于苹果官方推出的 <code>MLX</code> 框架，普通用户和开发者也能在自己的 MacBook 或 Mac Studio 上完成这项工作了。</p><h4 style="scroll-margin: 1em;" id="%E5%89%8D%E6%8F%90%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8E%B0%E5%9C%A8%E5%8F%AF%E4%BB%A5%E5%9C%A8-mac-%E4%B8%8A%E5%BE%AE%E8%B0%83%EF%BC%9F"><strong>前提：为什么现在可以在 Mac 上微调？</strong></h4><p style="line-height: 1.6">关键在于 <strong>Apple Silicon (M1/M2/M3 系列芯片)</strong> 和 <strong>统一内存架构 (Unified Memory Architecture, UMA)</strong>。</p><ul><li><p style=""><strong>统一内存</strong>: 在 Apple Silicon 电脑上，CPU 和 GPU 共享同一块内存。这意味着数据不需要在 CPU 内存和 GPU 显存之间来回拷贝，这极大地减少了延迟，提高了效率。对于动辄需要几十 GB 内存的大模型来说，这个特性至关重要。你的 Mac 有 32GB 内存，那么理论上模型就可以使用接近 32GB 的内存，而不需要受限于独立显卡 8GB 或 16GB 的显存瓶颈。</p></li><li><p style=""><strong>MLX 框架</strong>: 这是苹果官方推出的、专门为 Apple Silicon 设计的机器学习框架。它的语法和 NumPy、PyTorch 非常相似，学习曲线平缓，并且能自动利用统一内存的优势在 CPU 和 GPU 上高效运行。</p></li></ul><h4 style="scroll-margin: 1em;" id="%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C%EF%BC%9A%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%EF%BC%9F"><strong>准备工作：你需要什么？</strong></h4><ol><li><p style=""><strong>硬件</strong>: 一台搭载 Apple Silicon 芯片的 Mac（M1, M2, M3 或其 Pro/Max/Ultra 版本）。<strong>内存越大越好</strong>，16GB 是入门，32GB 或更高则能让你微调更大的模型。</p></li><li><p style=""><strong>软件</strong>:</p><ul><li><p style="">macOS 13.0 或以上版本。</p></li><li><p style="">Python 3.8 或以上版本。</p></li><li><p style="">Git（用于从 GitHub 克隆代码）。</p></li><li><p style="">一个代码编辑器，如 VS Code。</p></li></ul></li></ol><hr><h4 style="scroll-margin: 1em;" id="%E8%AF%A6%E7%BB%86%E6%AD%A5%E9%AA%A4%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83%E4%B8%80%E4%B8%AA%E6%A8%A1%E5%9E%8B"><strong>详细步骤：从零开始微调一个模型</strong></h4><p style="line-height: 1.6">我们将以微调一个开源模型（例如 Llama 3 或 Qwen 的小尺寸版本）为例，使用 <strong>LoRA (Low-Rank Adaptation)</strong> 技术。LoRA 是一种参数高效的微调方法，它不会改动原始模型的全部参数，而是通过训练小型的“适配器”矩阵来注入新知识，极大地降低了对内存和计算资源的需求。</p><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-1-%E6%AD%A5%EF%BC%9A%E5%88%9B%E5%BB%BA%E5%B9%B6%E6%BF%80%E6%B4%BB-python-%E7%8E%AF%E5%A2%83"><strong>第 1 步：创建并激活 Python 环境</strong></h5><p style="line-height: 1.6">为了不污染你的系统环境，强烈建议使用虚拟环境。</p><pre><code class="language-python"># 创建一个新的虚拟环境（这里命名为 mlx-env）
+
+python3 -m venv mlx-env
+
+# 激活该环境
+
+source mlx-env/bin/activate
+
+# 当你想退出环境时，运行 deactivate</code></pre><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-2-%E6%AD%A5%EF%BC%9A%E5%AE%89%E8%A3%85-mlx-%E5%8F%8A%E7%9B%B8%E5%85%B3%E4%BE%9D%E8%B5%96"><strong>第 2 步：安装 MLX 及相关依赖</strong></h5><p style="line-height: 1.6">苹果官方和社区提供了一个名为 <code>mlx-lm</code> 的高级库，它封装了加载模型、进行 LoRA 微调等常用功能，非常方便。</p><pre><code class="language-python"># 创建一个新的虚拟环境（这里命名为 mlx-env）
+
+python3 -m venv mlx-env
+
+# 激活该环境
+
+source mlx-env/bin/activate
+
+# 当你想退出环境时，运行 deactivate</code></pre><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-3-%E6%AD%A5%EF%BC%9A%E8%8E%B7%E5%8F%96%E5%AE%98%E6%96%B9%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><strong>第 3 步：获取官方示例代码</strong></h5><p style="line-height: 1.6">苹果的 <code>mlx-examples</code> 仓库是学习和实践的最佳起点。</p><pre><code class="language-shell"># 克隆 mlx-examples 仓库
+
+git clone https://github.com/ml-explore/mlx-examples.git
+
+# 进入 LoRA 示例目录
+
+cd mlx-examples/lora</code></pre><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-4-%E6%AD%A5%EF%BC%9A%E5%87%86%E5%A4%87%E5%BE%AE%E8%B0%83%E6%95%B0%E6%8D%AE"><strong>第 4 步：准备微调数据</strong></h5><p style="line-height: 1.6">微调需要遵循特定格式的数据集。通常是 <code>.jsonl</code> 文件，每一行都是一个 JSON 对象，包含指令、输入（可选）和期望的输出。</p><p style="line-height: 1.6">例如，创建一个名为 <code>data.jsonl</code> 的文件，内容如下：</p><pre><code class="language-json">{"text": "&lt;s&gt;[INST] 作为一个AI助手，请介绍一下苹果的MLX框架。 [/INST] MLX是苹果公司为Apple Silicon芯片量身打造的一个机器学习框架。它的特点是采用了统一内存架构，使得数据在CPU和GPU之间共享，无需拷贝，从而极大地提升了效率。它的API设计与NumPy和PyTorch非常相似，对于开发者来说非常友好。 &lt;/s&gt;"}
+
+{"text": "&lt;s&gt;[INST] 帮我写一首关于秋天的五言绝句。 [/INST] 空山新雨后，天气晚来秋。明月松间照，清泉石上流。 &lt;/s&gt;"}</code></pre><p style="line-height: 1.6"><strong>解释</strong>:</p><ul><li><p style=""><code>&lt;s&gt;</code> 和 <code>&lt;/s&gt;</code> 是特殊的开始和结束标记。</p></li><li><p style=""><code>[INST]</code> 和 <code>[/INST]</code> 包裹的是用户的指令 (Prompt)。</p></li><li><p style="">紧跟在 <code>[/INST]</code> 后面的就是模型应该学习的理想回答。</p></li><li><p style="">你需要根据你的任务准备成百上千条这样的数据，数据质量直接决定了微调效果。</p></li></ul><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-5-%E6%AD%A5%EF%BC%9A%E9%80%89%E6%8B%A9%E6%A8%A1%E5%9E%8B%E5%B9%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83"><strong>第 5 步：选择模型并开始微调</strong></h5><p style="line-height: 1.6">现在我们可以执行微调命令了。你需要从 Hugging Face 上选择一个与 MLX 兼容的模型。MLX 社区（<code>mlx-community</code>）已经转换了大量热门模型。</p><p style="line-height: 1.6">假设我们要微调 <code>mlx-community/Llama-3-8B-Instruct-4bit</code> 这个 4 位量化过的 Llama 3 8B 模型。量化可以大幅减少内存占用。</p><p style="line-height: 1.6">在 <code>lora</code> 目录下，运行以下命令：</p><pre><code class="language-python">python lora.py \
+
+--model mlx-community/Llama-3-8B-Instruct-4bit \
+
+--train \
+
+--data . \
+
+--lora-layers 16 \
+
+--batch-size 1 \
+
+--iters 600 \
+
+--learning-rate 1e-5 \
+
+--save-every 100 \
+
+--adapter-path ./my_adapter</code></pre><p style="line-height: 1.6"><strong>命令参数解析</strong>:</p><ul><li><p style=""><code>--model</code>: 指定要微调的基础模型。</p></li><li><p style=""><code>--train</code>: 表示要进行训练。</p></li><li><p style=""><code>--data .</code>: 指定训练数据所在的目录（它会自动查找该目录下的 <code>jsonl</code> 文件）。</p></li><li><p style=""><code>--lora-layers 16</code>: 指定要对模型的16个层应用 LoRA 适配器。</p></li><li><p style=""><code>--batch-size 1</code>: 批处理大小，受内存限制，通常设为 1 或 2。</p></li><li><p style=""><code>--iters 600</code>: 训练迭代次数。</p></li><li><p style=""><code>--learning-rate 1e-5</code>: 学习率，这是一个需要调优的超参数。</p></li><li><p style=""><code>--save-every 100</code>: 每 100 次迭代保存一次适配器。</p></li><li><p style=""><code>--adapter-path ./my_adapters</code>: 指定训练好的 LoRA 适配器保存的路径。</p></li></ul><p style="line-height: 1.6">此时，你会看到终端开始输出训练日志，包括 loss（损失值）等信息。这个过程需要一些时间，具体取决于你的 Mac 性能和迭代次数。</p><h5 style="scroll-margin: 1em;" id="%E7%AC%AC-6-%E6%AD%A5%EF%BC%9A%E6%B5%8B%E8%AF%95%E5%BE%AE%E8%B0%83%E5%90%8E%E7%9A%84%E6%A8%A1%E5%9E%8B"><strong>第 6 步：测试微调后的模型</strong></h5><p style="line-height: 1.6">训练完成后，<code>my_adapters</code> 目录下会生成一个 <code>adapters.safetensors</code> 文件。现在我们可以加载原始模型和这个适配器，来测试微调效果。</p><pre><code class="language-python">python lora.py \
+
+--model mlx-community/Llama-3-8B-Instruct-4bit \
+
+--adapter-path ./my_adapters \
+
+--test \
+
+--prompt "&lt;s&gt;[INST] 作为一个AI助手，请介绍一下苹果的MLX框架。 [/INST]"</code></pre><p style="line-height: 1.6"><strong>命令参数解析</strong>:</p><ul><li><p style=""><code>--test</code>: 表示进入测试（推理）模式。</p></li><li><p style=""><code>--adapter-path</code>: 加载我们刚刚训练好的适配器。</p></li><li><p style=""><code>--prompt</code>: 输入你的指令。</p></li></ul><p style="line-height: 1.6">你会看到模型生成了回答。如果微调成功，这个回答会比原始模型更符合你在 <code>data.jsonl</code> 中定义的风格和内容。</p><h4 style="scroll-margin: 1em;" id="%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E5%92%8C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><strong>注意事项和最佳实践</strong></h4><ol><li><p style=""><strong>内存，内存，内存！</strong>: 这是在 Mac 上微调的最大限制。优先选择<strong>量化模型</strong>（如 4-bit, 8-bit）进行微调。一个 7B 的模型，4位量化后大约需要 4-5GB 内存，加上训练过程中的梯度和优化器状态，一台 16GB 内存的 Mac 正好可以处理。</p></li><li><p style=""><strong>从小的开始</strong>: 先从较小的模型（如 Phi-3-mini, Llama-3-8B, Qwen1.5-7B）开始尝试，成功之后再挑战更大的模型。</p></li><li><p style=""><strong>使用 LoRA</strong>: 对于个人设备来说，全参数微调几乎是不可能的。LoRA 是你最好的朋友。</p></li><li><p style=""><strong>耐心</strong>: 即使有 MLX 加持，在 Mac 上的训练速度也无法与专业的 A100/H100 GPU 服务器相比。对于一个小型任务，训练几个小时甚至一天都是正常的。</p></li><li><p style=""><strong>关注社区</strong>: Hugging Face 上的 <code>mlx-community</code> 组织是寻找 MLX 兼容模型的好地方。</p></li></ol><p style="line-height: 1.6">总而言之，使用 Apple 设备做微调已经从一个遥不可及的梦想变成了现实。只要你有一台内存足够的 Apple Silicon Mac，遵循以上步骤，你就可以开始打造属于你自己的定制化大模型了！</p><p style=""></p></div>
+
+            
+    <div class="admire">
+        <div class="admire-content">
+            
+            <button class="agree like" data-id="a5a88c81-4e6d-4217-a716-d0cb7376c0f9" data-likes="1">
+                <i class="ri-thumb-up-line"></i>
+                <span>赞<span>1</span></span>
+            </button>
+        </div>
+        <span>如果觉得文章对你有用，请随意赞赏</span>
+    </div>
+
+
+
+            
+            <th:bolck>
+                <hr>
+                
+                    <div class="copyright">
+    <div class="copyright-title">
+        <p>Fine-tuning  &amp; RL For LLMs: Intro to Post training Module 1: Post-Training Overview</p>
+        <a href="/archives/fine-tuning-and-reinforcement-learning-for-llms-intro-to-post-training">https://halo.mosuyang.org/archives/fine-tuning-and-reinforcement-learning-for-llms-intro-to-post-training</a>
+    </div>
+    <div class="copyright-meta level">
+        <div class="level-item">
+            <h6>作者</h6>
+            <p>Administrator</p>
+        </div>
+        <div class="level-item">
+            <h6>发布于</h6>
+            <p>2026-01-11</p>
+        </div>
+        <div class="level-item">
+            <h6>更新于</h6>
+            <p>2026-01-11</p>
+        </div>
+        <div class="level-item">
+            <h6>许可协议</h6>
+            <a rel="noopener" target="_blank" title="CC BY 4.0" href="https://creativecommons.org/licenses/by/4.0/deed.zh"><i class="icon ri-creative-commons-line"></i>CC BY 4.0</a>
+        </div>
+    </div>
+</div>
+
+                
+                <div class="dshare"></div>
+            </th:bolck>
+        </div>
+    </div>
+
+    
+        <div class="card">
+            <div class="level post-navigation card-content">
+                <a class="level-item" href="/archives/solana-voting-system">
+                    <i class="ri-arrow-left-s-line"></i><span>solana-voting-system</span>
+                </a>
+                <a class="level-item" href="/archives/agentic-ai">
+                    <span>Agentic AI</span><i class="ri-arrow-right-s-line"></i>
+                </a>
+            </div>
+        </div>
+    
+
+    <div class="card card-content" id="comment-wrapper">
+        <h3 class="comment-title">评论</h3>
+        <div>
+            <div id="comment-content-halo-run-Post-a5a88c81-4e6d-4217-a716-d0cb7376c0f9"></div>
+<script>
+  CommentWidget.init(
+    "#comment-content-halo-run-Post-a5a88c81-4e6d-4217-a716-d0cb7376c0f9",
+    {
+      group: "content.halo.run",
+      kind: "Post",
+      name: "a5a88c81-4e6d-4217-a716-d0cb7376c0f9",
+      size: 20,
+      replySize: 10,
+      withReplies: false,
+      withReplySize: 5,
+      useAvatarProvider: false,
+      avatarProvider: "gravatar",
+      avatarProviderMirror: "",
+      avatarPolicy: "anonymousUser",
+      captchaEnabled: false,
+    }
+  );
+</script>
+
+        </div>
+    </div>
+
+          </div>
+          
+            <aside class="column column-side column-left bottom-sticky">
+  
+    
+  
+    
+  
+  <div class="column-right-shadow is-hidden-desktop">
+  <div class="card widget is-hidden-mobile">
+    <div class="card-title">
+        <i class="ri-apps-line card-title-label"></i><span>文章分类</span>
+        <a class="card-more" href="/categories">更多<i class="ri-arrow-right-double-line"></i></a>
+    </div>
+    
+    <div class="card-content">
+        <ul class="menu-list">
+            <li>
+                <a class="level is-marginless" href="/categories/workflow">
+                    <span class="level-item">workflow</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/solana">
+                    <span class="level-item">solana</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/blockchain">
+                    <span class="level-item">BlockChain</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/modelyuan-li">
+                    <span class="level-item">Model原理</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/qi-ta-xue-xi-zi-liao-lian-jie">
+                    <span class="level-item">其他学习资料链接</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/rl">
+                    <span class="level-item">RL</span>
+                    <span class="level-item tag">4</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/evaluate">
+                    <span class="level-item">Evaluate</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/lmman-quan">
+                    <span class="level-item">LMM安全</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/finetuning">
+                    <span class="level-item">finetuning</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/multimodal">
+                    <span class="level-item">MultiModal</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div><div class="card widget toc is-hidden-mobile">
+    <div class="card-title">
+        <i class="ri-book-2-line card-title-label"></i><span>本文索引</span>
+    </div>
+    <div class="card-content toc-content"><ul class="menu-list"><li><a data-id="#module-1%3A-post-training-overview" class="is-active"><i class="ri-attachment-2"></i>Module 1: Post-Training Overview</a><ul class="menu-list"><li><a data-id="#background" class="is-active"><i class="ri-attachment-2"></i>Background</a></li><li><a data-id="#where-post-training(fine-tuning-and-rl)-fits-into-llm-training" class=""><i class="ri-attachment-2"></i>Where post-training(fine-tuning and RL) fits into LLM training</a></li><li><a data-id="#intuitions-bechind-fine-tuning-and-rl"><i class="ri-attachment-2"></i>Intuitions bechind fine-tuning and RL</a></li><li><a data-id="#key-components-to-making-fine-tuning-and-rl-work"><i class="ri-attachment-2"></i>Key components to making fine-tuning and RL work</a></li><li><a data-id="#post-training-example%3A-reasoning"><i class="ri-attachment-2"></i>Post-training example: Reasoning</a></li><li><a data-id="#post-training-example%3A-safety-and-security(rlaif)"><i class="ri-attachment-2"></i>Post-training example: Safety and security(RLAIF)</a></li><li><a data-id="#post-training-in-the-wild"><i class="ri-attachment-2"></i>Post-training in the wild</a><ul class="menu-list"><li><a data-id="#deepseek"><i class="ri-attachment-2"></i>DeepSeek</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9A%E5%BC%BA%E5%8C%96%E6%8E%A8%E7%90%86%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段一：强化推理能力</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9A%E8%9E%8D%E5%90%88%E9%80%9A%E7%94%A8%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段二：融合通用能力</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#qwen"><i class="ri-attachment-2"></i>Qwen</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-1"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA-1"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E4%B8%8E-deepseek-%E6%B5%81%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94%E5%92%8C%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>与 DeepSeek 流程的对比和总结</a></li></ul></li><li><a data-id="#llama"><i class="ri-attachment-2"></i>Llama</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-2"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>核心概念解析</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90-1"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E4%BA%AE%E7%82%B9%EF%BC%9A%E8%BF%AD%E4%BB%A3%E5%BE%AA%E7%8E%AF%EF%BC%88the-llama-herd-of-models%EF%BC%89"><i class="ri-attachment-2"></i>核心亮点：迭代循环（The Llama herd of models）</a></li><li><a data-id="#%E6%80%BB%E7%BB%93%E4%B8%8E%E5%AF%B9%E6%AF%94"><i class="ri-attachment-2"></i>总结与对比</a></li></ul></li><li><a data-id="#%E5%BC%80%E6%BA%90%E5%BA%93-(open-source-libraries)"><i class="ri-attachment-2"></i>开源库 (Open-Source Libraries)</a><ul class="menu-list"><li><a data-id="#%E4%BA%91%E6%9C%8D%E5%8A%A1%E4%B8%8E%E5%B9%B3%E5%8F%B0-(cloud-services-%26-platforms)"><i class="ri-attachment-2"></i>云服务与平台 (Cloud Services &amp; Platforms)</a></li><li><a data-id="#%E6%80%BB%E7%BB%93-1"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#%E9%99%84%E6%B3%A8"><i class="ri-attachment-2"></i>附注</a><ul class="menu-list"><li><a data-id="#%E5%89%8D%E6%8F%90%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8E%B0%E5%9C%A8%E5%8F%AF%E4%BB%A5%E5%9C%A8-mac-%E4%B8%8A%E5%BE%AE%E8%B0%83%EF%BC%9F"><i class="ri-attachment-2"></i>前提：为什么现在可以在 Mac 上微调？</a></li><li><a data-id="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C%EF%BC%9A%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%EF%BC%9F"><i class="ri-attachment-2"></i>准备工作：你需要什么？</a></li><li><a data-id="#%E8%AF%A6%E7%BB%86%E6%AD%A5%E9%AA%A4%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83%E4%B8%80%E4%B8%AA%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>详细步骤：从零开始微调一个模型</a><ul class="menu-list"><li><a data-id="#%E7%AC%AC-1-%E6%AD%A5%EF%BC%9A%E5%88%9B%E5%BB%BA%E5%B9%B6%E6%BF%80%E6%B4%BB-python-%E7%8E%AF%E5%A2%83"><i class="ri-attachment-2"></i>第 1 步：创建并激活 Python 环境</a></li><li><a data-id="#%E7%AC%AC-2-%E6%AD%A5%EF%BC%9A%E5%AE%89%E8%A3%85-mlx-%E5%8F%8A%E7%9B%B8%E5%85%B3%E4%BE%9D%E8%B5%96"><i class="ri-attachment-2"></i>第 2 步：安装 MLX 及相关依赖</a></li><li><a data-id="#%E7%AC%AC-3-%E6%AD%A5%EF%BC%9A%E8%8E%B7%E5%8F%96%E5%AE%98%E6%96%B9%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><i class="ri-attachment-2"></i>第 3 步：获取官方示例代码</a></li><li><a data-id="#%E7%AC%AC-4-%E6%AD%A5%EF%BC%9A%E5%87%86%E5%A4%87%E5%BE%AE%E8%B0%83%E6%95%B0%E6%8D%AE"><i class="ri-attachment-2"></i>第 4 步：准备微调数据</a></li><li><a data-id="#%E7%AC%AC-5-%E6%AD%A5%EF%BC%9A%E9%80%89%E6%8B%A9%E6%A8%A1%E5%9E%8B%E5%B9%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83"><i class="ri-attachment-2"></i>第 5 步：选择模型并开始微调</a></li><li><a data-id="#%E7%AC%AC-6-%E6%AD%A5%EF%BC%9A%E6%B5%8B%E8%AF%95%E5%BE%AE%E8%B0%83%E5%90%8E%E7%9A%84%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>第 6 步：测试微调后的模型</a></li></ul></li><li><a data-id="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E5%92%8C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><i class="ri-attachment-2"></i>注意事项和最佳实践</a></li></ul></li></ul></li></ul></li></ul></div>
+</div></div>
+</aside>
+          
+          
+            <aside class="column column-side column-right top-sticky">
+  
+    
+      <div class="card widget is-hidden-mobile">
+    <div class="card-title">
+        <i class="ri-apps-line card-title-label"></i><span>文章分类</span>
+        <a class="card-more" href="/categories">更多<i class="ri-arrow-right-double-line"></i></a>
+    </div>
+    
+    <div class="card-content">
+        <ul class="menu-list">
+            <li>
+                <a class="level is-marginless" href="/categories/workflow">
+                    <span class="level-item">workflow</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/solana">
+                    <span class="level-item">solana</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/blockchain">
+                    <span class="level-item">BlockChain</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/modelyuan-li">
+                    <span class="level-item">Model原理</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/qi-ta-xue-xi-zi-liao-lian-jie">
+                    <span class="level-item">其他学习资料链接</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/rl">
+                    <span class="level-item">RL</span>
+                    <span class="level-item tag">4</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/evaluate">
+                    <span class="level-item">Evaluate</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/lmman-quan">
+                    <span class="level-item">LMM安全</span>
+                    <span class="level-item tag">2</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/finetuning">
+                    <span class="level-item">finetuning</span>
+                    <span class="level-item tag">3</span>
+                </a>
+            </li>
+            <li>
+                <a class="level is-marginless" href="/categories/multimodal">
+                    <span class="level-item">MultiModal</span>
+                    <span class="level-item tag">1</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+    
+  
+    
+      <div class="card widget toc is-hidden-mobile">
+    <div class="card-title">
+        <i class="ri-book-2-line card-title-label"></i><span>本文索引</span>
+    </div>
+    <div class="card-content toc-content"><ul class="menu-list"><li><a data-id="#module-1%3A-post-training-overview" class="is-active"><i class="ri-attachment-2"></i>Module 1: Post-Training Overview</a><ul class="menu-list"><li><a data-id="#background" class="is-active"><i class="ri-attachment-2"></i>Background</a></li><li><a data-id="#where-post-training(fine-tuning-and-rl)-fits-into-llm-training" class=""><i class="ri-attachment-2"></i>Where post-training(fine-tuning and RL) fits into LLM training</a></li><li><a data-id="#intuitions-bechind-fine-tuning-and-rl"><i class="ri-attachment-2"></i>Intuitions bechind fine-tuning and RL</a></li><li><a data-id="#key-components-to-making-fine-tuning-and-rl-work"><i class="ri-attachment-2"></i>Key components to making fine-tuning and RL work</a></li><li><a data-id="#post-training-example%3A-reasoning"><i class="ri-attachment-2"></i>Post-training example: Reasoning</a></li><li><a data-id="#post-training-example%3A-safety-and-security(rlaif)"><i class="ri-attachment-2"></i>Post-training example: Safety and security(RLAIF)</a></li><li><a data-id="#post-training-in-the-wild"><i class="ri-attachment-2"></i>Post-training in the wild</a><ul class="menu-list"><li><a data-id="#deepseek"><i class="ri-attachment-2"></i>DeepSeek</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9A%E5%BC%BA%E5%8C%96%E6%8E%A8%E7%90%86%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段一：强化推理能力</a></li><li><a data-id="#%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9A%E8%9E%8D%E5%90%88%E9%80%9A%E7%94%A8%E8%83%BD%E5%8A%9B"><i class="ri-attachment-2"></i>阶段二：融合通用能力</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#qwen"><i class="ri-attachment-2"></i>Qwen</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-1"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%9C%80%E7%BB%88%E4%BA%A7%E5%87%BA-1"><i class="ri-attachment-2"></i>最终产出</a></li><li><a data-id="#%E4%B8%8E-deepseek-%E6%B5%81%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94%E5%92%8C%E6%80%BB%E7%BB%93"><i class="ri-attachment-2"></i>与 DeepSeek 流程的对比和总结</a></li></ul></li><li><a data-id="#llama"><i class="ri-attachment-2"></i>Llama</a><ul class="menu-list"><li><a data-id="#%E6%80%BB%E4%BD%93%E7%9B%AE%E6%A0%87-2"><i class="ri-attachment-2"></i>总体目标</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E8%A7%A3%E6%9E%90"><i class="ri-attachment-2"></i>核心概念解析</a></li><li><a data-id="#%E5%88%86%E9%98%B6%E6%AE%B5%E8%A7%A3%E6%9E%90-1"><i class="ri-attachment-2"></i>分阶段解析</a></li><li><a data-id="#%E6%A0%B8%E5%BF%83%E4%BA%AE%E7%82%B9%EF%BC%9A%E8%BF%AD%E4%BB%A3%E5%BE%AA%E7%8E%AF%EF%BC%88the-llama-herd-of-models%EF%BC%89"><i class="ri-attachment-2"></i>核心亮点：迭代循环（The Llama herd of models）</a></li><li><a data-id="#%E6%80%BB%E7%BB%93%E4%B8%8E%E5%AF%B9%E6%AF%94"><i class="ri-attachment-2"></i>总结与对比</a></li></ul></li><li><a data-id="#%E5%BC%80%E6%BA%90%E5%BA%93-(open-source-libraries)"><i class="ri-attachment-2"></i>开源库 (Open-Source Libraries)</a><ul class="menu-list"><li><a data-id="#%E4%BA%91%E6%9C%8D%E5%8A%A1%E4%B8%8E%E5%B9%B3%E5%8F%B0-(cloud-services-%26-platforms)"><i class="ri-attachment-2"></i>云服务与平台 (Cloud Services &amp; Platforms)</a></li><li><a data-id="#%E6%80%BB%E7%BB%93-1"><i class="ri-attachment-2"></i>总结</a></li></ul></li><li><a data-id="#%E9%99%84%E6%B3%A8"><i class="ri-attachment-2"></i>附注</a><ul class="menu-list"><li><a data-id="#%E5%89%8D%E6%8F%90%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8E%B0%E5%9C%A8%E5%8F%AF%E4%BB%A5%E5%9C%A8-mac-%E4%B8%8A%E5%BE%AE%E8%B0%83%EF%BC%9F"><i class="ri-attachment-2"></i>前提：为什么现在可以在 Mac 上微调？</a></li><li><a data-id="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C%EF%BC%9A%E4%BD%A0%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%EF%BC%9F"><i class="ri-attachment-2"></i>准备工作：你需要什么？</a></li><li><a data-id="#%E8%AF%A6%E7%BB%86%E6%AD%A5%E9%AA%A4%EF%BC%9A%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83%E4%B8%80%E4%B8%AA%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>详细步骤：从零开始微调一个模型</a><ul class="menu-list"><li><a data-id="#%E7%AC%AC-1-%E6%AD%A5%EF%BC%9A%E5%88%9B%E5%BB%BA%E5%B9%B6%E6%BF%80%E6%B4%BB-python-%E7%8E%AF%E5%A2%83"><i class="ri-attachment-2"></i>第 1 步：创建并激活 Python 环境</a></li><li><a data-id="#%E7%AC%AC-2-%E6%AD%A5%EF%BC%9A%E5%AE%89%E8%A3%85-mlx-%E5%8F%8A%E7%9B%B8%E5%85%B3%E4%BE%9D%E8%B5%96"><i class="ri-attachment-2"></i>第 2 步：安装 MLX 及相关依赖</a></li><li><a data-id="#%E7%AC%AC-3-%E6%AD%A5%EF%BC%9A%E8%8E%B7%E5%8F%96%E5%AE%98%E6%96%B9%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><i class="ri-attachment-2"></i>第 3 步：获取官方示例代码</a></li><li><a data-id="#%E7%AC%AC-4-%E6%AD%A5%EF%BC%9A%E5%87%86%E5%A4%87%E5%BE%AE%E8%B0%83%E6%95%B0%E6%8D%AE"><i class="ri-attachment-2"></i>第 4 步：准备微调数据</a></li><li><a data-id="#%E7%AC%AC-5-%E6%AD%A5%EF%BC%9A%E9%80%89%E6%8B%A9%E6%A8%A1%E5%9E%8B%E5%B9%B6%E5%BC%80%E5%A7%8B%E5%BE%AE%E8%B0%83"><i class="ri-attachment-2"></i>第 5 步：选择模型并开始微调</a></li><li><a data-id="#%E7%AC%AC-6-%E6%AD%A5%EF%BC%9A%E6%B5%8B%E8%AF%95%E5%BE%AE%E8%B0%83%E5%90%8E%E7%9A%84%E6%A8%A1%E5%9E%8B"><i class="ri-attachment-2"></i>第 6 步：测试微调后的模型</a></li></ul></li><li><a data-id="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E5%92%8C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><i class="ri-attachment-2"></i>注意事项和最佳实践</a></li></ul></li></ul></li></ul></li></ul></div>
+</div>
+    
+  
+  
+</aside>
+          
+        </div>
+      </div>
+    </section>
+    <div class="actions show">
+    <div class="bullet-screen is-hidden-mobile is-hidden-all">
+        <span>弹</span>
+    </div>
+    <div id="toggle-mode">
+        <i class="ri-contrast-fill"></i>
+    </div>
+    <div class="action-toc is-hidden-desktop">
+        <i class="ri-list-unordered"></i>
+    </div>
+    <div id="back-to-top">
+        <i class="ri-arrow-up-line"></i>
+    </div>
+</div>
+    <footer class="footer">
+    <div class="container">
+        <ul class="footer-container">
+            <li>
+              <a class="logo-title" href="https://halo.mosuyang.org/">
+                Mosu
+                
+              </a>
+            </li>
+            <li>
+              <p class="icon-spot">
+                <span>© 2026 Mosu</span><span class="footer-truncation">Powered by <a class="powered" href="https://halo.run/" target="_blank">Halo</a> &amp; <a class="powered" href="https://github.com/nineya/halo-theme-dream2.0" target="_blank">Dream</a></span></p>
+              <p class="icon-spot">
+                
+                <span class="icon-spot footer-truncation">
+                            <span id="busuanzi_container_site_uv" style="display: none">
+                              <i class="ri-account-circle-line" aria-hidden="true"></i><span class="stand" id="busuanzi_value_site_uv">0</span>访客
+                            </span>
+                            <span id="busuanzi_container_site_pv" style="display: none">
+                              <i class="ri-pie-chart-line" aria-hidden="true"></i><span class="stand" id="busuanzi_value_site_pv">0</span>访问
+                            </span>
+                        </span>
+              </p>
+              
+              
+            </li>
+            <li>
+                <!-- <script src="/upload/santa-bottom.js"></script> -->
+<!-- <audio autoplay="autoplay" controls="controls" loop="loop" preload="auto" src="/upload/sd.mp3">
+    你的浏览器不支持 audio 标签。
+</audio>
+<style>
+  #christmas-audio {
+    /* 定位方式：固定在视口位置 */
+    position: fixed;
+    right: 10px; /* 距离右侧边缘 10px */
+    top: 50%; /* 顶部定位到垂直中心点 */
+    /* 使用 transform 向上移动自身高度的一半，实现完美垂直居中 */
+    transform: translateY(-50%);
+    /* 可选：设置一个宽度，让它看起来整齐 */
+    width: 250px;
+    /* 确保它在其他内容之上 */
+    z-index: 1000; 
+  }
+</style> -->
+            </li>
+        </ul>
+    </div>
+</footer>
+
+    
+    <script src="/themes/theme-dream/assets/js/utils.min.js?mew=1.3.2"></script>
+    <script src="/themes/theme-dream/assets/js/btoc.min.js?mew=1.3.2"></script>
+    
+    <script src="/themes/theme-dream/assets/js/common.min.js?mew=1.3.2"></script>
+
+    
+        <script data-pjax="" src="/themes/theme-dream/assets/lib/highlightjs@11.5.1/highlight.min.js"></script></body></html>
