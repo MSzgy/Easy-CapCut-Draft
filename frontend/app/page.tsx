@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { AppSidebar, type TabType } from "@/components/video-editor/app-sidebar"
 import { ColumnInput, type GeneratedOutput } from "@/components/video-editor/column-input"
 import { ColumnContent } from "@/components/video-editor/column-content"
@@ -24,6 +24,9 @@ export default function VideoEditorPage() {
   const [outputRecords, setOutputRecords] = useState<OutputRecord[]>([])
   const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
   const [modelProvider, setModelProvider] = useState<"gemini" | "huggingface">("gemini")
+  // Video render state
+  const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
+  const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
 
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
@@ -91,38 +94,55 @@ export default function VideoEditorPage() {
     setExportType(null)
   }
 
-  const handleRenderVideo = async () => {
+  const handleRenderVideo = useCallback(async () => {
+    if (!generatedContent || generatedContent.scenes.length === 0) return
+
+    const scenes = generatedContent.scenes
+    const total = scenes.length
     setExportType("video")
     setIsExporting(true)
+    setGeneratedVideos([])
+    setRenderProgress({ current: 0, total })
 
-    // Add processing record
-    const recordId = `output_${Date.now()}`
-    const processingRecord: OutputRecord = {
-      id: recordId,
-      name: "AI Generated Video",
-      type: "video",
-      status: "processing",
-      createdAt: new Date().toLocaleString(),
-      duration: `0:${((generatedContent?.scenes.length || 3) * 10).toString().padStart(2, "0")}`,
-      fileSize: "-",
-      scenes: generatedContent?.scenes.length || 0,
+    const videos: string[] = []
+
+    for (let i = 0; i < total; i++) {
+      setRenderProgress({ current: i + 1, total })
+      const scene = scenes[i]
+      const nextScene = i < total - 1 ? scenes[i + 1] : null
+
+      try {
+        const { aiContentApi } = await import("@/lib/api/ai-content")
+        const response = await aiContentApi.generateVideoImageAudio({
+          firstFrame: scene.imageUrl,
+          endFrame: nextScene?.imageUrl || undefined,
+          prompt: scene.script,
+          duration: 5,
+          generationMode: "Image-to-Video",
+          enhancePrompt: true,
+          randomizeSeed: true,
+          width: 768,
+          height: 512,
+        })
+
+        if (response.success && response.videoUrl) {
+          videos.push(response.videoUrl)
+        } else {
+          videos.push("") // placeholder for failed scene
+        }
+      } catch (error: any) {
+        console.error(`Scene ${i + 1} video generation failed:`, error)
+        videos.push("") // placeholder for failed scene
+      }
+
+      // Update videos array progressively so UI shows partial results
+      setGeneratedVideos([...videos])
     }
-    setOutputRecords((prev) => [processingRecord, ...prev])
 
-    await new Promise((resolve) => setTimeout(resolve, 3000))
-
-    // Update to rendered
-    setOutputRecords((prev) =>
-      prev.map((r) =>
-        r.id === recordId
-          ? { ...r, status: "rendered" as const, fileSize: "128 MB" }
-          : r
-      )
-    )
-
+    setRenderProgress(null)
     setIsExporting(false)
     setExportType(null)
-  }
+  }, [generatedContent])
 
   const handleDeleteAsset = (id: string) => {
     setMediaAssets((prev) => prev.filter((a) => a.id !== id))
@@ -178,7 +198,7 @@ export default function VideoEditorPage() {
               </aside>
             </main>
 
-            {/* Footer: Smart Timeline */}
+            {/* Footer: Smart Timeline / Video Player */}
             <footer className="shrink-0 border-t border-border p-4">
               <SmartTimeline
                 content={generatedContent}
@@ -186,6 +206,8 @@ export default function VideoEditorPage() {
                 onRenderVideo={handleRenderVideo}
                 isExporting={isExporting}
                 exportType={exportType}
+                generatedVideos={generatedVideos}
+                renderProgress={renderProgress}
               />
             </footer>
           </>

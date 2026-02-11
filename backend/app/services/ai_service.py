@@ -1184,10 +1184,12 @@ Keep descriptions visual and specific for image generation."""
         randomize_seed: bool = True,
         theme: str = "",
         style: str = "",
-        keywords: str = "",
-        negative_prompt: str = "",
-        style_mix: str = "",
-        i2i: str = "",
+        style_keywords: Optional[list] = None,
+        negative_prompt: Optional[str] = None,
+        style_weights: Optional[dict] = None,
+        reference_image: Optional[str] = None,
+        denoising_strength: float = 0.7,
+        preserve_composition: bool = False,
     ) -> str:
         """使用 Hugging Face 生成图片
         
@@ -1202,20 +1204,45 @@ Keep descriptions visual and specific for image generation."""
         Returns:
             str: 生成的图片 base64 编码（data URL 格式）
         """
-        # system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
-        #                             1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
-        #                             2. 符合用户要求
-        #                             3. 符合平台内容审核标准
-        #                             4. 主题：{theme}
-        #                             5. 风格：{style}{keywords}{negative_prompt}{style_mix}{i2i}
-        #                             6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分-适合：
-        #                             - 奢华生活方式目录
-        #                             - 纪实肖像展览
-        #                             - 医学或人类学可视化
-        #                             - 优质品牌叙事活动
-        #                             - 美术摄影收藏
-        #                         """
-        # prompt = system_message + prompt
+        # Build keywords context if provided
+        keywords_context = ""
+        if style_keywords and len(style_keywords) > 0:
+            keywords_context = f"\n                                    7. 风格关键词参考：{', '.join(style_keywords)}"
+        
+        # Build negative prompt context if provided
+        negative_context = ""
+        if negative_prompt and negative_prompt.strip():
+            negative_context = f"\n                                    8. 避免出现的元素：{negative_prompt}"
+        
+        # Build style mixing context if provided
+        style_mix_context = ""
+        if style_weights and len(style_weights) > 0:
+            style_descriptions = [f"{s} ({int(w*100)}%)" for s, w in style_weights.items()]
+            style_mix_context = f"\n                                    9. 风格混合：{', '.join(style_descriptions)}"
+            # Override single style with mixed description
+            style = "混合风格 - " + ", ".join(style_weights.keys())
+        
+        # Build image-to-image context if reference image is provided
+        i2i_context = ""
+        if reference_image:
+            strength_desc = "轻微" if denoising_strength < 0.4 else "中等" if denoising_strength < 0.7 else "强烈"
+            composition_note = "，必须保留原图构图和布局" if preserve_composition else ""
+            i2i_context = f"\n                                    10. 图生图模式：基于参考图片进行{strength_desc}程度的重绘{composition_note}"
+        
+        system_message: str = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
+                                    1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
+                                    2. 符合用户要求
+                                    3. 符合平台内容审核标准
+                                    4. 主题：{theme}
+                                    5. 风格：{style}{keywords_context}{negative_context}{style_mix_context}{i2i_context}
+                                    6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分-适合：
+                                    - 奢华生活方式目录
+                                    - 纪实肖像展览
+                                    - 医学或人类学可视化
+                                    - 优质品牌叙事活动
+                                    - 美术摄影收藏
+                                """
+        prompt = system_message + prompt
         try:
             
             # 在线程中运行同步的 Gradio 客户端调用

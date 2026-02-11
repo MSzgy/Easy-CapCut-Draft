@@ -603,7 +603,14 @@ async def generate_cover(request: GenerateCoverRequest):
                 prompt=request.prompt,
                 width=width,
                 height=height,
-                # 其他参数暂且使用默认值，后续可扩展
+                style=request.style,
+                theme=request.theme,
+                style_keywords=request.styleKeywords,
+                negative_prompt=request.negativePrompt,
+                style_weights=request.styleWeights,
+                reference_image=request.referenceImage,
+                denoising_strength=request.denoisingStrength or 0.7,
+                preserve_composition=request.preserveComposition or False,
             )
         else:
             # Phase 2: 支持高级参数 (Gemini)
