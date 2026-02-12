@@ -263,14 +263,18 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
     print(f"🚀 开始生成 {len(scenes)} 个场景的图片（统一风格: {unified_style or 'default'}，风格参考: {'启用' if use_style_reference else '禁用'}）...")
     
     if use_style_reference:
-        # 策略：用第一张图作为所有后续图片的风格参考
+        # 策略：链式参考 — 每张图以上一张成功生成的图片作为风格参考
+        # 这样相邻场景之间会自然过渡，避免风格突变
+        prev_image: str = None
         for i, scene in enumerate(scenes):
             if i == 0:
                 # 第一张图：直接生成，作为风格基准
-                style_reference_image = await generate_single_image(scene, i, None)
+                prev_image = await generate_single_image(scene, i, None)
             else:
-                # 后续图片：使用第一张作为风格参考
-                await generate_single_image(scene, i, style_reference_image)
+                # 后续图片：使用上一张成功生成的图片作为风格参考
+                result = await generate_single_image(scene, i, prev_image)
+                if result:
+                    prev_image = result  # 更新为最新成功的图片
     else:
         # 并行生成（不使用风格参考）
         import asyncio
