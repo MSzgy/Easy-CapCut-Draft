@@ -27,6 +27,7 @@ export default function VideoEditorPage() {
   // Video render state
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
+  const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
 
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
@@ -102,6 +103,7 @@ export default function VideoEditorPage() {
     setExportType("video")
     setIsExporting(true)
     setGeneratedVideos([])
+    setCombinedVideoUrl(null)
     setRenderProgress({ current: 0, total })
 
     const videos: string[] = []
@@ -137,6 +139,25 @@ export default function VideoEditorPage() {
 
       // Update videos array progressively so UI shows partial results
       setGeneratedVideos([...videos])
+    }
+
+    // 拼接所有成功生成的视频
+    const successVideos = videos.filter(v => v && v.length > 0)
+    if (successVideos.length > 1) {
+      try {
+        setRenderProgress({ current: total, total })
+        console.log(`🔗 Concatenating ${successVideos.length} videos...`)
+        const { aiContentApi } = await import("@/lib/api/ai-content")
+        const concatResponse = await aiContentApi.concatenateVideos(successVideos)
+        if (concatResponse.success && concatResponse.videoUrl) {
+          setCombinedVideoUrl(concatResponse.videoUrl)
+          console.log("✅ Video concatenation successful")
+        }
+      } catch (error: any) {
+        console.error("Video concatenation failed:", error)
+      }
+    } else if (successVideos.length === 1) {
+      setCombinedVideoUrl(successVideos[0])
     }
 
     setRenderProgress(null)
@@ -208,6 +229,7 @@ export default function VideoEditorPage() {
                 exportType={exportType}
                 generatedVideos={generatedVideos}
                 renderProgress={renderProgress}
+                combinedVideoUrl={combinedVideoUrl}
               />
             </footer>
           </>

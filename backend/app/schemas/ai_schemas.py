@@ -296,3 +296,17 @@ class ImageAudioToVideoResponse(BaseModel):
     message: str
     videoUrl: str
 
+
+# Video Concatenation
+class ConcatenateVideosRequest(BaseModel):
+    """视频拼接请求"""
+    videoPaths: List[str] = Field(..., description="视频文件路径列表，按顺序拼接")
+
+
+class ConcatenateVideosResponse(BaseModel):
+    """视频拼接响应"""
+    success: bool
+    message: str
+    videoUrl: str = Field(..., description="拼接后的视频文件路径")
+
+

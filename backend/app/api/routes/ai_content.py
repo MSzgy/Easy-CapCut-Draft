@@ -28,7 +28,9 @@ from app.schemas.ai_schemas import (
     HuggingFaceVideoRequest,
     HuggingFaceVideoResponse,
     ImageAudioToVideoRequest,
-    ImageAudioToVideoResponse
+    ImageAudioToVideoResponse,
+    ConcatenateVideosRequest,
+    ConcatenateVideosResponse
 )
 from app.services.ai_service import openai_service
 from typing import List
@@ -951,3 +953,130 @@ async def generate_video_image_audio(request: ImageAudioToVideoRequest):
             detail=f"Hugging Face 图片音频转视频生成失败: {str(e)}"
         )
 
+
+@router.post("/concatenate-videos", response_model=ConcatenateVideosResponse)
+async def concatenate_videos(request: ConcatenateVideosRequest):
+    """拼接多个视频为一个长视频
+    
+    使用 ffmpeg concat 协议将多个视频文件拼接为一个完整视频。
+    """
+    import subprocess
+    import tempfile
+    import os
+    
+    try:
+        video_paths = request.videoPaths
+        
+        if not video_paths or len(video_paths) == 0:
+            raise HTTPException(status_code=400, detail="视频路径列表不能为空")
+        
+        # 过滤掉空路径
+        valid_paths = [p for p in video_paths if p and p.strip()]
+        
+        if len(valid_paths) == 0:
+            raise HTTPException(status_code=400, detail="没有有效的视频路径")
+        
+        # 如果只有一个视频，直接返回
+        if len(valid_paths) == 1:
+            return ConcatenateVideosResponse(
+                success=True,
+                message="只有一个视频，无需拼接",
+                videoUrl=valid_paths[0]
+            )
+        
+        print(f"🎬 开始拼接 {len(valid_paths)} 个视频...")
+        
+        # 创建输出目录
+        output_dir = os.path.join(tempfile.gettempdir(), "video_concat")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 第一步：将所有视频重新编码为统一格式，确保拼接兼容
+        normalized_paths = []
+        for i, vpath in enumerate(valid_paths):
+            if not os.path.exists(vpath):
+                print(f"⚠️ 视频文件不存在，跳过: {vpath}")
+                continue
+            
+            normalized_path = os.path.join(output_dir, f"norm_{i}.mp4")
+            normalize_cmd = [
+                "ffmpeg", "-y", "-i", vpath,
+                "-c:v", "libx264", "-preset", "fast",
+                "-crf", "23",
+                "-an",  # 移除音频
+                "-r", "24",  # 统一帧率
+                "-vf", "scale=768:512:force_original_aspect_ratio=decrease,pad=768:512:(ow-iw)/2:(oh-ih)/2",
+                "-pix_fmt", "yuv420p",
+                normalized_path
+            ]
+            
+            print(f"📐 正在标准化视频 {i+1}/{len(valid_paths)}...")
+            result = subprocess.run(normalize_cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                print(f"⚠️ 视频标准化失败: {result.stderr}")
+                continue
+            
+            normalized_paths.append(normalized_path)
+        
+        if len(normalized_paths) == 0:
+            raise HTTPException(status_code=500, detail="没有有效的视频可以拼接")
+        
+        if len(normalized_paths) == 1:
+            return ConcatenateVideosResponse(
+                success=True,
+                message="只有一个有效视频",
+                videoUrl=normalized_paths[0]
+            )
+        
+        # 第二步：创建 ffmpeg concat 文件列表
+        concat_list_path = os.path.join(output_dir, "concat_list.txt")
+        with open(concat_list_path, "w") as f:
+            for npath in normalized_paths:
+                f.write(f"file '{npath}'\n")
+        
+        # 第三步：执行拼接
+        import uuid
+        output_filename = f"combined_{uuid.uuid4().hex[:8]}.mp4"
+        output_path = os.path.join(output_dir, output_filename)
+        
+        concat_cmd = [
+            "ffmpeg", "-y",
+            "-f", "concat", "-safe", "0",
+            "-i", concat_list_path,
+            "-c", "copy",
+            output_path
+        ]
+        
+        print(f"🔗 正在拼接视频...")
+        result = subprocess.run(concat_cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode != 0:
+            print(f"❌ 视频拼接失败: {result.stderr}")
+            raise Exception(f"ffmpeg 拼接失败: {result.stderr}")
+        
+        # 清理临时标准化文件
+        for npath in normalized_paths:
+            try:
+                os.remove(npath)
+            except:
+                pass
+        try:
+            os.remove(concat_list_path)
+        except:
+            pass
+        
+        print(f"✅ 视频拼接成功: {output_path}")
+        
+        return ConcatenateVideosResponse(
+            success=True,
+            message=f"成功拼接 {len(normalized_paths)} 个视频",
+            videoUrl=output_path
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 视频拼接失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"视频拼接失败: {str(e)}"
+        )

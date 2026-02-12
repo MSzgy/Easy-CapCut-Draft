@@ -362,4 +362,20 @@ export const aiContentApi = {
       throw new Error(apiError.detail || 'Failed to generate video from image and audio')
     }
   },
+
+  /**
+   * 拼接多个视频为一个长视频
+   */
+  async concatenateVideos(videoPaths: string[]): Promise<{
+    success: boolean
+    message: string
+    videoUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/concatenate-videos', { videoPaths })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to concatenate videos')
+    }
+  },
 }

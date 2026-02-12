@@ -28,6 +28,7 @@ interface SmartTimelineProps {
   exportType: "json" | "video" | null
   generatedVideos: string[]
   renderProgress: { current: number; total: number } | null
+  combinedVideoUrl?: string | null
 }
 
 export function SmartTimeline({
@@ -38,6 +39,7 @@ export function SmartTimeline({
   exportType,
   generatedVideos,
   renderProgress,
+  combinedVideoUrl,
 }: SmartTimelineProps) {
   const [currentClipIndex, setCurrentClipIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -267,10 +269,10 @@ export function SmartTimeline({
                           onClick={() => !isFailed && goToClip(index)}
                           disabled={isFailed}
                           className={`relative flex h-10 w-16 shrink-0 items-center justify-center rounded border-2 transition-all text-[10px] font-medium ${isFailed
-                              ? "border-red-500/30 bg-red-500/10 cursor-not-allowed text-red-400"
-                              : isActive
-                                ? "border-primary bg-primary/10 text-primary shadow-sm"
-                                : "border-border bg-secondary/50 hover:border-primary/50 text-muted-foreground"
+                            ? "border-red-500/30 bg-red-500/10 cursor-not-allowed text-red-400"
+                            : isActive
+                              ? "border-primary bg-primary/10 text-primary shadow-sm"
+                              : "border-border bg-secondary/50 hover:border-primary/50 text-muted-foreground"
                             }`}
                         >
                           {isFailed ? (
@@ -299,7 +301,38 @@ export function SmartTimeline({
                         {generatedVideos.filter((url) => !url).length} failed
                       </span>
                     )}
+                    {combinedVideoUrl && (
+                      <span className="flex items-center gap-0.5 text-green-500">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Combined video ready
+                      </span>
+                    )}
                   </div>
+
+                  {/* Combined video player */}
+                  {combinedVideoUrl && (
+                    <div className="mt-2 rounded-lg border border-green-500/30 bg-green-500/5 p-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Film className="h-3 w-3 text-green-500" />
+                        <span className="text-[10px] font-medium text-green-600">Combined Video</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto h-5 px-2 text-[10px]"
+                          onClick={() => window.open(combinedVideoUrl, '_blank')}
+                        >
+                          <Download className="mr-1 h-3 w-3" />
+                          Download
+                        </Button>
+                      </div>
+                      <video
+                        src={combinedVideoUrl}
+                        controls
+                        className="w-full max-h-32 rounded object-contain bg-black"
+                        playsInline
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

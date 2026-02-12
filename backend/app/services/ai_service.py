@@ -1424,73 +1424,84 @@ Keep descriptions visual and specific for image generation."""
         camera_lora: str = "No LoRA",
         audio_path: Optional[str] = None,
     ) -> str:
-        """使用 Hugging Face image_audio_to_video 生成视频"""
-        try:
-            import asyncio
-            import tempfile
-            import os
+        """使用 Hugging Face image_audio_to_video 生成视频
+        
+        包含重试机制（最多3次）和禁用音频的提示词优化。
+        """
+        import asyncio
+        import tempfile
+        import os
+        import time
 
-            # Helper to process input (URL, Path, or Base64)
-            def process_input(input_val):
-                if not input_val:
-                    return None
-                
-                # Check for Base64 Data URI
-                if input_val.startswith("data:"):
-                    try:
-                        header, encoded = input_val.split(",", 1)
-                        data = base64.b64decode(encoded)
-                        
-                        # Determine extension
-                        ext = ".bin"
-                        if "image/jpeg" in header: ext = ".jpg"
-                        elif "image/png" in header: ext = ".png"
-                        elif "audio/mpeg" in header: ext = ".mp3"
-                        elif "audio/wav" in header: ext = ".wav"
-                        elif "video/mp4" in header: ext = ".mp4"
-                        
-                        # Create temp file
-                        tfile = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
-                        tfile.write(data)
-                        tfile.close()
-                        return handle_file(tfile.name)
-                    except Exception as e:
-                        print(f"Base64 processing error: {e}")
-                        raise e
-                
-                # URL or Path
-                return handle_file(input_val)
+        MAX_RETRIES = 3
 
-            def run_gradio_client():
-                client = Client("Imosu/image_audio_to_video", token=settings.HF_TOKEN)
-                
-                # Process inputs
-                p_first_frame = process_input(first_frame)
-                p_end_frame = process_input(end_frame)
-                p_input_video = process_input(input_video)
-                p_audio_path = process_input(audio_path)
-                
-                return client.predict(
-                    first_frame=p_first_frame,
-                    end_frame=p_end_frame,
-                    prompt=prompt,
-                    duration=duration,
-                    input_video=p_input_video,
-                    generation_mode=generation_mode,
-                    enhance_prompt=enhance_prompt,
-                    seed=seed,
-                    randomize_seed=randomize_seed,
-                    height=height,
-                    width=width,
-                    camera_lora=camera_lora,
-                    audio_path=p_audio_path,
-                    api_name="/generate_video"
-                )
+        # 在 prompt 中添加禁用音频的指令
+        no_audio_prompt = (
+            "IMPORTANT: Generate video WITHOUT any audio or sound. "
+            "Video only, no background music, no sound effects, no voice. "
+            "Silent video output only. "
+        ) + prompt
+
+        # Helper to process input (URL, Path, or Base64)
+        def process_input(input_val):
+            if not input_val:
+                return None
             
-            # 异步运行
-            result = await asyncio.to_thread(run_gradio_client)
-            print(result)
-            # 根据 API 返回值处理结果
+            # Check for Base64 Data URI
+            if input_val.startswith("data:"):
+                try:
+                    header, encoded = input_val.split(",", 1)
+                    data = base64.b64decode(encoded)
+                    
+                    # Determine extension
+                    ext = ".bin"
+                    if "image/jpeg" in header: ext = ".jpg"
+                    elif "image/png" in header: ext = ".png"
+                    elif "audio/mpeg" in header: ext = ".mp3"
+                    elif "audio/wav" in header: ext = ".wav"
+                    elif "video/mp4" in header: ext = ".mp4"
+                    
+                    # Create temp file
+                    tfile = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+                    tfile.write(data)
+                    tfile.close()
+                    return handle_file(tfile.name)
+                except Exception as e:
+                    print(f"Base64 processing error: {e}")
+                    raise e
+            
+            # URL or Path
+            return handle_file(input_val)
+
+        def run_gradio_client():
+            client = Client("Imosu/image_audio_to_video", token=settings.HF_TOKEN)
+            
+            # Process inputs
+            p_first_frame = process_input(first_frame)
+            p_end_frame = process_input(end_frame)
+            p_input_video = process_input(input_video)
+            # 不传递音频，强制生成无音频视频
+            p_audio_path = None
+            
+            return client.predict(
+                first_frame=p_first_frame,
+                end_frame=p_end_frame,
+                prompt=no_audio_prompt,
+                duration=duration,
+                input_video=p_input_video,
+                generation_mode=generation_mode,
+                enhance_prompt=enhance_prompt,
+                seed=seed,
+                randomize_seed=randomize_seed,
+                height=height,
+                width=width,
+                camera_lora=camera_lora,
+                audio_path=p_audio_path,
+                api_name="/generate_video"
+            )
+
+        def extract_video_path(result):
+            """从 API 返回结果中提取视频路径"""
             if isinstance(result, tuple) and len(result) >= 1:
                 video_info = result[0]
                 
@@ -1520,9 +1531,25 @@ Keep descriptions visual and specific for image generation."""
                     raise Exception(f"API 返回的视频信息格式不符合预期: {result}")
             else:
                 raise Exception(f"API 返回格式不符合预期: {type(result)}")
-            
-        except Exception as e:
-            raise Exception(f"Hugging Face 图片音频转视频生成失败: {str(e)}")
+
+        # 重试机制：最多尝试 MAX_RETRIES 次
+        last_error = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                print(f"🎬 视频生成尝试 {attempt}/{MAX_RETRIES}...")
+                result = await asyncio.to_thread(run_gradio_client)
+                print(f"✅ 视频生成成功 (第 {attempt} 次尝试)")
+                print(result)
+                return extract_video_path(result)
+            except Exception as e:
+                last_error = e
+                print(f"⚠️ 视频生成失败 (第 {attempt}/{MAX_RETRIES} 次): {str(e)}")
+                if attempt < MAX_RETRIES:
+                    wait_time = attempt * 2  # 递增等待：2s, 4s
+                    print(f"⏳ 等待 {wait_time} 秒后重试...")
+                    await asyncio.sleep(wait_time)
+
+        raise Exception(f"Hugging Face 图片音频转视频生成失败（已重试{MAX_RETRIES}次）: {str(last_error)}")
 
     async def close(self):
 
