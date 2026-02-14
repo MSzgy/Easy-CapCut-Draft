@@ -144,7 +144,7 @@ export default function VideoEditorPage() {
           firstFrame: scene.imageUrl,
           endFrame: nextScene?.imageUrl || undefined,
           prompt: videoPrompt,
-          duration: 5,
+          duration: 10,
           generationMode: "Image-to-Video",
           enhancePrompt: true,
           randomizeSeed: true,
