@@ -178,7 +178,7 @@ async def extract_url_content(url: str) -> dict:
         }
 
 
-async def generate_images_for_scenes(scenes: List[SceneContent], openai_service, unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True):
+async def generate_images_for_scenes(scenes: List[SceneContent], openai_service, unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True, user_style_reference: str = None):
     """为场景批量生成图片，保持风格一致性
     
     Args:
@@ -268,8 +268,8 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
         prev_image: str = None
         for i, scene in enumerate(scenes):
             if i == 0:
-                # 第一张图：直接生成，作为风格基准
-                prev_image = await generate_single_image(scene, i, None)
+                # 第一张图：如果有用户提供的风格参考图，使用它；否则直接生成
+                prev_image = await generate_single_image(scene, i, user_style_reference)
             else:
                 # 后续图片：使用上一张成功生成的图片作为风格参考
                 result = await generate_single_image(scene, i, prev_image)
@@ -284,7 +284,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
     print(f"✨ 所有场景图片生成完成")
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True) -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
@@ -408,7 +408,7 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
 
         # 并行生成所有场景的图片（传递统一风格参数保持一致性）
         if scenes and generate_images:
-            await generate_images_for_scenes(scenes, openai_service, video_style, style_keywords)
+            await generate_images_for_scenes(scenes, openai_service, video_style, style_keywords, user_style_reference=style_reference_image)
 
         return scenes
 
@@ -432,13 +432,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url)
     try: 
         generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -455,7 +455,7 @@ async def generate_content(request: GenerateContentRequest):
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
-            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages)
+            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages, request.styleReferenceImage)
             
             # 如果不生成图片，清空 imageUrl 以防前端显示占位符
             if not request.generateImages:
@@ -465,7 +465,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage)
             
             # 如果不生成图片，清空 imageUrl
             if not request.generateImages:
@@ -504,7 +504,7 @@ async def generate_content(request: GenerateContentRequest):
 
                     # 基于图片识别结果生成场景
                     basic_description = await openai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages)
+                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage)
                     
                     # 如果不生成图片，清空 imageUrl
                     if not request.generateImages:

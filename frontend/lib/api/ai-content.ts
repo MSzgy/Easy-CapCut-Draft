@@ -18,6 +18,7 @@ export interface GenerateContentRequest {
   url?: string
   copyStyle?: string
   generateImages?: boolean
+  styleReferenceImage?: string // Base64 style reference image for scene generation
   uploadedAssets?: Array<{
     id: string
     name: string

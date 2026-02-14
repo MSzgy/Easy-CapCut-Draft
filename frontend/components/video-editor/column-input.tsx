@@ -213,6 +213,11 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
   // Scene Image Generation State
   const [generateSceneImages, setGenerateSceneImages] = useState(true) // 默认生成图片
 
+  // Style Reference Image State
+  const [styleReferenceImage, setStyleReferenceImage] = useState<string | null>(null) // base64
+  const [styleReferencePreview, setStyleReferencePreview] = useState<string | null>(null) // object URL
+  const styleRefInputRef = useRef<HTMLInputElement>(null)
+
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -332,6 +337,35 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
     }
   }
 
+  // Style Reference Image Handlers
+  const handleStyleReferenceUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast({ title: '错误', description: '请上传图片文件', variant: 'destructive' })
+      return
+    }
+    // Preview
+    setStyleReferencePreview(URL.createObjectURL(file))
+    // Base64
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1]
+      setStyleReferenceImage(base64)
+    }
+    // Reset input so re-selecting the same file triggers onChange
+    e.target.value = ''
+  }, [toast])
+
+  const removeStyleReference = useCallback(() => {
+    setStyleReferenceImage(null)
+    if (styleReferencePreview) {
+      URL.revokeObjectURL(styleReferencePreview)
+    }
+    setStyleReferencePreview(null)
+  }, [styleReferencePreview])
+
   const simulateCrawler = async () => {
     const steps = [...crawlerSteps]
     for (let i = 0; i < steps.length; i++) {
@@ -434,6 +468,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         url: activeTab === "url" ? url : undefined,
         copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
         generateImages: generateSceneImages, // 新增：控制是否生成场景图片
+        styleReferenceImage: (generateSceneImages && styleReferenceImage) ? styleReferenceImage : undefined,
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
           id: asset.id,
           name: asset.name,
@@ -836,6 +871,41 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                       仅生成文本脚本，不生成AI图片（更快速）
                     </p>
                   )}
+                  {generateSceneImages && (
+                    <div className="mt-2 pl-6 space-y-2">
+                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                      <input
+                        ref={styleRefInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleStyleReferenceUpload}
+                      />
+                      {styleReferencePreview ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={styleReferencePreview}
+                            alt="Style reference"
+                            className="h-20 w-20 rounded-md border border-border object-cover"
+                          />
+                          <button
+                            onClick={removeStyleReference}
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => styleRefInputRef.current?.click()}
+                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                        >
+                          <ImageIcon className="h-5 w-5 mb-1" />
+                          <span className="text-[9px]">上传参考</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -977,6 +1047,41 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                       仅生成文本脚本，不生成AI图片（更快速）
                     </p>
                   )}
+                  {generateSceneImages && (
+                    <div className="mt-2 pl-6 space-y-2">
+                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={styleRefInputRef}
+                        onChange={handleStyleReferenceUpload}
+                      />
+                      {styleReferencePreview ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={styleReferencePreview}
+                            alt="Style reference"
+                            className="h-20 w-20 rounded-md border border-border object-cover"
+                          />
+                          <button
+                            onClick={removeStyleReference}
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => styleRefInputRef.current?.click()}
+                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                        >
+                          <ImageIcon className="h-5 w-5 mb-1" />
+                          <span className="text-[9px]">上传参考</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
@@ -1114,6 +1219,41 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
                     <p className="pl-6 text-[10px] text-muted-foreground">
                       仅生成文本脚本，不生成AI图片（更快速）
                     </p>
+                  )}
+                  {generateSceneImages && (
+                    <div className="mt-2 pl-6 space-y-2">
+                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={styleRefInputRef}
+                        onChange={handleStyleReferenceUpload}
+                      />
+                      {styleReferencePreview ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={styleReferencePreview}
+                            alt="Style reference"
+                            className="h-20 w-20 rounded-md border border-border object-cover"
+                          />
+                          <button
+                            onClick={removeStyleReference}
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => styleRefInputRef.current?.click()}
+                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                        >
+                          <ImageIcon className="h-5 w-5 mb-1" />
+                          <span className="text-[9px]">上传参考</span>
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

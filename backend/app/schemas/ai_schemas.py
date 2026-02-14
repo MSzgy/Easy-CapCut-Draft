@@ -42,6 +42,7 @@ class GenerateContentRequest(BaseModel):
     # 通用字段
     copyStyle: Optional[str] = Field(None, description="文案风格")
     generateImages: bool = Field(True, description="是否生成场景配图")
+    styleReferenceImage: Optional[str] = Field(None, description="风格参考图片 base64 编码（仅参考风格，不复制内容）")
 
 
 class GenerateContentResponse(BaseModel):
