@@ -30,9 +30,12 @@ from app.schemas.ai_schemas import (
     ImageAudioToVideoRequest,
     ImageAudioToVideoResponse,
     ConcatenateVideosRequest,
-    ConcatenateVideosResponse
+    ConcatenateVideosResponse,
+    AnalyzeTransitionRequest,
+    AnalyzeTransitionResponse
 )
-from app.services.ai_service import openai_service
+from app.services.ai_service_v2 import ai_service
+from app.providers.factory import get_all_providers_status
 from typing import List
 import json
 import re
@@ -40,7 +43,16 @@ import re
 router = APIRouter()
 
 
-async def extract_url_content(url: str) -> dict:
+@router.get("/providers")
+async def list_providers():
+    """返回所有 provider 的配置状态，前端据此决定哪些可选"""
+    try:
+        return get_all_providers_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取 provider 信息失败: {str(e)}")
+
+
+async def extract_url_content(url: str, text_provider: str = None) -> dict:
     """从URL提取内容 - 使用爬虫获取截图和HTML，然后用多模态LLM分析"""
     
     import base64
@@ -126,7 +138,7 @@ async def extract_url_content(url: str) -> dict:
             print("🤖 正在调用多模态LLM分析...")
             
             # analyze_image_detailed 返回的是 dict，直接使用
-            result = await openai_service.analyze_image_detailed(prompt, screenshot_base64)
+            result = await ai_service.analyze_image_detailed(prompt, screenshot_base64)
             
             print(f"✅ 内容提取成功: {result.get('title', 'Unknown')}")
             
@@ -140,11 +152,12 @@ async def extract_url_content(url: str) -> dict:
         else:
             # 如果没有截图，使用纯文本模式
             print("⚠️  未找到截图，使用纯文本模式")
-            content = await openai_service.generate_completion_gemini_format(
+            content = await ai_service.generate_completion(
                 prompt=prompt,
                 system_message="你是一个专业的网页内容提取助手。",
                 temperature=0.3,
-                max_tokens=4096
+                max_tokens=4096,
+                provider=text_provider
             )
             
             # 纯文本模式返回的是字符串，需要解析JSON
@@ -178,15 +191,15 @@ async def extract_url_content(url: str) -> dict:
         }
 
 
-async def generate_images_for_scenes(scenes: List[SceneContent], openai_service, unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True, user_style_reference: str = None):
+async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True, user_style_reference: str = None, image_provider: str = None):
     """为场景批量生成图片，保持风格一致性
     
     Args:
         scenes: 场景列表
-        openai_service: AI服务实例
         unified_style: 统一视觉风格（如 "cinematic", "minimal" 等）
         style_keywords: 风格关键词列表，增强风格一致性
         use_style_reference: 是否使用第一张图片作为风格参考
+        user_style_reference: 用户提供的风格参考图
     """
     total_scenes = len(scenes)
     style_reference_image: str = None  # 存储第一张图片作为风格参考
@@ -236,7 +249,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
             # 第一张图无参考，后续图片使用第一张作为风格参考
             denoising = 0.78 if style_ref else 0.7
             
-            image_url = await openai_service.generate_image_gemini_format(
+            image_url = await ai_service.generate_image(
                 prompt=prompt,
                 style=final_style,
                 style_keywords=style_keywords,
@@ -245,7 +258,8 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
                 resolution="1024",
                 reference_image=style_ref,
                 denoising_strength=denoising,
-                preserve_composition=False  # 不保留构图，只保留风格
+                preserve_composition=False,  # 不保留构图，只保留风格
+                provider=image_provider
             )
             
             # 更新场景的imageUrl
@@ -284,7 +298,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], openai_service,
     print(f"✨ 所有场景图片生成完成")
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None) -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
@@ -322,11 +336,12 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
                 """
 
     try:
-        response = await openai_service.generate_completion_gemini_format(
+        response = await ai_service.generate_completion(
             prompt=user_prompt,
             system_message=system_message,
             temperature=0.8,
-            max_tokens=30000
+            max_tokens=30000,
+            provider=text_provider
         )
 
         # 解析JSON响应
@@ -408,7 +423,7 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
 
         # 并行生成所有场景的图片（传递统一风格参数保持一致性）
         if scenes and generate_images:
-            await generate_images_for_scenes(scenes, openai_service, video_style, style_keywords, user_style_reference=style_reference_image)
+            await generate_images_for_scenes(scenes, video_style, style_keywords, user_style_reference=style_reference_image, image_provider=image_provider)
 
         return scenes
 
@@ -432,13 +447,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
-    web_content = await extract_url_content(url)
+    web_content = await extract_url_content(url, text_provider=text_provider)
     try: 
-        generated_copy = await openai_service.generate_copy(web_content['main_content'], copy_style)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image)
+        generated_copy = await ai_service.generate_copy(web_content['main_content'], copy_style, provider=text_provider)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -455,7 +470,7 @@ async def generate_content(request: GenerateContentRequest):
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
-            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages, request.styleReferenceImage)
+            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
             
             # 如果不生成图片，清空 imageUrl 以防前端显示占位符
             if not request.generateImages:
@@ -465,7 +480,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
             
             # 如果不生成图片，清空 imageUrl
             if not request.generateImages:
@@ -500,11 +515,11 @@ async def generate_content(request: GenerateContentRequest):
 
                                 只返回JSON对象，不要其他说明文字。
                             """
-                    image_analysis = await openai_service.analyze_image_detailed(prompt, image_content)
+                    image_analysis = await ai_service.analyze_image_detailed(prompt, image_content)
 
                     # 基于图片识别结果生成场景
-                    basic_description = await openai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage)
+                    basic_description = await ai_service.analyze_image(image_content)
+                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
                     
                     # 如果不生成图片，清空 imageUrl
                     if not request.generateImages:
@@ -515,7 +530,7 @@ async def generate_content(request: GenerateContentRequest):
                     if request.copyStyle:
                         try:
                             copy_content = image_analysis.get("description", basic_description)
-                            generated_copy = await openai_service.generate_copy(copy_content, request.copyStyle)
+                            generated_copy = await ai_service.generate_copy(copy_content, request.copyStyle, provider=request.textProvider)
                         except Exception as e:
                             print(f"文案生成失败: {str(e)}")
 
@@ -573,9 +588,6 @@ async def generate_content(request: GenerateContentRequest):
             scenes=scenes,
             copy=generated_copy
         )
-
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -587,25 +599,29 @@ async def generate_content(request: GenerateContentRequest):
 async def generate_cover(request: GenerateCoverRequest):
     """生成AI封面"""
     try:
-        if request.provider == "huggingface":
+        provider = request.provider or "gemini"
+        
+        # Parse provider format: "hf:alias" or plain name
+        if provider.startswith("hf:"):
+            # HuggingFace space specified, e.g. "hf:image_turbo"
+            space_alias = provider[3:]
+            
             # 解析分辨率
             width, height = 1024, 1024
             if request.resolution:
                 try:
-                    # 尝试解析 "1024x1024" 格式
                     if 'x' in request.resolution.lower():
                         parts = request.resolution.lower().split('x')
                         if len(parts) == 2:
                             width = int(parts[0])
                             height = int(parts[1])
-                    # 尝试解析 "1024" 格式
                     elif request.resolution.isdigit():
                         size = int(request.resolution)
                         width, height = size, size
                 except:
                     print(f"分辨率解析失败: {request.resolution}, 使用默认值 1024x1024")
             
-            data = await openai_service.generate_image_huggingface(
+            data = await ai_service.generate_image_huggingface(
                 prompt=request.prompt,
                 width=width,
                 height=height,
@@ -617,10 +633,11 @@ async def generate_cover(request: GenerateCoverRequest):
                 reference_image=request.referenceImage,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
+                image_space=space_alias,
             )
         else:
-            # Phase 2: 支持高级参数 (Gemini)
-            data = await openai_service.generate_image_gemini_format(
+            # Gemini or other providers
+            data = await ai_service.generate_image(
                 prompt=request.prompt, 
                 style=request.style,
                 style_keywords=request.styleKeywords,
@@ -628,7 +645,6 @@ async def generate_cover(request: GenerateCoverRequest):
                 theme=request.theme, 
                 size=request.size,
                 resolution=request.resolution,
-                # Phase 2 新增参数
                 reference_image=request.referenceImage,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
@@ -652,7 +668,7 @@ async def generate_cover(request: GenerateCoverRequest):
 async def optimize_prompt(request: OptimizePromptRequest):
     """优化图片生成提示词"""
     try:
-        result = await openai_service.optimize_prompt(request.prompt)
+        result = await ai_service.optimize_prompt(request.prompt)
         
         return OptimizePromptResponse(
             success=True,
@@ -672,7 +688,7 @@ async def optimize_prompt(request: OptimizePromptRequest):
 async def style_transfer(request: StyleTransferRequest):
     """风格迁移 - 将图片转换为艺术风格"""
     try:
-        result = await openai_service.transfer_style(
+        result = await ai_service.transfer_style(
             image_base64=request.image,
             art_style=request.artStyle,
             intensity=request.intensity,
@@ -720,7 +736,7 @@ async def style_transfer(request: StyleTransferRequest):
 async def sketch_to_image(request: SketchToImageRequest):
     """草图转图片 - 基于用户手绘草图生成精美图片"""
     try:
-        result = await openai_service.sketch_to_image(
+        result = await ai_service.sketch_to_image(
             sketch_base64=request.sketch,
             prompt=request.prompt,
             style=request.style
@@ -743,7 +759,7 @@ async def sketch_to_image(request: SketchToImageRequest):
 async def face_portrait(request: FacePortraitRequest):
     """AI写真生成 - 基于人脸照片生成特定场景下的写真"""
     try:
-        result = await openai_service.face_portrait(
+        result = await ai_service.face_portrait(
             face_image_base64=request.faceImage,
             scene_prompt=request.scenePrompt,
             style=request.style,
@@ -767,7 +783,7 @@ async def face_portrait(request: FacePortraitRequest):
 async def face_swap(request: FaceSwapRequest):
     """人脸融合 - 将人脸融合到目标图片中"""
     try:
-        result = await openai_service.face_swap(
+        result = await ai_service.face_swap(
             face_image_base64=request.faceImage,
             target_image_base64=request.targetImage,
             blend_strength=request.blendStrength
@@ -790,7 +806,7 @@ async def face_swap(request: FaceSwapRequest):
 async def remove_background(request: BackgroundRemovalRequest):
     """智能抠图 - 自动移除背景，生成透明PNG"""
     try:
-        result = await openai_service.remove_background(
+        result = await ai_service.remove_background(
             image_base64=request.image,
             subject=request.subject,
             refine_edges=request.refineEdges
@@ -813,7 +829,7 @@ async def remove_background(request: BackgroundRemovalRequest):
 async def replace_background(request: BackgroundReplacementRequest):
     """背景替换 - 移除原背景，合成新的AI生成背景"""
     try:
-        result = await openai_service.replace_background(
+        result = await ai_service.replace_background(
             image_base64=request.image,
             background_scene=request.backgroundScene,
             custom_prompt=request.customPrompt,
@@ -839,7 +855,7 @@ async def replace_background(request: BackgroundReplacementRequest):
 async def generate_storyboard(request: StoryboardRequest):
     """生成故事板 - 根据故事生成连续分镜"""
     try:
-        frames = await openai_service.generate_storyboard(
+        frames = await ai_service.generate_storyboard(
             story_prompt=request.storyPrompt,
             character_image=request.characterImage,
             num_frames=request.numFrames,
@@ -868,7 +884,7 @@ async def generate_image_huggingface(request: HuggingFaceImageRequest):
     适合需要快速生成图片原型的场景。
     """
     try:
-        result = await openai_service.generate_image_huggingface(
+        result = await ai_service.generate_image_huggingface(
             prompt=request.prompt,
             height=request.height,
             width=request.width,
@@ -897,7 +913,7 @@ async def generate_video_huggingface(request: HuggingFaceVideoRequest):
     从静态图片生成动态视频内容。
     """
     try:
-        result = await openai_service.generate_video_huggingface(
+        result = await ai_service.generate_video_huggingface(
             input_image=request.inputImage,
             prompt=request.prompt,
             steps=request.steps,
@@ -930,7 +946,7 @@ async def generate_video_image_audio(request: ImageAudioToVideoRequest):
     支持相机运动 LoRA 预设和多种生成模式。
     """
     try:
-        result = await openai_service.generate_video_image_audio(
+        result = await ai_service.generate_video_image_audio(
             first_frame=request.firstFrame,
             end_frame=request.endFrame,
             prompt=request.prompt,
@@ -943,7 +959,8 @@ async def generate_video_image_audio(request: ImageAudioToVideoRequest):
             height=request.height,
             width=request.width,
             camera_lora=request.cameraLora,
-            audio_path=request.audioPath
+            audio_path=request.audioPath,
+            video_provider=request.videoProvider,
         )
         
         return ImageAudioToVideoResponse(
@@ -955,6 +972,31 @@ async def generate_video_image_audio(request: ImageAudioToVideoRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Hugging Face 图片音频转视频生成失败: {str(e)}"
+        )
+
+
+@router.post("/analyze-transition", response_model=AnalyzeTransitionResponse)
+async def analyze_transition(request: AnalyzeTransitionRequest):
+    """分析首尾帧图片，生成视频转场提示词
+    
+    使用视觉 AI 分析两张图片之间的差异，
+    生成适合用于视频生成的转场/运动描述提示词。
+    """
+    try:
+        transition_prompt = await ai_service.analyze_transition(
+            first_frame=request.firstFrame,
+            end_frame=request.endFrame,
+        )
+        
+        return AnalyzeTransitionResponse(
+            success=True,
+            message="转场分析成功",
+            transitionPrompt=transition_prompt
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"转场分析失败: {str(e)}"
         )
 
 

@@ -56,6 +56,14 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # 注册路由
 app.include_router(router, prefix="/api")
 
+# 挂载静态文件目录 (用于访问生成的视频)
+import os
+from fastapi.staticfiles import StaticFiles
+
+# 确保 static 目录存在
+os.makedirs("static/videos", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/")
 async def root():

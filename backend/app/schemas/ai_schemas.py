@@ -43,6 +43,10 @@ class GenerateContentRequest(BaseModel):
     copyStyle: Optional[str] = Field(None, description="文案风格")
     generateImages: bool = Field(True, description="是否生成场景配图")
     styleReferenceImage: Optional[str] = Field(None, description="风格参考图片 base64 编码（仅参考风格，不复制内容）")
+    
+    # 模型选择
+    textProvider: Optional[str] = Field("gemini", description="文本生成模型提供商")
+    imageProvider: Optional[str] = Field("gemini", description="图片生成模型提供商")
 
 
 class GenerateContentResponse(BaseModel):
@@ -69,7 +73,7 @@ class GenerateCoverRequest(BaseModel):
     denoisingStrength: Optional[float] = Field(0.7, description="重绘强度 0-1，值越低保留原图越多")
     preserveComposition: Optional[bool] = Field(False, description="是否保留原图构图")
     styleWeights: Optional[dict] = Field(None, description="风格权重映射，如 {'cyberpunk': 0.6, 'watercolor': 0.4}")
-    provider: Optional[Literal["gemini", "huggingface"]] = Field("gemini", description="AI provider: gemini or huggingface")
+    provider: Optional[str] = Field("gemini", description="AI provider: gemini, huggingface, or hf:alias")
 
 
 class GenerateCoverResponse(BaseModel):
@@ -289,6 +293,7 @@ class ImageAudioToVideoRequest(BaseModel):
     width: int = Field(768, description="视频宽度", ge=256, le=1024)
     cameraLora: str = Field("No LoRA", description="相机运动 LoRA")
     audioPath: Optional[str] = Field(None, description="音频文件路径（可选）")
+    videoProvider: Optional[str] = Field(None, description="视频生成提供商，如 hf:video_i2v 或 hf:video_wan")
 
 
 class ImageAudioToVideoResponse(BaseModel):
@@ -311,3 +316,15 @@ class ConcatenateVideosResponse(BaseModel):
     videoUrl: str = Field(..., description="拼接后的视频文件路径")
 
 
+# Transition Analysis
+class AnalyzeTransitionRequest(BaseModel):
+    """视频转场分析请求"""
+    firstFrame: str = Field(..., description="起始帧图片 (base64 data URL 或 HTTP URL)")
+    endFrame: str = Field(..., description="结束帧图片 (base64 data URL 或 HTTP URL)")
+
+
+class AnalyzeTransitionResponse(BaseModel):
+    """视频转场分析响应"""
+    success: bool
+    message: str
+    transitionPrompt: str = Field(..., description="AI生成的转场提示词")

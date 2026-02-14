@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional, Dict
-from app.services.ai_service import openai_service
+from app.services.ai_service_v2 import ai_service
 from app.core.config import settings
 import os
 from fastapi.responses import FileResponse
@@ -38,7 +38,7 @@ async def generate_video(request: VideoGenerationRequest):
         # Note: For heavy AI video generation, this should ideally be a background task
         # But for MVP we keep it sync or use FastAPI BackgroundTasks if we want async response
         
-        output_path = openai_service.generate_full_video_project(
+        output_path = ai_service.generate_full_video_project(
             project_id=request.project_id,
             script_data=request.script_data,
             image_paths=request.image_paths,

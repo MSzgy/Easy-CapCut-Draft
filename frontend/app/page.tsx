@@ -10,8 +10,8 @@ import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vau
 import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
 import { ImageStudio } from "@/components/video-editor/image-studio"
 import { VideoStudio } from "@/components/video-editor/video-studio"
-
 import { ConfigPage } from "@/components/video-editor/config-page"
+import type { ModelSelection } from "@/lib/api/ai-content"
 
 export default function VideoEditorPage() {
   const [activeTab, setActiveTab] = useState<TabType>("workbench")
@@ -23,7 +23,12 @@ export default function VideoEditorPage() {
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([])
   const [outputRecords, setOutputRecords] = useState<OutputRecord[]>([])
   const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
-  const [modelProvider, setModelProvider] = useState<"gemini" | "huggingface">("gemini")
+  const [modelSelection, setModelSelection] = useState<ModelSelection>({
+    textProvider: "gemini",
+    imageProvider: "gemini",
+    imageToImageProvider: "gemini",
+    videoProvider: "hf:video_i2v",
+  })
   // Video render state
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
@@ -115,16 +120,37 @@ export default function VideoEditorPage() {
 
       try {
         const { aiContentApi } = await import("@/lib/api/ai-content")
+
+        // Step 1: If there's a next scene, analyze the transition between frames
+        let videoPrompt = scene.script
+        if (nextScene) {
+          try {
+            console.log(`🔍 Scene ${i + 1}: Analyzing transition between frames...`)
+            const transitionResult = await aiContentApi.analyzeTransition(
+              scene.imageUrl,
+              nextScene.imageUrl
+            )
+            if (transitionResult.success && transitionResult.transitionPrompt) {
+              videoPrompt = transitionResult.transitionPrompt
+              console.log(`✅ Scene ${i + 1}: AI transition prompt: ${videoPrompt}`)
+            }
+          } catch (err) {
+            console.warn(`⚠️ Scene ${i + 1}: Transition analysis failed, using script as prompt`, err)
+          }
+        }
+
+        // Step 2: Generate video with the (possibly AI-enhanced) prompt
         const response = await aiContentApi.generateVideoImageAudio({
           firstFrame: scene.imageUrl,
           endFrame: nextScene?.imageUrl || undefined,
-          prompt: scene.script,
+          prompt: videoPrompt,
           duration: 5,
           generationMode: "Image-to-Video",
           enhancePrompt: true,
           randomizeSeed: true,
           width: 768,
           height: 512,
+          videoProvider: modelSelection.videoProvider,
         })
 
         if (response.success && response.videoUrl) {
@@ -163,7 +189,7 @@ export default function VideoEditorPage() {
     setRenderProgress(null)
     setIsExporting(false)
     setExportType(null)
-  }, [generatedContent])
+  }, [generatedContent, modelSelection])
 
   const handleDeleteAsset = (id: string) => {
     setMediaAssets((prev) => prev.filter((a) => a.id !== id))
@@ -191,7 +217,10 @@ export default function VideoEditorPage() {
             <main className="flex flex-1 flex-col gap-4 overflow-auto p-4 lg:flex-row lg:overflow-hidden">
               {/* Column 1: Multi-Modal Input */}
               <aside className="w-full shrink-0 overflow-auto lg:w-80 xl:w-96">
-                <ColumnInput onGenerate={handleGenerate} />
+                <ColumnInput
+                  onGenerate={handleGenerate}
+                  modelSelection={modelSelection}
+                />
               </aside>
 
               {/* Column 2: Content Refinement */}
@@ -239,14 +268,14 @@ export default function VideoEditorPage() {
           <main className="flex-1 overflow-hidden p-4">
             <ImageStudio
               onStoryboardGenerated={setStoryboardFrames}
-              modelProvider={modelProvider}
+              modelSelection={modelSelection}
             />
           </main>
         )}
 
         {activeTab === "video-studio" && (
           <main className="flex-1 overflow-hidden p-4">
-            <VideoStudio />
+            <VideoStudio videoProvider={modelSelection.videoProvider} />
           </main>
         )}
 
@@ -272,8 +301,8 @@ export default function VideoEditorPage() {
         {activeTab === "configuration" && (
           <main className="flex-1 overflow-hidden p-4">
             <ConfigPage
-              provider={modelProvider}
-              setProvider={setModelProvider}
+              modelSelection={modelSelection}
+              setModelSelection={setModelSelection}
             />
           </main>
         )}

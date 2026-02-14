@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.services.ai_service import openai_service
+from app.services.ai_service_v2 import ai_service
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def ping():
 async def test_ai(request: TestRequest):
     """测试AI连接"""
     try:
-        response = await openai_service.generate_completion(
+        response = await ai_service.generate_completion(
             prompt=request.prompt,
             system_message="你是一个友好的助手。",
             max_tokens=100,

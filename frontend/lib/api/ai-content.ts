@@ -26,6 +26,8 @@ export interface GenerateContentRequest {
     size: string
     content?: string // Base64 content for images
   }>
+  textProvider?: string
+  imageProvider?: string
 }
 
 export interface GenerateContentResponse {
@@ -50,7 +52,7 @@ export interface GenerateCoverRequest {
   denoisingStrength?: number
   preserveComposition?: boolean
   styleWeights?: { [styleId: string]: number }
-  provider?: "gemini" | "huggingface"
+  provider?: string
 }
 
 export interface GenerateCoverResponse {
@@ -59,7 +61,49 @@ export interface GenerateCoverResponse {
   coverUrl: string
 }
 
+export interface ProviderInfo {
+  configured: boolean
+  missing: string[]
+  displayName: string
+}
+
+export interface HfSpaceInfo {
+  space_id: string
+  has_adapter: boolean
+  capability: string  // "image" | "video"
+  display_name: string
+  configured: boolean
+}
+
+export interface ProviderStatus {
+  text: { active: string; available: { [name: string]: ProviderInfo } }
+  image: { active: string; available: { [name: string]: ProviderInfo } }
+  vision: { active: string; available: { [name: string]: ProviderInfo } }
+  video: { active: string; available: { [name: string]: ProviderInfo } }
+  hf_spaces: { [alias: string]: HfSpaceInfo }
+}
+
+/** Fine-grained model selection from the Configuration page */
+export interface ModelSelection {
+  textProvider: string       // "gemini" | "openai"
+  imageProvider: string      // "gemini" | "hf:image_turbo" | ...
+  imageToImageProvider: string // "gemini" | "hf:image_turbo" | ...
+  videoProvider: string      // "hf:video_i2v" | "hf:video_wan" | ...
+}
+
 export const aiContentApi = {
+  /**
+   * 获取所有 provider 的配置状态
+   */
+  async getProviders(): Promise<ProviderStatus> {
+    try {
+      return await apiClient.get<ProviderStatus>('/ai/providers')
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to fetch providers')
+    }
+  },
+
   /**
    * 生成AI内容（场景和脚本）
    */
@@ -69,7 +113,8 @@ export const aiContentApi = {
     try {
       return await apiClient.post<GenerateContentResponse>(
         '/ai/generate',
-        request
+        request,
+        { timeoutMs: 300_000 }
       )
     } catch (error) {
       const apiError = error as ApiError
@@ -86,7 +131,8 @@ export const aiContentApi = {
     try {
       return await apiClient.post<GenerateCoverResponse>(
         '/ai/generate-cover',
-        request
+        request,
+        { timeoutMs: 300_000 }
       )
     } catch (error) {
       const apiError = error as ApiError
@@ -327,7 +373,7 @@ export const aiContentApi = {
         numFrames,
         style,
         shotTypes,
-      })
+      }, { timeoutMs: 300_000 })
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to generate storyboard')
@@ -351,16 +397,36 @@ export const aiContentApi = {
     width?: number
     cameraLora?: string
     audioPath?: string
+    videoProvider?: string
   }): Promise<{
     success: boolean
     message: string
     videoUrl: string
   }> {
     try {
-      return await apiClient.post('/ai/generate-video-image-audio', request)
+      return await apiClient.post('/ai/generate-video-image-audio', request, { timeoutMs: 300_000 })
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to generate video from image and audio')
+    }
+  },
+
+  /**
+   * 分析首尾帧图片，生成视频转场提示词
+   */
+  async analyzeTransition(firstFrame: string, endFrame: string): Promise<{
+    success: boolean
+    message: string
+    transitionPrompt: string
+  }> {
+    try {
+      return await apiClient.post('/ai/analyze-transition', {
+        firstFrame,
+        endFrame,
+      }, { timeoutMs: 60_000 })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to analyze transition')
     }
   },
 

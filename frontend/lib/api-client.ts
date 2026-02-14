@@ -16,7 +16,8 @@ class ApiClient {
 
   async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs: number = 30_000
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
 
@@ -26,6 +27,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      signal: AbortSignal.timeout(timeoutMs),
     }
 
     try {
@@ -44,6 +46,12 @@ class ApiClient {
       if ((error as ApiError).detail) {
         throw error
       }
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        throw {
+          detail: '请求超时，请稍后重试',
+          status: 408,
+        } as ApiError
+      }
       throw {
         detail: 'Network error or server is unavailable',
         status: 0,
@@ -55,11 +63,11 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown, opts?: { timeoutMs?: number }): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
-    })
+    }, opts?.timeoutMs ?? 30_000)
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<T> {

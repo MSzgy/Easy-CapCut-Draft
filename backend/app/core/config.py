@@ -39,14 +39,27 @@ class Settings(BaseSettings):
     ALLOWED_IMAGE_EXTENSIONS: str = "jpg,jpeg,png,gif,webp"
     ALLOWED_VIDEO_EXTENSIONS: str = "mp4,mov,avi,webm"
 
-    # AI服务配置
-    OPENAI_API_BASE_URL: str = "https://cpa.mosuyang.org"
-    GEMINI_API_KEY: str = "darry"
-    OPENAI_MODEL: str = "gemini-3-flash-preview"
-    WEB_TOOL_MODEL: str = "gemini-2.5-flash"
-    IMAGE_MODEL: str = "gemini-3-pro-image-preview"
-    OPENAI_MAX_TOKENS: int = 200000
-    HF_TOKEN: str = ""  # Hugging Face API Token
+    # ─── Gemini 配置 ───
+    GEMINI_BASE_URL: str = "https://cpa.mosuyang.org"
+    GEMINI_API_KEY: str = ""
+    GEMINI_TEXT_MODEL: str = "gemini-2.5-flash"
+    GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"
+    GEMINI_MAX_TOKENS: int = 200000
+
+    # ─── OpenAI 兼容配置 ───
+    OPENAI_BASE_URL: str = ""
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o"
+
+    # ─── HuggingFace 配置 ───
+    HF_TOKEN: str = ""
+    HF_SPACES: str = '{}'  # JSON: {"alias": "owner/space-name"}
+
+    # ─── Provider 选择 ───
+    TEXT_PROVIDER: str = "gemini"
+    IMAGE_PROVIDER: str = "gemini"
+    VISION_PROVIDER: str = "gemini"
+    VIDEO_PROVIDER: str = "huggingface"
 
     # 可选的Claude配置
     ANTHROPIC_API_KEY: str = ""
@@ -58,6 +71,25 @@ class Settings(BaseSettings):
 
     # 速率限制
     RATE_LIMIT_PER_MINUTE: int = 60
+
+    # ─── 向后兼容的属性 ───
+
+    @property
+    def OPENAI_API_BASE_URL(self) -> str:
+        """向后兼容：旧代码中引用此属性"""
+        return self.GEMINI_BASE_URL
+
+    @property
+    def WEB_TOOL_MODEL(self) -> str:
+        return self.GEMINI_TEXT_MODEL
+
+    @property
+    def IMAGE_MODEL(self) -> str:
+        return self.GEMINI_IMAGE_MODEL
+
+    @property
+    def OPENAI_MAX_TOKENS(self) -> int:
+        return self.GEMINI_MAX_TOKENS
 
     class Config:
         env_file = ".env"

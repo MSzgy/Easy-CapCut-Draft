@@ -374,20 +374,12 @@ export function ColumnContent({
                             <RefreshCw className="h-6 w-6 animate-spin text-primary" />
                           </div>
                         ) : (
-                          <>
-                            <img
-                              src={scene.imageUrl || "/placeholder.svg"}
-                              alt={scene.imageDescription}
-                              className="aspect-video w-full object-cover"
-                              crossOrigin="anonymous"
-                            />
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                              <div className="flex items-center gap-1.5 text-white">
-                                <ImageIcon className="h-3 w-3" />
-                                <span className="text-[10px]">{scene.imageDescription}</span>
-                              </div>
-                            </div>
-                          </>
+                          <img
+                            src={scene.imageUrl || "/placeholder.svg"}
+                            alt={scene.imageDescription}
+                            className="aspect-video w-full object-cover"
+                            crossOrigin="anonymous"
+                          />
                         )}
                       </div>
 

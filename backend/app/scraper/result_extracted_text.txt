@@ -14,7 +14,6 @@
 - Skills with the Claude API
 - Skills with Claude Code
 - Skills with the Claude Agent SDK
-- 微信扫一扫：分享
 - 评论
 
 ============================================================

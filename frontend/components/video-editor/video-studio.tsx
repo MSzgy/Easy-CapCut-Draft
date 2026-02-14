@@ -11,7 +11,8 @@ import {
     Loader2,
     Image as ImageIcon,
     RefreshCw,
-    Film
+    Film,
+    Sparkles
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -60,7 +61,7 @@ const RESOLUTIONS = [
 // The API schema has ge=256, le=1024.
 // Let's use a custom resolution selector or predefined.
 
-export function VideoStudio() {
+export function VideoStudio({ videoProvider }: { videoProvider?: string }) {
     const { toast } = useToast()
 
     // -- State --
@@ -82,6 +83,7 @@ export function VideoStudio() {
 
     const [isGenerating, setIsGenerating] = useState(false)
     const [generatedVideo, setGeneratedVideo] = useState<string | null>(null)
+    const [isAnalyzing, setIsAnalyzing] = useState(false)
 
     // -- File Handlers --
     const handleFileUpload = (
@@ -97,6 +99,38 @@ export function VideoStudio() {
                 }
             }
             reader.readAsDataURL(file)
+        }
+    }
+
+    // -- AI Transition Analysis --
+    const handleAnalyzeTransition = async () => {
+        if (!firstFrame || !endFrame) {
+            toast({
+                title: "Need Both Frames",
+                description: "Upload both first and end frame images to analyze the transition.",
+                variant: "destructive"
+            })
+            return
+        }
+
+        setIsAnalyzing(true)
+        try {
+            const response = await aiContentApi.analyzeTransition(firstFrame, endFrame)
+            if (response.success && response.transitionPrompt) {
+                setPrompt(response.transitionPrompt)
+                toast({
+                    title: "Transition Analyzed",
+                    description: "AI has generated a transition prompt based on your frames.",
+                })
+            }
+        } catch (error: any) {
+            toast({
+                title: "Analysis Failed",
+                description: error.message || "Failed to analyze transition.",
+                variant: "destructive"
+            })
+        } finally {
+            setIsAnalyzing(false)
         }
     }
 
@@ -128,7 +162,8 @@ export function VideoStudio() {
                 height,
                 cameraLora,
                 audioPath: audioPath || undefined,
-                inputVideo: inputVideo || undefined
+                inputVideo: inputVideo || undefined,
+                videoProvider: videoProvider || undefined
             })
 
             if (response.success && response.videoUrl) {
@@ -168,13 +203,34 @@ export function VideoStudio() {
                                 placeholder="Describe the motion..."
                                 className="h-24 resize-none"
                             />
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    id="enhance-prompt"
-                                    checked={enhancePrompt}
-                                    onCheckedChange={setEnhancePrompt}
-                                />
-                                <Label htmlFor="enhance-prompt" className="text-xs text-muted-foreground">Auto-enhance prompt</Label>
+                            <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="enhance-prompt"
+                                        checked={enhancePrompt}
+                                        onCheckedChange={setEnhancePrompt}
+                                    />
+                                    <Label htmlFor="enhance-prompt" className="text-xs text-muted-foreground">Auto-enhance prompt</Label>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAnalyzeTransition}
+                                    disabled={isAnalyzing || !firstFrame || !endFrame}
+                                    className="text-xs h-7 px-2"
+                                >
+                                    {isAnalyzing ? (
+                                        <>
+                                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                            Analyzing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="mr-1 h-3 w-3" />
+                                            AI Analyze
+                                        </>
+                                    )}
+                                </Button>
                             </div>
                         </div>
 

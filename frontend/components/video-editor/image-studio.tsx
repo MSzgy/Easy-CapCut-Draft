@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/collapsible"
 import { useToast } from "@/hooks/use-toast"
 import { aiContentApi } from "@/lib/api/ai-content"
+import type { ModelSelection } from "@/lib/api/ai-content"
 import { DrawingCanvas } from "./drawing-canvas"
 
 interface GeneratedImage {
@@ -106,10 +107,10 @@ const resolutions = [
 
 interface ImageStudioProps {
     onStoryboardGenerated?: (frames: any[]) => void
-    modelProvider?: "gemini" | "huggingface"
+    modelSelection?: ModelSelection
 }
 
-export function ImageStudio({ onStoryboardGenerated, modelProvider = "gemini" }: ImageStudioProps = {}) {
+export function ImageStudio({ onStoryboardGenerated, modelSelection }: ImageStudioProps = {}) {
     const { toast } = useToast()
 
     // Phase 2 & 3: Generation mode 
@@ -583,7 +584,7 @@ export function ImageStudio({ onStoryboardGenerated, modelProvider = "gemini" }:
                         denoisingStrength: denoisingStrength[0] / 100,
                         preserveComposition: preserveComposition,
                         styleWeights: weights,
-                        provider: modelProvider,
+                        provider: modelSelection?.imageProvider || "gemini",
                     })
 
                     if (response.success) {

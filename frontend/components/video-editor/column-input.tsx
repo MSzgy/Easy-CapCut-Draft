@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect } from "react"
 
 import { useState, useRef, useCallback } from "react"
 import {
@@ -44,7 +44,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { aiContentApi } from "@/lib/api/ai-content"
+import { aiContentApi, ModelSelection } from "@/lib/api/ai-content"
 import { useToast } from "@/hooks/use-toast"
 
 interface UploadedAsset {
@@ -73,6 +73,7 @@ export interface GeneratedOutput {
 
 interface ColumnInputProps {
   onGenerate: (output: GeneratedOutput) => void
+  modelSelection?: ModelSelection
 }
 
 const crawlerSteps = [
@@ -177,7 +178,7 @@ const coverStyleKeywords: Record<string, string[]> = {
   'nine-grid': ['structured', 'angular', 'pattern-based'],
 }
 
-export function ColumnInput({ onGenerate }: ColumnInputProps) {
+export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
   const [activeTab, setActiveTab] = useState("upload")
   const [prompt, setPrompt] = useState("")
   const [url, setUrl] = useState("")
@@ -476,6 +477,8 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
           size: asset.size,
           content: asset.content,
         })) : undefined,
+        textProvider: modelSelection?.textProvider,
+        imageProvider: modelSelection?.imageProvider,
       })
 
       if (response.success) {
@@ -562,6 +565,7 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
         theme: coverTheme || undefined,
         size: coverSize,
         resolution: coverResolution,
+        provider: modelSelection?.imageProvider,
       })
 
       if (response.success) {
@@ -1419,6 +1423,8 @@ export function ColumnInput({ onGenerate }: ColumnInputProps) {
               </Select>
             </div>
           </div>
+
+
 
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">风格预设</Label>
