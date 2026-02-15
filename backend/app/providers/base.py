@@ -66,6 +66,16 @@ class VideoRequest:
     audio_path: Optional[str] = None
 
 
+@dataclass
+class AudioRequest:
+    """Unified request for audio generation (TTS)."""
+    text: str
+    voice_description: str = "A clear and professional voice."
+    language: str = "Auto"
+    speed: float = 1.0
+    emotion: Optional[str] = None
+
+
 # ─── Abstract Provider Interfaces ────────────────────────────────────────────
 
 class TextProvider(ABC):
@@ -124,6 +134,19 @@ class VideoProvider(ABC):
     @abstractmethod
     async def generate_video(self, request: VideoRequest) -> str:
         """Generate a video. Returns a file path or URL."""
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        ...
+
+
+class AudioProvider(ABC):
+    """Interface for audio generation providers (TTS)."""
+
+    @abstractmethod
+    async def generate_speech(self, request: AudioRequest) -> str:
+        """Generate speech from text. Returns a file path or URL."""
         ...
 
     @abstractmethod

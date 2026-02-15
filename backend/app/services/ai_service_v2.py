@@ -12,12 +12,14 @@ import json
 import re
 from typing import Optional, List
 
-from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest
+from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest, AudioRequest
 from app.providers.factory import (
     get_text_provider,
     get_image_provider,
     get_vision_provider,
+    get_vision_provider,
     get_video_provider,
+    get_audio_provider,
 )
 from app.core.config import settings
 
@@ -187,9 +189,50 @@ class AIService:
             # 移动文件
             shutil.move(result_path, target_path)
             
-            # 返回 URL (假设后端运行在 8000 端口)
-            # 在生产环境中应该使用配置文件中的 BASE_URL
+            # In production this should be configurable
             return f"http://localhost:8000/static/videos/{filename}"
+            
+        return result_path
+
+    # ── Audio ─────────────────────────────────────────────────────────────
+
+    async def generate_speech(
+        self,
+        text: str,
+        voice_description: str = "A clear and professional voice.",
+        language: str = "Auto",
+        provider: Optional[str] = None,
+    ) -> str:
+        """Generate speech from text."""
+        if provider and provider.startswith("hf:"):
+            from app.providers.huggingface import HuggingFaceProvider
+            space_alias = provider.split(":", 1)[1]
+            provider_instance = HuggingFaceProvider(audio_space=space_alias)
+        else:
+            provider_instance = get_audio_provider(provider)
+            
+        result_path = await provider_instance.generate_speech(AudioRequest(
+            text=text,
+            voice_description=voice_description,
+            language=language,
+        ))
+
+        # Handle local file path -> static URL mapping
+        if result_path and os.path.exists(result_path) and not result_path.startswith("http"):
+            import shutil
+            import uuid
+            
+            # Use same static directory structure as video
+            filename = f"audio_{uuid.uuid4()}.mp3"
+            target_dir = "static/audio"
+            os.makedirs(target_dir, exist_ok=True)
+            target_path = os.path.join(target_dir, filename)
+            
+            shutil.move(result_path, target_path)
+            
+            # Return URL (assuming standard setup)
+            # In production this should be configurable
+            return f"http://localhost:8000/static/audio/{filename}"
             
         return result_path
 

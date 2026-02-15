@@ -42,6 +42,7 @@ class GenerateContentRequest(BaseModel):
     # 通用字段
     copyStyle: Optional[str] = Field(None, description="文案风格")
     generateImages: bool = Field(True, description="是否生成场景配图")
+    numFrames: Optional[int] = Field(None, description="分镜数量 (若指定则生成故事板模式)")
     styleReferenceImage: Optional[str] = Field(None, description="风格参考图片 base64 编码（仅参考风格，不复制内容）")
     
     # 模型选择
@@ -328,3 +329,21 @@ class AnalyzeTransitionResponse(BaseModel):
     success: bool
     message: str
     transitionPrompt: str = Field(..., description="AI生成的转场提示词")
+
+
+# Speech Generation
+class SpeechRequest(BaseModel):
+    """语音生成请求"""
+    text: str = Field(..., description="要转换的文本")
+    voiceDescription: str = Field("A clear and professional voice.", description="声音描述")
+    language: str = Field("Auto", description="语言代码: Auto, English, Chinese, etc.")
+    speed: float = Field(1.0, description="语速", ge=0.5, le=2.0)
+    emotion: Optional[str] = Field(None, description="情感")
+    provider: Optional[str] = Field("hf:tts_qwen", description="TTS提供商")
+
+
+class SpeechResponse(BaseModel):
+    """语音生成响应"""
+    success: bool
+    message: str
+    audioUrl: str

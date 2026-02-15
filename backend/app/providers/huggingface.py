@@ -9,14 +9,14 @@ import asyncio
 from typing import Optional
 
 from app.providers.base import (
-    ImageProvider, VideoProvider,
-    ImageRequest, VideoRequest,
+    ImageProvider, VideoProvider, AudioProvider,
+    ImageRequest, VideoRequest, AudioRequest,
 )
 from app.providers.spaces import get_space_adapter, list_spaces
 from app.core.config import settings
 
 
-class HuggingFaceProvider(ImageProvider, VideoProvider):
+class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider):
     """Provider for HuggingFace Spaces (Gradio-based).
     
     Uses the Space Registry to dynamically select adapters.
@@ -28,10 +28,12 @@ class HuggingFaceProvider(ImageProvider, VideoProvider):
         hf_token: str = None,
         image_space: str = "image_turbo",
         video_space: str = "video_i2v",
+        audio_space: str = "tts_qwen",
     ):
         self.hf_token = hf_token or settings.HF_TOKEN
         self.image_space = image_space
         self.video_space = video_space
+        self.audio_space = audio_space
 
     # ── ImageProvider ─────────────────────────────────────────────────────
 
@@ -114,6 +116,23 @@ class HuggingFaceProvider(ImageProvider, VideoProvider):
         raise Exception(
             f"HF video generation failed after {MAX_RETRIES} retries: {last_err}"
         )
+
+
+    # ── AudioProvider ─────────────────────────────────────────────────────
+
+    async def generate_speech(self, request: AudioRequest) -> str:
+        adapter = get_space_adapter(self.audio_space)
+        adapter.hf_token = self.hf_token
+
+        params = adapter.build_params(request)
+
+        def _run():
+            from gradio_client import Client
+            client = Client(adapter.space_id, token=self.hf_token)
+            return client.predict(**params, api_name=adapter.api_name)
+
+        result = await asyncio.to_thread(_run)
+        return adapter.parse_result(result)
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 

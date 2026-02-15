@@ -32,7 +32,9 @@ from app.schemas.ai_schemas import (
     ConcatenateVideosRequest,
     ConcatenateVideosResponse,
     AnalyzeTransitionRequest,
-    AnalyzeTransitionResponse
+    AnalyzeTransitionResponse,
+    SpeechRequest,
+    SpeechResponse,
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
@@ -298,15 +300,19 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
     print(f"✨ 所有场景图片生成完成")
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None) -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
     if style_keywords and len(style_keywords) > 0:
         keywords_context = f"\n                        风格关键词：{', '.join(style_keywords)}"
     
+    # Determined number of scenes
+    target_frames = num_frames if num_frames else 6
+    scene_count_prompt = f"{target_frames}个场景"
+    
     system_message = f"""你是一个专业的视频内容创作专家。
-                        根据用户的提示词和视频风格，生成6-8个场景，每个场景包含：
+                        根据用户的提示词和视频风格，生成{scene_count_prompt}，每个场景包含：
                         - timestamp: 时间戳（格式：0:00 - 0:05）
                         - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
                         - image: 图片详细信息对象
@@ -316,7 +322,7 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
 
     user_prompt = f"""用户需求：{prompt}
 
-                    请生成6个场景，以JSON数组格式返回，每个场景包含：   
+                    请生成{scene_count_prompt}，以JSON数组格式返回，每个场景包含：   
                     {{
                         "timestamp": "时间戳",
                         "script": "脚本内容",
@@ -351,48 +357,20 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
             scenes_data = json.loads(json_match.group())
         else:
             # 如果无法解析，返回默认场景
-            scenes_data = [
-                {
-                    "timestamp": "0:00 - 0:05",
-                    "script": f"开场：{prompt[:50]}...",
+            scenes_data = []
+            for i in range(target_frames):
+                start_time = i * 5
+                end_time = (i + 1) * 5
+                scenes_data.append({
+                    "timestamp": f"0:{start_time:02d} - 0:{end_time:02d}",
+                    "script": f"场景 {i+1}：根据提示词生成的展示画面...",
                     "image": {
-                        "description": "Dynamic opening scene",
-                        "tags": ["开场", "动态"],
-                        "mood": "激动",
+                        "description": f"Scene {i+1} visual description",
+                        "tags": ["scene", "visual"],
+                        "mood": "neutral",
                         "style": video_style
                     }
-                },
-                {
-                    "timestamp": "0:05 - 0:15",
-                    "script": "主要内容展示",
-                    "image": {
-                        "description": "Main content showcase",
-                        "tags": ["主要内容", "展示"],
-                        "mood": "专业",
-                        "style": video_style
-                    }
-                },
-                {
-                    "timestamp": "0:15 - 0:25",
-                    "script": "详细特性介绍",
-                    "image": {
-                        "description": "Feature details",
-                        "tags": ["特性", "细节"],
-                        "mood": "信息性",
-                        "style": video_style
-                    }
-                },
-                {
-                    "timestamp": "0:25 - 0:30",
-                    "script": "结尾与号召",
-                    "image": {
-                        "description": "Call to action",
-                        "tags": ["结尾", "号召"],
-                        "mood": "鼓励",
-                        "style": video_style
-                    }
-                }
-            ]
+                })
 
         # 转换为SceneContent对象
         scenes = []
@@ -447,13 +425,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url, text_provider=text_provider)
     try: 
         generated_copy = await ai_service.generate_copy(web_content['main_content'], copy_style, provider=text_provider)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider, num_frames=num_frames)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -470,7 +448,16 @@ async def generate_content(request: GenerateContentRequest):
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
-            scenes = await generate_scenes_from_prompt(request.prompt, request.videoStyle or "promo", request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
+            scenes = await generate_scenes_from_prompt(
+                request.prompt, 
+                request.videoStyle or "promo", 
+                request.styleKeywords, 
+                request.generateImages, 
+                request.styleReferenceImage, 
+                text_provider=request.textProvider, 
+                image_provider=request.imageProvider,
+                num_frames=request.numFrames
+            )
             
             # 如果不生成图片，清空 imageUrl 以防前端显示占位符
             if not request.generateImages:
@@ -480,7 +467,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames)
             
             # 如果不生成图片，清空 imageUrl
             if not request.generateImages:
@@ -519,7 +506,7 @@ async def generate_content(request: GenerateContentRequest):
 
                     # 基于图片识别结果生成场景
                     basic_description = await ai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider)
+                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames)
                     
                     # 如果不生成图片，清空 imageUrl
                     if not request.generateImages:
@@ -799,6 +786,30 @@ async def face_swap(request: FaceSwapRequest):
         raise HTTPException(
             status_code=500,
             detail=f"人脸融合失败: {str(e)}"
+        )
+
+
+@router.post("/speech", response_model=SpeechResponse)
+async def generate_speech(request: SpeechRequest):
+    """语音生成 - 文字转语音"""
+    try:
+        result = await ai_service.generate_speech(
+            text=request.text,
+            voice_description=request.voiceDescription,
+            language=request.language,
+            provider=request.provider
+        )
+        
+        return SpeechResponse(
+            success=True,
+            message="语音生成成功",
+            audioUrl=result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"语音生成失败: {str(e)}"
         )
 
 

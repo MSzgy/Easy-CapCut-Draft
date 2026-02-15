@@ -9,7 +9,7 @@ REGISTRY dicts below.
 from functools import lru_cache
 from typing import Dict, Type, List, Any
 
-from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider
+from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider, AudioProvider
 from app.core.config import settings
 
 
@@ -44,6 +44,13 @@ def _vision_registry() -> Dict[str, Type[VisionProvider]]:
 
 
 def _video_registry() -> Dict[str, Type[VideoProvider]]:
+    from app.providers.huggingface import HuggingFaceProvider
+    return {
+        "huggingface": HuggingFaceProvider,
+    }
+
+
+def _audio_registry() -> Dict[str, Type[AudioProvider]]:
     from app.providers.huggingface import HuggingFaceProvider
     return {
         "huggingface": HuggingFaceProvider,
@@ -114,6 +121,7 @@ def get_all_providers_status() -> Dict[str, Any]:
         "image":  (_image_registry,  "IMAGE_PROVIDER",  "gemini"),
         "vision": (_vision_registry, "VISION_PROVIDER", "gemini"),
         "video":  (_video_registry,  "VIDEO_PROVIDER",  "huggingface"),
+        "audio":  (_audio_registry,  "AUDIO_PROVIDER",  "huggingface"),
     }
 
     result = {}
@@ -188,3 +196,9 @@ def get_vision_provider(name: str = None) -> VisionProvider:
 def get_video_provider(name: str = None) -> VideoProvider:
     name = name or getattr(settings, "VIDEO_PROVIDER", "huggingface")
     return _create_provider(_video_registry(), name, "video")
+
+
+@lru_cache()
+def get_audio_provider(name: str = None) -> AudioProvider:
+    name = name or getattr(settings, "AUDIO_PROVIDER", "huggingface")
+    return _create_provider(_audio_registry(), name, "audio")

@@ -55,18 +55,22 @@ def get_space_adapter(alias: str) -> SpaceAdapter:
     except (json.JSONDecodeError, TypeError):
         spaces_map = {}
 
-    space_id = spaces_map.get(alias)
-    if not space_id:
-        raise ValueError(
-            f"HuggingFace Space '{alias}' 未在 HF_SPACES 中配置。"
-            f" 已配置: {list(spaces_map.keys())}"
-        )
-
     adapter_cls = _ADAPTER_CLASSES.get(alias)
     if not adapter_cls:
         raise ValueError(
             f"Space alias '{alias}' 没有对应的 Adapter 实现。"
             f" 已注册: {list(_ADAPTER_CLASSES.keys())}"
+        )
+
+    # Use config if available, else fallback to class default
+    space_id = spaces_map.get(alias)
+    if not space_id:
+        space_id = adapter_cls.space_id
+
+    if not space_id:
+        raise ValueError(
+            f"HuggingFace Space '{alias}' 未在 HF_SPACES 中配置，且无默认 ID。"
+            f" 已配置: {list(spaces_map.keys())}"
         )
 
     return adapter_cls(space_id=space_id)

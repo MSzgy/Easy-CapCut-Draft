@@ -15,6 +15,7 @@ from app.providers.spaces.base import (
 from app.providers.spaces import image_turbo   # noqa: F401
 from app.providers.spaces import video_i2v     # noqa: F401
 from app.providers.spaces import video_wan     # noqa: F401
+from app.providers.spaces import tts_qwen      # noqa: F401
 
 __all__ = [
     "SpaceAdapter",

@@ -10,6 +10,7 @@ import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vau
 import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
 import { ImageStudio } from "@/components/video-editor/image-studio"
 import { VideoStudio } from "@/components/video-editor/video-studio"
+import { AudioStudio } from "@/components/video-editor/audio-studio"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
 
@@ -28,6 +29,7 @@ export default function VideoEditorPage() {
     imageProvider: "gemini",
     imageToImageProvider: "gemini",
     videoProvider: "hf:video_i2v",
+    audioProvider: "hf:tts_qwen",
   })
   // Video render state
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
@@ -276,6 +278,12 @@ export default function VideoEditorPage() {
         {activeTab === "video-studio" && (
           <main className="flex-1 overflow-hidden p-4">
             <VideoStudio videoProvider={modelSelection.videoProvider} />
+          </main>
+        )}
+
+        {activeTab === "audio-studio" && (
+          <main className="flex-1 overflow-hidden p-4">
+            <AudioStudio audioProvider={modelSelection.audioProvider} />
           </main>
         )}
 

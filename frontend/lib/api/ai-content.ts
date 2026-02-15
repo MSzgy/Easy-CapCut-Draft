@@ -18,6 +18,7 @@ export interface GenerateContentRequest {
   url?: string
   copyStyle?: string
   generateImages?: boolean
+  numFrames?: number
   styleReferenceImage?: string // Base64 style reference image for scene generation
   uploadedAssets?: Array<{
     id: string
@@ -80,6 +81,7 @@ export interface ProviderStatus {
   image: { active: string; available: { [name: string]: ProviderInfo } }
   vision: { active: string; available: { [name: string]: ProviderInfo } }
   video: { active: string; available: { [name: string]: ProviderInfo } }
+  audio: { active: string; available: { [name: string]: ProviderInfo } }
   hf_spaces: { [alias: string]: HfSpaceInfo }
 }
 
@@ -89,6 +91,7 @@ export interface ModelSelection {
   imageProvider: string      // "gemini" | "hf:image_turbo" | ...
   imageToImageProvider: string // "gemini" | "hf:image_turbo" | ...
   videoProvider: string      // "hf:video_i2v" | "hf:video_wan" | ...
+  audioProvider: string      // "hf:tts_qwen" | ...
 }
 
 export const aiContentApi = {
@@ -443,6 +446,29 @@ export const aiContentApi = {
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to concatenate videos')
+    }
+  },
+
+  /**
+   * 生成语音 (TTS)
+   */
+  async generateSpeech(request: {
+    text: string
+    voiceDescription?: string
+    language?: string
+    speed?: number
+    emotion?: string
+    provider?: string
+  }): Promise<{
+    success: boolean
+    message: string
+    audioUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/speech', request)
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to generate speech')
     }
   },
 }

@@ -208,8 +208,8 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
 
   // Storyboard Generation State
-  const [generateStoryboard, setGenerateStoryboard] = useState(false)
-  const [storyboardNumFrames, setStoryboardNumFrames] = useState(6)
+  const [generateStoryboard, setGenerateStoryboard] = useState(true)
+  const [storyboardNumFrames, setStoryboardNumFrames] = useState(5)
 
   // Scene Image Generation State
   const [generateSceneImages, setGenerateSceneImages] = useState(true) // 默认生成图片
@@ -410,47 +410,6 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
     setCrawlerSummary([])
 
     try {
-      // Check if storyboard generation is enabled
-      if (generateStoryboard) {
-        // Prepare prompt based on active tab
-        let storyPrompt = ""
-        if (activeTab === "prompt") {
-          storyPrompt = prompt
-        } else if (activeTab === "upload" && uploadedAssets.length > 0) {
-          storyPrompt = "根据提供的素材生成分镜故事板"
-        } else if (activeTab === "url") {
-          storyPrompt = `根据网页内容 (${url}) 生成分镜故事板`
-        }
-
-        const response = await aiContentApi.generateStoryboard(
-          storyPrompt || "生成故事板分镜",
-          undefined, // character image - can be added later
-          storyboardNumFrames,
-          scriptType // use selected style
-        )
-
-        if (response.success && response.frames) {
-          // Convert storyboard frames to scenes format
-          const scenes: SceneContent[] = response.frames.map((frame: any, idx: number) => ({
-            id: `scene_${idx + 1}`,
-            timestamp: `0:${(idx * 3).toString().padStart(2, '0')} - 0:${((idx + 1) * 3).toString().padStart(2, '0')}`,
-            script: frame.description,
-            imageUrl: frame.imageUrl,
-            imageDescription: `分镜 ${frame.frameNumber} - ${frame.shotType}`
-          }))
-
-          onGenerate({ scenes, coverUrl: generatedCover || undefined })
-
-          toast({
-            title: "故事板生成成功",
-            description: `已生成${response.frames.length}个分镜`,
-          })
-        }
-
-        setIsGenerating(false)
-        return
-      }
-
       // Normal content generation flow
       if (activeTab === "url") {
         await simulateCrawler()
@@ -469,6 +428,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
         url: activeTab === "url" ? url : undefined,
         copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
         generateImages: generateSceneImages, // 新增：控制是否生成场景图片
+        numFrames: storyboardNumFrames,
         styleReferenceImage: (generateSceneImages && styleReferenceImage) ? styleReferenceImage : undefined,
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
           id: asset.id,
@@ -821,97 +781,75 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                 </Select>
               </div>
 
-              {/* Storyboard Generation Option */}
+              {/* Storyboard Frame Count */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={storyboardNumFrames}
+                  onChange={(e) => setStoryboardNumFrames(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
+              </div>
+
+              {/* Scene Image Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
-                    id="storyboard-upload"
-                    checked={generateStoryboard}
-                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
+                    id="scene-images-upload"
+                    checked={generateSceneImages}
+                    onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
                   />
                   <label
-                    htmlFor="storyboard-upload"
+                    htmlFor="scene-images-upload"
                     className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    🎬 生成故事板分镜
+                    🖼️ 生成场景配图
                   </label>
                 </div>
-
-                {generateStoryboard && (
-                  <div className="space-y-1.5 pl-6">
-                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
-                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
-                      <SelectTrigger className="bg-secondary h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4">4个分镜</SelectItem>
-                        <SelectItem value="6">6个分镜</SelectItem>
-                        <SelectItem value="8">8个分镜</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {!generateSceneImages && (
+                  <p className="pl-6 text-[10px] text-muted-foreground">
+                    仅生成文本脚本，不生成AI图片（更快速）
+                  </p>
+                )}
+                {generateSceneImages && (
+                  <div className="mt-2 pl-6 space-y-2">
+                    <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                    <input
+                      ref={styleRefInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleStyleReferenceUpload}
+                    />
+                    {styleReferencePreview ? (
+                      <div className="relative inline-block">
+                        <img
+                          src={styleReferencePreview}
+                          alt="Style reference"
+                          className="h-20 w-20 rounded-md border border-border object-cover"
+                        />
+                        <button
+                          onClick={removeStyleReference}
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => styleRefInputRef.current?.click()}
+                        className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                      >
+                        <ImageIcon className="h-5 w-5 mb-1" />
+                        <span className="text-[9px]">上传参考</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-
-              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
-              {!generateStoryboard && (
-                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="scene-images-upload"
-                      checked={generateSceneImages}
-                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
-                    />
-                    <label
-                      htmlFor="scene-images-upload"
-                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      🖼️ 生成场景配图
-                    </label>
-                  </div>
-                  {!generateSceneImages && (
-                    <p className="pl-6 text-[10px] text-muted-foreground">
-                      仅生成文本脚本，不生成AI图片（更快速）
-                    </p>
-                  )}
-                  {generateSceneImages && (
-                    <div className="mt-2 pl-6 space-y-2">
-                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
-                      <input
-                        ref={styleRefInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleStyleReferenceUpload}
-                      />
-                      {styleReferencePreview ? (
-                        <div className="relative inline-block">
-                          <img
-                            src={styleReferencePreview}
-                            alt="Style reference"
-                            className="h-20 w-20 rounded-md border border-border object-cover"
-                          />
-                          <button
-                            onClick={removeStyleReference}
-                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => styleRefInputRef.current?.click()}
-                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
-                        >
-                          <ImageIcon className="h-5 w-5 mb-1" />
-                          <span className="text-[9px]">上传参考</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Copy Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
@@ -997,97 +935,75 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                 </Select>
               </div>
 
-              {/* Storyboard Generation Option */}
+              {/* Storyboard Frame Count */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={storyboardNumFrames}
+                  onChange={(e) => setStoryboardNumFrames(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
+              </div>
+
+              {/* Scene Image Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
-                    id="storyboard-prompt"
-                    checked={generateStoryboard}
-                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
+                    id="scene-images-prompt"
+                    checked={generateSceneImages}
+                    onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
                   />
                   <label
-                    htmlFor="storyboard-prompt"
+                    htmlFor="scene-images-prompt"
                     className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    🎬 生成故事板分镜
+                    🖼️ 生成场景配图
                   </label>
                 </div>
-
-                {generateStoryboard && (
-                  <div className="space-y-1.5 pl-6">
-                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
-                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
-                      <SelectTrigger className="bg-secondary h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4">4个分镜</SelectItem>
-                        <SelectItem value="6">6个分镜</SelectItem>
-                        <SelectItem value="8">8个分镜</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {!generateSceneImages && (
+                  <p className="pl-6 text-[10px] text-muted-foreground">
+                    仅生成文本脚本，不生成AI图片（更快速）
+                  </p>
+                )}
+                {generateSceneImages && (
+                  <div className="mt-2 pl-6 space-y-2">
+                    <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={styleRefInputRef}
+                      onChange={handleStyleReferenceUpload}
+                    />
+                    {styleReferencePreview ? (
+                      <div className="relative inline-block">
+                        <img
+                          src={styleReferencePreview}
+                          alt="Style reference"
+                          className="h-20 w-20 rounded-md border border-border object-cover"
+                        />
+                        <button
+                          onClick={removeStyleReference}
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => styleRefInputRef.current?.click()}
+                        className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                      >
+                        <ImageIcon className="h-5 w-5 mb-1" />
+                        <span className="text-[9px]">上传参考</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
-
-              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
-              {!generateStoryboard && (
-                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="scene-images-prompt"
-                      checked={generateSceneImages}
-                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
-                    />
-                    <label
-                      htmlFor="scene-images-prompt"
-                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      🖼️ 生成场景配图
-                    </label>
-                  </div>
-                  {!generateSceneImages && (
-                    <p className="pl-6 text-[10px] text-muted-foreground">
-                      仅生成文本脚本，不生成AI图片（更快速）
-                    </p>
-                  )}
-                  {generateSceneImages && (
-                    <div className="mt-2 pl-6 space-y-2">
-                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={styleRefInputRef}
-                        onChange={handleStyleReferenceUpload}
-                      />
-                      {styleReferencePreview ? (
-                        <div className="relative inline-block">
-                          <img
-                            src={styleReferencePreview}
-                            alt="Style reference"
-                            className="h-20 w-20 rounded-md border border-border object-cover"
-                          />
-                          <button
-                            onClick={removeStyleReference}
-                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => styleRefInputRef.current?.click()}
-                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
-                        >
-                          <ImageIcon className="h-5 w-5 mb-1" />
-                          <span className="text-[9px]">上传参考</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
             </TabsContent>
 
             <TabsContent value="url" className="mt-3 space-y-3">
@@ -1168,99 +1084,77 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                 </Select>
               </div>
 
-              {/* Storyboard Generation Option */}
-              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="storyboard-url"
-                    checked={generateStoryboard}
-                    onCheckedChange={(checked) => setGenerateStoryboard(checked as boolean)}
-                  />
-                  <label
-                    htmlFor="storyboard-url"
-                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    🎬 生成故事板分镜
-                  </label>
-                </div>
-
-                {generateStoryboard && (
-                  <div className="space-y-1.5 pl-6">
-                    <Label className="text-xs text-muted-foreground">分镜数量</Label>
-                    <Select value={storyboardNumFrames.toString()} onValueChange={(v) => setStoryboardNumFrames(parseInt(v))}>
-                      <SelectTrigger className="bg-secondary h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4">4个分镜</SelectItem>
-                        <SelectItem value="6">6个分镜</SelectItem>
-                        <SelectItem value="8">8个分镜</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+              {/* Storyboard Frame Count */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">分镜数量</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={storyboardNumFrames}
+                  onChange={(e) => setStoryboardNumFrames(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
               </div>
 
 
 
-              {/* Scene Image Generation Option - Only show when NOT generating storyboard */}
-              {!generateStoryboard && (
-                <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="scene-images-url"
-                      checked={generateSceneImages}
-                      onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
-                    />
-                    <label
-                      htmlFor="scene-images-url"
-                      className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      🖼️ 生成场景配图
-                    </label>
-                  </div>
-                  {!generateSceneImages && (
-                    <p className="pl-6 text-[10px] text-muted-foreground">
-                      仅生成文本脚本，不生成AI图片（更快速）
-                    </p>
-                  )}
-                  {generateSceneImages && (
-                    <div className="mt-2 pl-6 space-y-2">
-                      <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={styleRefInputRef}
-                        onChange={handleStyleReferenceUpload}
-                      />
-                      {styleReferencePreview ? (
-                        <div className="relative inline-block">
-                          <img
-                            src={styleReferencePreview}
-                            alt="Style reference"
-                            className="h-20 w-20 rounded-md border border-border object-cover"
-                          />
-                          <button
-                            onClick={removeStyleReference}
-                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => styleRefInputRef.current?.click()}
-                          className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
-                        >
-                          <ImageIcon className="h-5 w-5 mb-1" />
-                          <span className="text-[9px]">上传参考</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
+              {/* Scene Image Generation Option */}
+              <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="scene-images-url"
+                    checked={generateSceneImages}
+                    onCheckedChange={(checked) => setGenerateSceneImages(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="scene-images-url"
+                    className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    🖼️ 生成场景配图
+                  </label>
                 </div>
-              )}
+                {!generateSceneImages && (
+                  <p className="pl-6 text-[10px] text-muted-foreground">
+                    仅生成文本脚本，不生成AI图片（更快速）
+                  </p>
+                )}
+                {generateSceneImages && (
+                  <div className="mt-2 pl-6 space-y-2">
+                    <p className="text-[10px] text-muted-foreground">上传风格参考图（可选，仅参考风格，不复制内容）</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={styleRefInputRef}
+                      onChange={handleStyleReferenceUpload}
+                    />
+                    {styleReferencePreview ? (
+                      <div className="relative inline-block">
+                        <img
+                          src={styleReferencePreview}
+                          alt="Style reference"
+                          className="h-20 w-20 rounded-md border border-border object-cover"
+                        />
+                        <button
+                          onClick={removeStyleReference}
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm hover:bg-destructive/90"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => styleRefInputRef.current?.click()}
+                        className="flex h-20 w-20 flex-col items-center justify-center rounded-md border-2 border-dashed border-border bg-secondary/50 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary"
+                      >
+                        <ImageIcon className="h-5 w-5 mb-1" />
+                        <span className="text-[9px]">上传参考</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Copy Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">

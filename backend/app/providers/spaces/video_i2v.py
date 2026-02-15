@@ -52,7 +52,7 @@ class VideoI2VAdapter(SpaceAdapter):
             "prompt": no_audio_prompt,
             "duration": int(request.duration_seconds),
             "input_video": self._process_input(request.input_video),
-            "generation_mode": request.generation_mode,
+            "generation_mode": "Interpolate",
             "enhance_prompt": request.enhance_prompt,
             "seed": request.seed,
             "randomize_seed": request.randomize_seed,

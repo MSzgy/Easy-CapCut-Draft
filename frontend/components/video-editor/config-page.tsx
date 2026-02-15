@@ -85,6 +85,20 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
         })
     }
 
+    // Build option list for audio models: HF audio spaces
+    const audioOptions: { value: string; label: string; configured: boolean }[] = []
+    if (providerStatus) {
+        Object.entries(providerStatus.hf_spaces || {}).forEach(([alias, info]) => {
+            if (info.capability === "audio") {
+                audioOptions.push({
+                    value: `hf:${alias}`,
+                    label: `${info.display_name || alias} (${info.space_id})`,
+                    configured: info.configured,
+                })
+            }
+        })
+    }
+
     // Build option list for text providers
     const textOptions: { value: string; label: string; configured: boolean }[] = []
     if (providerStatus) {
@@ -158,6 +172,17 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
                     onChange={(v) => update("videoProvider", v)}
                     options={videoOptions}
                     defaultLabel="默认: I2V 视频生成"
+                />
+
+                {/* ─── 音频模型 ─── */}
+                <ModelCard
+                    icon={<Video className="h-5 w-5" />}
+                    title="音频生成模型"
+                    description="从文字生成音频"
+                    value={modelSelection.audioProvider}
+                    onChange={(v) => update("audioProvider", v)}
+                    options={audioOptions}
+                    defaultLabel="默认: Qwen3语音生成"
                 />
             </div>
         </div>
