@@ -155,6 +155,14 @@ export default function VideoEditorPage() {
           } catch (err) {
             console.warn(`⚠️ Scene ${i + 1}: Transition analysis failed, using script as prompt`, err)
           }
+        } else {
+          // No next scene (last frame), use image description as prompt
+          // This gives better results than the script for single-image movement
+          const imagePrompt = scene.imageMetadata?.description || scene.imageDescription
+          if (imagePrompt) {
+            videoPrompt = imagePrompt
+            console.log(`🎬 Scene ${i + 1} (Last): Using image description as prompt: ${videoPrompt}`)
+          }
         }
 
         // Step 2: Generate video with the (possibly AI-enhanced) prompt

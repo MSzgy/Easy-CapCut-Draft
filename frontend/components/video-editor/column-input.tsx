@@ -63,6 +63,16 @@ export interface SceneContent {
   script: string
   imageUrl: string
   imageDescription: string
+  imageMetadata?: {
+    description: string
+    tags: string[]
+    mood?: string
+    color_scheme?: string
+    composition?: string
+    style?: string
+    subjects?: string[]
+    scene_type?: string
+  }
   duration?: number
 }
 
