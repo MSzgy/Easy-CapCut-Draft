@@ -17,6 +17,9 @@ import {
   Trash2,
   Eye,
   RefreshCw,
+  Play,
+  Film,
+  Layers,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -37,112 +40,92 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
-export interface OutputRecord {
+export interface OutputScene {
   id: string
   name: string
-  type: "json" | "video"
-  status: "rendered" | "json-only" | "failed" | "processing"
+  videoUrl: string
+  prompt?: string
+  thumbnail?: string
+}
+
+export interface OutputProject {
+  id: string
+  name: string
+  status: "rendered" | "processing" | "failed"
   createdAt: string
-  duration?: string
-  fileSize: string
-  scenes: number
+  combinedVideoUrl?: string
+  scenes: OutputScene[]
+  totalDuration?: string
+  totalSize?: string
+  sceneCount: number
 }
 
 interface OutputArchiveProps {
-  records: OutputRecord[]
-  onDownload?: (record: OutputRecord) => void
-  onReEdit?: (record: OutputRecord) => void
+  projects: OutputProject[]
   onDelete?: (id: string) => void
 }
 
-const sampleRecords: OutputRecord[] = [
+const sampleProjects: OutputProject[] = [
   {
     id: "1",
-    name: "Product Launch Video",
-    type: "video",
+    name: "Demo Project 1",
     status: "rendered",
-    createdAt: "2024-01-25 14:32",
-    duration: "0:45",
-    fileSize: "128 MB",
-    scenes: 5,
-  },
-  {
-    id: "2",
-    name: "Tech Review Draft",
-    type: "json",
-    status: "json-only",
-    createdAt: "2024-01-25 12:15",
-    fileSize: "24 KB",
-    scenes: 8,
-  },
-  {
-    id: "3",
-    name: "Tutorial Series - Ep1",
-    type: "video",
-    status: "rendered",
-    createdAt: "2024-01-24 18:45",
-    duration: "2:30",
-    fileSize: "342 MB",
-    scenes: 12,
-  },
-  {
-    id: "4",
-    name: "Social Media Ad",
-    type: "video",
-    status: "failed",
-    createdAt: "2024-01-24 15:22",
-    duration: "0:15",
-    fileSize: "-",
-    scenes: 3,
-  },
-  {
-    id: "5",
-    name: "Company Intro",
-    type: "json",
-    status: "json-only",
-    createdAt: "2024-01-23 09:10",
-    fileSize: "18 KB",
-    scenes: 4,
-  },
-  {
-    id: "6",
-    name: "Feature Highlight",
-    type: "video",
-    status: "processing",
-    createdAt: "2024-01-25 15:00",
-    duration: "1:00",
-    fileSize: "-",
-    scenes: 6,
+    createdAt: "2024-02-16 10:00",
+    combinedVideoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    totalDuration: "00:45",
+    totalSize: "15 MB",
+    sceneCount: 3,
+    scenes: [
+      {
+        id: "s1",
+        name: "Scene 1",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+        prompt: "A beautiful sunrise",
+      },
+      {
+        id: "s2",
+        name: "Scene 2",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        prompt: "A busy city street",
+      },
+      {
+        id: "s3",
+        name: "Scene 3",
+        videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        prompt: "A quiet forest path",
+      },
+    ],
   },
 ]
 
 export function OutputArchive({
-  records = sampleRecords,
-  onDownload,
-  onReEdit,
+  projects = sampleProjects,
   onDelete,
 }: OutputArchiveProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedProject, setSelectedProject] = useState<OutputProject | null>(null)
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null)
 
-  const filteredRecords = records.filter((record) =>
-    record.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const getStatusBadge = (status: OutputRecord["status"]) => {
+  const getStatusBadge = (status: OutputProject["status"]) => {
     switch (status) {
       case "rendered":
         return (
           <Badge className="bg-green-500/10 text-green-500">
             <CheckCircle2 className="mr-1 h-3 w-3" />
             Rendered
-          </Badge>
-        )
-      case "json-only":
-        return (
-          <Badge className="bg-blue-500/10 text-blue-500">
-            <FileJson className="mr-1 h-3 w-3" />
-            JSON Only
           </Badge>
         )
       case "failed":
@@ -164,11 +147,13 @@ export function OutputArchive({
     }
   }
 
-  const getTypeIcon = (type: "json" | "video") => {
-    if (type === "video") {
-      return <Video className="h-4 w-4 text-primary" />
-    }
-    return <FileJson className="h-4 w-4 text-blue-500" />
+  const handleDownload = (url: string, filename: string) => {
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
@@ -177,9 +162,9 @@ export function OutputArchive({
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
             <Archive className="h-5 w-5 text-primary" />
-            Output Archive
+            Output Projects
             <Badge variant="outline" className="ml-2 text-xs">
-              {records.length} Exports
+              {projects.length} Projects
             </Badge>
           </CardTitle>
 
@@ -188,7 +173,7 @@ export function OutputArchive({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search exports..."
+                placeholder="Search projects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-secondary pl-9"
@@ -202,65 +187,56 @@ export function OutputArchive({
             <Table className="min-w-[600px] lg:min-w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[40%]">Name</TableHead>
+                  <TableHead className="w-[40%]">Project Name</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Scenes</TableHead>
                   <TableHead>Duration</TableHead>
-                  <TableHead>Size</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecords.map((record) => (
-                  <TableRow key={record.id} className="group">
+                {filteredProjects.map((project) => (
+                  <TableRow key={project.id} className="group cursor-pointer hover:bg-muted/50" onClick={() => setSelectedProject(project)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        {getTypeIcon(record.type)}
+                        <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary">
+                          <Film className="h-5 w-5" />
+                        </div>
                         <div>
-                          <p className="font-medium text-foreground">{record.name}</p>
-                          <p className="text-xs text-muted-foreground">{record.scenes} scenes</p>
+                          <p className="font-medium text-foreground">{project.name}</p>
+                          <p className="text-xs text-muted-foreground">{project.id}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{getStatusBadge(record.status)}</TableCell>
+                    <TableCell>{getStatusBadge(project.status)}</TableCell>
                     <TableCell>
-                      {record.duration ? (
-                        <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {record.duration}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Layers className="h-3 w-3" />
+                        {project.sceneCount}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm text-muted-foreground">{record.fileSize}</span>
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {project.totalDuration || "-"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        {record.createdAt}
+                        {project.createdAt}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        {record.status !== "failed" && record.status !== "processing" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onDownload?.(record)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => onReEdit?.(record)}
+                          onClick={() => setSelectedProject(project)}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -269,20 +245,9 @@ export function OutputArchive({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Preview
-                            </DropdownMenuItem>
-                            {record.type === "video" && (
-                              <DropdownMenuItem>
-                                <FileJson className="mr-2 h-4 w-4" />
-                                Download JSON
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => onDelete?.(record.id)}
+                              onClick={() => onDelete?.(project.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -297,15 +262,129 @@ export function OutputArchive({
             </Table>
           </div>
 
-          {filteredRecords.length === 0 && (
+          {filteredProjects.length === 0 && (
             <div className="flex h-64 flex-col items-center justify-center text-center">
               <Archive className="mb-3 h-12 w-12 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No exports found</p>
+              <p className="text-sm text-muted-foreground">No projects found</p>
               <p className="text-xs text-muted-foreground">Create your first video to see it here</p>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Project Detail Dialog */}
+      <Dialog open={!!selectedProject} onOpenChange={(open) => !open && setSelectedProject(null)}>
+        <DialogContent className="max-w-5xl w-full h-[85vh] p-0 flex flex-col gap-0 block overflow-hidden bg-background/95 backdrop-blur-sm border-border">
+          <DialogHeader className="p-4 border-b border-border shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              {selectedProject?.name}
+              {selectedProject && getStatusBadge(selectedProject.status)}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedProject?.sceneCount} Scenes • {selectedProject?.totalDuration} • {selectedProject?.createdAt}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+            {/* Main Player Area */}
+            <div className="flex-1 bg-black/5 flex flex-col items-center justify-center p-4 min-h-[300px] border-b md:border-b-0 md:border-r border-border relative">
+              {selectedProject?.status === "processing" ? (
+                <div className="text-center space-y-4">
+                  <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto" />
+                  <p className="text-muted-foreground">Processing video...</p>
+                </div>
+              ) : (previewVideoUrl || selectedProject?.combinedVideoUrl) ? (
+                <div className="w-full h-full flex flex-col gap-2">
+                  <div className="relative flex-1 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                    <video
+                      src={previewVideoUrl || selectedProject?.combinedVideoUrl}
+                      controls
+                      className="max-h-full max-w-full"
+                      autoPlay={!!previewVideoUrl}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-muted-foreground px-1">
+                    <span className="truncate max-w-[300px]">
+                      {previewVideoUrl === selectedProject?.combinedVideoUrl ? "Combined Video" : "Scene Video"}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownload(previewVideoUrl || selectedProject?.combinedVideoUrl!, "video.mp4")}
+                    >
+                      <Download className="mr-2 h-3 w-3" /> Download
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <Video className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                  <p>No video available to play</p>
+                </div>
+              )}
+            </div>
+
+            {/* Playlist Sidebar */}
+            <div className="w-full md:w-80 flex flex-col bg-muted/10 h-[300px] md:h-auto">
+              <div className="p-3 border-b border-border font-medium text-sm flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Project Content
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-2">
+                  {/* Combined Video Item */}
+                  {selectedProject?.combinedVideoUrl && (
+                    <div
+                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${!previewVideoUrl || previewVideoUrl === selectedProject.combinedVideoUrl ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"}`}
+                      onClick={() => setPreviewVideoUrl(selectedProject.combinedVideoUrl!)}
+                    >
+                      <div className="h-16 w-24 bg-black/20 rounded flex items-center justify-center shrink-0">
+                        <Film className="h-6 w-6 opacity-50" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-none mb-1">Combined Video</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">All scenes merged</p>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0 opacity-50">
+                        <Play className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Scene List */}
+                  {selectedProject?.scenes.map((scene, index) => (
+                    <div
+                      key={scene.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${previewVideoUrl === scene.videoUrl ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"}`}
+                      onClick={() => setPreviewVideoUrl(scene.videoUrl)}
+                    >
+                      <div className="h-16 w-24 bg-black/20 rounded flex items-center justify-center shrink-0 overflow-hidden relative">
+                        {scene.thumbnail ? (
+                          <img src={scene.thumbnail} className="object-cover w-full h-full" alt={scene.name} />
+                        ) : (
+                          <Video className="h-6 w-6 opacity-50" />
+                        )}
+                        <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-none mb-1">{scene.name}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{scene.prompt || "No prompt"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              <div className="p-3 border-t border-border">
+                <Button className="w-full" variant="outline" onClick={() => setSelectedProject(null)}>
+                  Close Project
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -236,9 +236,12 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
                 if scene.imageMetadata.color_scheme:
                     prompt += f", {scene.imageMetadata.color_scheme} color scheme"
             
-            # 关键：禁止在图片中渲染任何文字
-            prompt += ". CRITICAL: DO NOT render any text, labels, titles, watermarks, or descriptions in the image. Pure visual content only, NO text overlays"
+            # 关键：禁止在图片中渲染任何文字，优化画面质量
+            prompt += ". CRITICAL: High quality cinematic composition. Balanced layout. DO NOT render any text, labels, titles, watermarks, or descriptions. Pure visual content only."
             prompt += keywords_suffix
+            
+            # 定义负面提示词 - 移除 split screen/grid 限制，重点限制低质量和构图问题
+            negative_prompt = "text, watermark, signature, label, title, caption, blurry, low quality, distorted, bad anatomy, bad hands, missing fingers, extra fingers, bad composition, awkward framing, uneven layout"
             
             ref_status = "with style ref" if style_ref else "first image"
             print(f"🎨 Generating Scene {index + 1} ({ref_status}): {prompt[:70]}...")
@@ -255,6 +258,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
                 prompt=prompt,
                 style=final_style,
                 style_keywords=style_keywords,
+                negative_prompt=negative_prompt,  # 传入负面提示词
                 theme="video_scene",
                 size="16:9",
                 resolution="1024",
@@ -300,7 +304,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
     print(f"✨ 所有场景图片生成完成")
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None) -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None, scene_duration: int = 5) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
@@ -313,7 +317,7 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
     
     system_message = f"""你是一个专业的视频内容创作专家。
                         根据用户的提示词和视频风格，生成{scene_count_prompt}，每个场景包含：
-                        - timestamp: 时间戳（格式：0:00 - 0:05）
+                        - timestamp: 时间戳（格式：0:00 - 0:05, 每个场景严格固定为{scene_duration}秒，不要自行调整时长）
                         - script: 场景脚本（包含旁白和视觉描述），必须用中文返回
                         - image: 图片详细信息对象
 
@@ -359,8 +363,8 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
             # 如果无法解析，返回默认场景
             scenes_data = []
             for i in range(target_frames):
-                start_time = i * 5
-                end_time = (i + 1) * 5
+                start_time = i * scene_duration
+                end_time = (i + 1) * scene_duration
                 scenes_data.append({
                     "timestamp": f"0:{start_time:02d} - 0:{end_time:02d}",
                     "script": f"场景 {i+1}：根据提示词生成的展示画面...",
@@ -390,13 +394,19 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
                 scene_type=image_data.get("scene_type")
             )
 
+            # 计算标准时间戳，强制覆盖LLM生成的时间
+            start_seconds = i * scene_duration
+            end_seconds = (i + 1) * scene_duration
+            timestamp_str = f"0:{start_seconds:02d} - 0:{end_seconds:02d}"
+
             scenes.append(SceneContent(
                 id=f"scene_{i+1}",
-                timestamp=scene_data.get("timestamp", f"0:{i*5:02d} - 0:{(i+1)*5:02d}"),
+                timestamp=timestamp_str,
                 script=scene_data.get("script", ""),
                 imageUrl="",  # 临时为空，稍后通过图片生成填充
                 imageDescription=image_data.get("description", ""),  # 保留兼容性
-                imageMetadata=image_metadata
+                imageMetadata=image_metadata,
+                duration=scene_duration
             ))
 
         # 并行生成所有场景的图片（传递统一风格参数保持一致性）
@@ -420,18 +430,19 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
                     description="Opening scene",
                     tags=["开场"],
                     mood="专业"
-                )
+                ),
+                duration=5
             )
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None, scene_duration: int = 5) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url, text_provider=text_provider)
     try: 
         generated_copy = await ai_service.generate_copy(web_content['main_content'], copy_style, provider=text_provider)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider, num_frames=num_frames)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider, num_frames=num_frames, scene_duration=scene_duration)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -456,7 +467,8 @@ async def generate_content(request: GenerateContentRequest):
                 request.styleReferenceImage, 
                 text_provider=request.textProvider, 
                 image_provider=request.imageProvider,
-                num_frames=request.numFrames
+                num_frames=request.numFrames,
+                scene_duration=request.sceneDuration or 5
             )
             
             # 如果不生成图片，清空 imageUrl 以防前端显示占位符
@@ -467,7 +479,7 @@ async def generate_content(request: GenerateContentRequest):
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames)
+            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames, scene_duration=request.sceneDuration or 5)
             
             # 如果不生成图片，清空 imageUrl
             if not request.generateImages:
@@ -506,7 +518,7 @@ async def generate_content(request: GenerateContentRequest):
 
                     # 基于图片识别结果生成场景
                     basic_description = await ai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames)
+                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames, scene_duration=request.sceneDuration or 5)
                     
                     # 如果不生成图片，清空 imageUrl
                     if not request.generateImages:
@@ -549,7 +561,8 @@ async def generate_content(request: GenerateContentRequest):
                             imageMetadata=ImageMetadata(
                                 description="Scene from uploaded assets",
                                 tags=["上传素材"]
-                            )
+                            ),
+                            duration=10
                         )
                     ]
             else:
@@ -565,7 +578,8 @@ async def generate_content(request: GenerateContentRequest):
                         imageMetadata=ImageMetadata(
                             description="Generic scene",
                             tags=["通用"]
-                        )
+                        ),
+                        duration=10
                     )
                 ]
 
@@ -1027,11 +1041,56 @@ async def concatenate_videos(request: ConcatenateVideosRequest):
         if not video_paths or len(video_paths) == 0:
             raise HTTPException(status_code=400, detail="视频路径列表不能为空")
         
-        # 过滤掉空路径
-        valid_paths = [p for p in video_paths if p and p.strip()]
+        valid_paths = []
+        import httpx
+        from urllib.parse import urlparse
         
+        # 预处理：将URL转换为本地路径
+        for vpath in video_paths:
+            if not vpath or not vpath.strip():
+                continue
+                
+            local_path = vpath
+            
+            # 1. 尝试直接作为本地路径
+            if os.path.exists(local_path):
+                valid_paths.append(local_path)
+                continue
+                
+            # 2. 处理 /static/ 路径 (映射到本地 static 目录)
+            if "/static/" in vpath:
+                try:
+                    # 提取 /static/ 之后的部分
+                    rel_path = vpath.split("/static/")[1]
+                    # 假设运行目录在 backend 根目录
+                    potential_path = os.path.join(os.getcwd(), "static", rel_path)
+                    if os.path.exists(potential_path):
+                        valid_paths.append(potential_path)
+                        continue
+                except Exception:
+                    pass
+            
+            # 3. 处理 HTTP/HTTPS URL (下载到临时文件)
+            if vpath.startswith("http://") or vpath.startswith("https://"):
+                try:
+                    print(f"📥 正在下载远程视频: {vpath}")
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(vpath, timeout=30.0, follow_redirects=True)
+                        if response.status_code == 200:
+                            # 创建临时文件
+                            temp_video = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4", dir=output_dir)
+                            temp_video.write(response.content)
+                            temp_video.close()
+                            valid_paths.append(temp_video.name)
+                            print(f"✅ 视频下载完成: {temp_video.name}")
+                            continue
+                except Exception as e:
+                    print(f"⚠️ 下载视频失败 {vpath}: {e}")
+            
+            print(f"⚠️ 找不到有效视频路径: {vpath}")
+
         if len(valid_paths) == 0:
-            raise HTTPException(status_code=400, detail="没有有效的视频路径")
+            raise HTTPException(status_code=400, detail="没有有效的视频可以拼接")
         
         # 如果只有一个视频，直接返回
         if len(valid_paths) == 1:
@@ -1059,7 +1118,7 @@ async def concatenate_videos(request: ConcatenateVideosRequest):
                 "ffmpeg", "-y", "-i", vpath,
                 "-c:v", "libx264", "-preset", "fast",
                 "-crf", "23",
-                "-an",  # 移除音频
+                "-c:a", "aac",  # 重新编码音频以确保兼容性
                 "-r", "24",  # 统一帧率
                 "-vf", "scale=768:512:force_original_aspect_ratio=decrease,pad=768:512:(ow-iw)/2:(oh-ih)/2",
                 "-pix_fmt", "yuv420p",
@@ -1121,12 +1180,27 @@ async def concatenate_videos(request: ConcatenateVideosRequest):
         except:
             pass
         
-        print(f"✅ 视频拼接成功: {output_path}")
+        # Move to static directory for access
+        import shutil
+        
+        static_dir = os.path.join(os.getcwd(), "static", "videos")
+        os.makedirs(static_dir, exist_ok=True)
+        
+        final_filename = f"concat_{uuid.uuid4().hex[:8]}.mp4"
+        final_path = os.path.join(static_dir, final_filename)
+        
+        shutil.move(output_path, final_path)
+        
+        # Construct URL (assuming default local dev setup, ideally from config)
+        # In production this host should be dynamic
+        final_url = f"http://localhost:8000/static/videos/{final_filename}"
+        
+        print(f"✅ 视频拼接成功: {final_path} -> {final_url}")
         
         return ConcatenateVideosResponse(
             success=True,
             message=f"成功拼接 {len(normalized_paths)} 个视频",
-            videoUrl=output_path
+            videoUrl=final_url
         )
         
     except HTTPException:

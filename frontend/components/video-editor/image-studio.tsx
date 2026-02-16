@@ -107,10 +107,11 @@ const resolutions = [
 
 interface ImageStudioProps {
     onStoryboardGenerated?: (frames: any[]) => void
+    onImagesGenerated?: (images: GeneratedImage[]) => void
     modelSelection?: ModelSelection
 }
 
-export function ImageStudio({ onStoryboardGenerated, modelSelection }: ImageStudioProps = {}) {
+export function ImageStudio({ onStoryboardGenerated, onImagesGenerated, modelSelection }: ImageStudioProps = {}) {
     const { toast } = useToast()
 
     // Phase 2 & 3: Generation mode 
@@ -543,6 +544,8 @@ export function ImageStudio({ onStoryboardGenerated, modelSelection }: ImageStud
                             }
                             batch.push(newImage)
                         })
+
+                        onImagesGenerated?.(batch)
                     }
                 } catch (error) {
                     toast({
@@ -607,6 +610,9 @@ export function ImageStudio({ onStoryboardGenerated, modelSelection }: ImageStud
 
             setGeneratedImages(batch)
             setHistory(prev => [...batch, ...prev])
+
+            // Notify parent component
+            onImagesGenerated?.(batch)
 
             toast({
                 title: "生成成功",

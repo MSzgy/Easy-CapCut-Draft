@@ -63,6 +63,7 @@ export interface SceneContent {
   script: string
   imageUrl: string
   imageDescription: string
+  duration?: number
 }
 
 export interface GeneratedOutput {
@@ -210,6 +211,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
   // Storyboard Generation State
   const [generateStoryboard, setGenerateStoryboard] = useState(true)
   const [storyboardNumFrames, setStoryboardNumFrames] = useState(5)
+  const [sceneDuration, setSceneDuration] = useState(5)
 
   // Scene Image Generation State
   const [generateSceneImages, setGenerateSceneImages] = useState(true) // 默认生成图片
@@ -429,6 +431,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
         copyStyle: (activeTab !== "prompt" && generateCopy) ? copyStyle : undefined,
         generateImages: generateSceneImages, // 新增：控制是否生成场景图片
         numFrames: storyboardNumFrames,
+        sceneDuration: sceneDuration,
         styleReferenceImage: (generateSceneImages && styleReferenceImage) ? styleReferenceImage : undefined,
         uploadedAssets: activeTab === "upload" ? uploadedAssets.map(asset => ({
           id: asset.id,
@@ -475,6 +478,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
           script: "Discover the future of productivity...\nVisual: Dynamic website showcase with animated elements",
           imageUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop",
           imageDescription: "Hero section with dynamic intro",
+          duration: 3
         },
         {
           id: "scene_2",
@@ -482,6 +486,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
           script: "This platform is changing the game.\nText overlay: Key headline from site\nTransition: Smooth zoom in",
           imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop",
           imageDescription: "Features showcase section",
+          duration: 7
         },
         {
           id: "scene_3",
@@ -489,6 +494,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
           script: "Here's what makes it special:\n- Feature 1 with icon animation\n- Feature 2 with demo clip\n- Feature 3 with testimonial",
           imageUrl: "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=400&h=300&fit=crop",
           imageDescription: "Detailed feature breakdown",
+          duration: 15
         },
         {
           id: "scene_4",
@@ -496,6 +502,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
           script: "Ready to get started?\nShow: Pricing/signup button\nAdd: Urgency text overlay",
           imageUrl: "https://images.unsplash.com/photo-1559028012-481c04fa702d?w=400&h=300&fit=crop",
           imageDescription: "Call to action section",
+          duration: 5
         },
       ]
 
@@ -794,6 +801,19 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                 />
               </div>
 
+              {/* Scene Duration Input */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">每帧分镜持续时间 (秒)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={sceneDuration}
+                  onChange={(e) => setSceneDuration(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
+              </div>
+
               {/* Scene Image Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
@@ -948,6 +968,19 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                 />
               </div>
 
+              {/* Scene Duration Input */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">每帧分镜持续时间 (秒)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={sceneDuration}
+                  onChange={(e) => setSceneDuration(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
+              </div>
+
               {/* Scene Image Generation Option */}
               <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-center space-x-2">
@@ -1093,6 +1126,19 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
                   max={20}
                   value={storyboardNumFrames}
                   onChange={(e) => setStoryboardNumFrames(parseInt(e.target.value) || 5)}
+                  className="bg-secondary h-8 text-xs"
+                />
+              </div>
+
+              {/* Scene Duration Input */}
+              <div className="space-y-1.5 rounded-lg border border-border bg-secondary/30 p-3">
+                <Label className="text-xs text-muted-foreground">每帧分镜持续时间 (秒)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={sceneDuration}
+                  onChange={(e) => setSceneDuration(parseInt(e.target.value) || 5)}
                   className="bg-secondary h-8 text-xs"
                 />
               </div>

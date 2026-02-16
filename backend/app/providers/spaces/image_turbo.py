@@ -38,7 +38,8 @@ class ImageTurboAdapter(SpaceAdapter):
 2. 符合用户要求
 3. 主题：{request.theme}
 4. 风格：{style}{keywords_ctx}{negative_ctx}{style_mix_ctx}
-5. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分"""
+5. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分
+6. 画面中不要出现其他文字，只允许用户定义的文字出现"""
 
         full_prompt = system_prompt + request.prompt
 

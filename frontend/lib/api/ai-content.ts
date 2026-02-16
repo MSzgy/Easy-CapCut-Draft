@@ -8,6 +8,7 @@ export interface SceneContent {
   script: string
   imageUrl: string
   imageDescription: string
+  duration?: number
 }
 
 export interface GenerateContentRequest {
@@ -19,6 +20,7 @@ export interface GenerateContentRequest {
   copyStyle?: string
   generateImages?: boolean
   numFrames?: number
+  sceneDuration?: number
   styleReferenceImage?: string // Base64 style reference image for scene generation
   uploadedAssets?: Array<{
     id: string

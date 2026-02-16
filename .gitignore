@@ -46,3 +46,6 @@ docker-compose.override.yml
 # 测试
 coverage/
 .pytest_cache/
+
+# 静态文件
+backend/static/

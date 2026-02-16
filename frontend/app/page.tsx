@@ -7,7 +7,7 @@ import { ColumnContent } from "@/components/video-editor/column-content"
 import { ColumnOrchestrator } from "@/components/video-editor/column-orchestrator"
 import { SmartTimeline } from "@/components/video-editor/smart-timeline"
 import { MediaVault, type MediaAsset } from "@/components/video-editor/media-vault"
-import { OutputArchive, type OutputRecord } from "@/components/video-editor/output-archive"
+import { OutputArchive, type OutputProject, type OutputScene } from "@/components/video-editor/output-archive"
 import { ImageStudio } from "@/components/video-editor/image-studio"
 import { VideoStudio } from "@/components/video-editor/video-studio"
 import { AudioStudio } from "@/components/video-editor/audio-studio"
@@ -22,7 +22,7 @@ export default function VideoEditorPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [exportType, setExportType] = useState<"json" | "video" | null>(null)
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([])
-  const [outputRecords, setOutputRecords] = useState<OutputRecord[]>([])
+  const [outputProjects, setOutputProjects] = useState<OutputProject[]>([])
   const [storyboardFrames, setStoryboardFrames] = useState<any[]>([])
   const [modelSelection, setModelSelection] = useState<ModelSelection>({
     textProvider: "gemini",
@@ -50,6 +50,20 @@ export default function VideoEditorPage() {
       size: "1.2 MB",
     }))
     setMediaAssets((prev) => [...prev, ...newAssets])
+  }
+
+  const handleImagesGenerated = (images: any[]) => {
+    const newAssets: MediaAsset[] = images.map((img) => ({
+      id: img.id,
+      name: `generated_${img.style}_${img.id.split('_').pop()}.jpg`,
+      type: "image" as const,
+      url: img.url,
+      createdAt: img.timestamp.split(' ')[0], // Extract date part if possible, or just use current date
+      sceneUsedIn: "Image Studio",
+      aiPrompt: img.prompt,
+      size: "1.0 MB", // Placeholder size
+    }))
+    setMediaAssets((prev) => [...newAssets, ...prev])
   }
 
   const handleContentUpdate = (content: GeneratedOutput) => {
@@ -86,18 +100,7 @@ export default function VideoEditorPage() {
     a.click()
     URL.revokeObjectURL(url)
 
-    // Add to output archive
-    const newRecord: OutputRecord = {
-      id: `output_${Date.now()}`,
-      name: "AI Generated Video",
-      type: "json",
-      status: "json-only",
-      createdAt: new Date().toLocaleString(),
-      fileSize: `${(blob.size / 1024).toFixed(1)} KB`,
-      scenes: generatedContent?.scenes.length || 0,
-    }
-    setOutputRecords((prev) => [newRecord, ...prev])
-
+    // Note: JSON export is just a download, we don't add it to OutputProject for now as OutputProject is video-centric
     setIsExporting(false)
     setExportType(null)
   }
@@ -113,7 +116,20 @@ export default function VideoEditorPage() {
     setCombinedVideoUrl(null)
     setRenderProgress({ current: 0, total })
 
+    // Create a new project entry in "processing" state
+    const projectId = `proj_${Date.now()}`
+    const newProject: OutputProject = {
+      id: projectId,
+      name: `AI Video ${new Date().toLocaleTimeString()}`,
+      status: "processing",
+      createdAt: new Date().toLocaleString(),
+      scenes: [],
+      sceneCount: total,
+    }
+    setOutputProjects((prev) => [newProject, ...prev])
+
     const videos: string[] = []
+    const projectScenes: OutputScene[] = []
 
     for (let i = 0; i < total; i++) {
       setRenderProgress({ current: i + 1, total })
@@ -146,7 +162,7 @@ export default function VideoEditorPage() {
           firstFrame: scene.imageUrl,
           endFrame: nextScene?.imageUrl || undefined,
           prompt: videoPrompt,
-          duration: 10,
+          duration: scene.duration || 5, // Use scene specific duration or default to 5s
           generationMode: "Image-to-Video",
           enhancePrompt: true,
           randomizeSeed: true,
@@ -157,6 +173,13 @@ export default function VideoEditorPage() {
 
         if (response.success && response.videoUrl) {
           videos.push(response.videoUrl)
+          projectScenes.push({
+            id: `scene_${i}`,
+            name: `Scene ${i + 1}`,
+            videoUrl: response.videoUrl,
+            prompt: videoPrompt,
+            thumbnail: scene.imageUrl
+          })
         } else {
           videos.push("") // placeholder for failed scene
         }
@@ -167,10 +190,21 @@ export default function VideoEditorPage() {
 
       // Update videos array progressively so UI shows partial results
       setGeneratedVideos([...videos])
+
+      // Update the project with partial scene results
+      setOutputProjects((prev) =>
+        prev.map(p =>
+          p.id === projectId
+            ? { ...p, scenes: [...projectScenes] }
+            : p
+        )
+      )
     }
 
     // 拼接所有成功生成的视频
     const successVideos = videos.filter(v => v && v.length > 0)
+    let finalCombinedUrl: string | undefined = undefined
+
     if (successVideos.length > 1) {
       try {
         setRenderProgress({ current: total, total })
@@ -178,6 +212,7 @@ export default function VideoEditorPage() {
         const { aiContentApi } = await import("@/lib/api/ai-content")
         const concatResponse = await aiContentApi.concatenateVideos(successVideos)
         if (concatResponse.success && concatResponse.videoUrl) {
+          finalCombinedUrl = concatResponse.videoUrl
           setCombinedVideoUrl(concatResponse.videoUrl)
           console.log("✅ Video concatenation successful")
         }
@@ -185,8 +220,24 @@ export default function VideoEditorPage() {
         console.error("Video concatenation failed:", error)
       }
     } else if (successVideos.length === 1) {
+      finalCombinedUrl = successVideos[0]
       setCombinedVideoUrl(successVideos[0])
     }
+
+    // Update the project with final results
+    setOutputProjects((prev) =>
+      prev.map(p =>
+        p.id === projectId
+          ? {
+            ...p,
+            status: finalCombinedUrl ? "rendered" : "failed",
+            combinedVideoUrl: finalCombinedUrl || undefined,
+            scenes: projectScenes,
+            totalDuration: successVideos.length > 0 ? `${successVideos.length * 4}s` : undefined
+          }
+          : p
+      )
+    )
 
     setRenderProgress(null)
     setIsExporting(false)
@@ -197,8 +248,8 @@ export default function VideoEditorPage() {
     setMediaAssets((prev) => prev.filter((a) => a.id !== id))
   }
 
-  const handleDeleteRecord = (id: string) => {
-    setOutputRecords((prev) => prev.filter((r) => r.id !== id))
+  const handleDeleteProject = (id: string) => {
+    setOutputProjects((prev) => prev.filter((p) => p.id !== id))
   }
 
   return (
@@ -208,7 +259,7 @@ export default function VideoEditorPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         mediaCount={mediaAssets.length}
-        outputCount={outputRecords.length}
+        outputCount={outputProjects.length}
       />
 
       {/* Main Content Area */}
@@ -270,6 +321,7 @@ export default function VideoEditorPage() {
           <main className="flex-1 overflow-hidden p-4">
             <ImageStudio
               onStoryboardGenerated={setStoryboardFrames}
+              onImagesGenerated={handleImagesGenerated}
               modelSelection={modelSelection}
             />
           </main>
@@ -299,9 +351,8 @@ export default function VideoEditorPage() {
         {activeTab === "output-archive" && (
           <main className="flex-1 overflow-hidden p-4">
             <OutputArchive
-              records={outputRecords}
-              onDelete={handleDeleteRecord}
-              onReEdit={() => setActiveTab("workbench")}
+              projects={outputProjects}
+              onDelete={handleDeleteProject}
             />
           </main>
         )}

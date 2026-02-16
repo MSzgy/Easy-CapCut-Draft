@@ -110,9 +110,20 @@ const sampleAssets: MediaAsset[] = [
   },
 ]
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+
 export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsset }: MediaVaultProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterType, setFilterType] = useState<"all" | "image" | "video" | "audio">("all")
+  const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null)
+  const { toast } = useToast()
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -142,10 +153,37 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
     }
   }
 
+  const handleDownload = async (asset: MediaAsset) => {
+    try {
+      const response = await fetch(asset.url)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = asset.name
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Download started",
+        description: `Downloading ${asset.name}...`,
+      })
+    } catch (error) {
+      console.error("Download failed:", error)
+      toast({
+        title: "Download failed",
+        description: "Could not download file. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <Card className="flex flex-1 flex-col border-border bg-card">
-        <CardHeader className="pb-4">
+      <Card className="flex flex-1 flex-col border-border bg-card overflow-hidden">
+        <CardHeader className="pb-4 shrink-0">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
             <ImageIcon className="h-5 w-5 text-primary" />
             Media Vault
@@ -180,7 +218,7 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 overflow-auto p-4 pt-0">
+        <CardContent className="flex-1 overflow-y-auto p-4 pt-0 min-h-0">
           {/* Masonry Grid */}
           <div className="columns-2 gap-4 lg:columns-3 xl:columns-4">
             {filteredAssets.map((asset) => (
@@ -190,11 +228,14 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
               >
                 {/* Thumbnail */}
                 {asset.type !== "audio" ? (
-                  <div className="relative aspect-video w-full overflow-hidden">
+                  <div
+                    className="relative aspect-video w-full overflow-hidden cursor-pointer"
+                    onClick={() => setPreviewAsset(asset)}
+                  >
                     <img
                       src={asset.url || "/placeholder.svg"}
                       alt={asset.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                       crossOrigin="anonymous"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity hover:opacity-100" />
@@ -205,7 +246,10 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
                     </Badge>
                   </div>
                 ) : (
-                  <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-600/20">
+                  <div
+                    className="flex aspect-video items-center justify-center bg-gradient-to-br from-purple-500/20 to-purple-600/20 cursor-pointer"
+                    onClick={() => setPreviewAsset(asset)}
+                  >
                     <FileAudio className="h-12 w-12 text-purple-500/50" />
                   </div>
                 )}
@@ -221,11 +265,11 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onPreviewAsset?.(asset)}>
+                        <DropdownMenuItem onClick={() => setPreviewAsset(asset)}>
                           <Eye className="mr-2 h-4 w-4" />
                           Preview
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(asset)}>
                           <Download className="mr-2 h-4 w-4" />
                           Download
                         </DropdownMenuItem>
@@ -275,6 +319,73 @@ export function MediaVault({ assets = sampleAssets, onDeleteAsset, onPreviewAsse
           )}
         </CardContent>
       </Card>
+
+      {/* Preview Modal */}
+      <Dialog open={!!previewAsset} onOpenChange={(open) => !open && setPreviewAsset(null)}>
+        <DialogContent className="max-w-4xl w-full p-0 gap-0 block overflow-hidden bg-background/95 backdrop-blur-sm border-border">
+          <DialogHeader className="p-4 border-b border-border">
+            <DialogTitle>{previewAsset?.name}</DialogTitle>
+            <DialogDescription>
+              {previewAsset?.type.toUpperCase()} • {previewAsset?.size} • {previewAsset?.createdAt}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-4 w-full bg-black/5 flex items-center justify-center min-h-[400px]">
+            {/* Image Preview */}
+            {previewAsset?.type === "image" && (
+              <div className="relative w-full h-[60vh] flex items-center justify-center">
+                <img
+                  src={previewAsset.url}
+                  alt={previewAsset.name}
+                  className="max-w-full max-h-full w-auto h-auto object-contain shadow-sm"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden flex flex-col items-center justify-center text-muted-foreground p-4">
+                  <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
+                  <p>Image failed to load</p>
+                  <p className="text-xs max-w-md truncate">{previewAsset.url}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Video Preview */}
+            {previewAsset?.type === "video" && (
+              <div className="relative w-full h-[60vh] flex items-center justify-center">
+                <video
+                  src={previewAsset.url}
+                  controls
+                  className="max-w-full max-h-full w-auto h-auto object-contain shadow-sm"
+                />
+              </div>
+            )}
+
+            {/* Audio Preview */}
+            {previewAsset?.type === "audio" && (
+              <div className="flex flex-col items-center gap-6 p-8">
+                <div className="h-32 w-32 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                  <FileAudio className="h-16 w-16 text-primary" />
+                </div>
+                <audio src={previewAsset.url} controls className="w-full max-w-md" />
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 flex justify-between items-center border-t border-border bg-muted/10">
+            <div className="text-sm text-muted-foreground flex items-center gap-2 max-w-[70%]">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <p className="truncate">{previewAsset?.aiPrompt || "No prompt available"}</p>
+            </div>
+
+            <Button onClick={() => previewAsset && handleDownload(previewAsset)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

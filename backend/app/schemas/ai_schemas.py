@@ -22,6 +22,7 @@ class SceneContent(BaseModel):
     imageUrl: str
     imageDescription: str  # 保留兼容性
     imageMetadata: Optional[ImageMetadata] = Field(None, description="详细图片元数据")
+    duration: int = Field(5, description="场景时长(秒)")
 
 
 class GenerateContentRequest(BaseModel):
@@ -43,6 +44,7 @@ class GenerateContentRequest(BaseModel):
     copyStyle: Optional[str] = Field(None, description="文案风格")
     generateImages: bool = Field(True, description="是否生成场景配图")
     numFrames: Optional[int] = Field(None, description="分镜数量 (若指定则生成故事板模式)")
+    sceneDuration: Optional[int] = Field(5, description="每个场景的持续时间（秒），默认5秒")
     styleReferenceImage: Optional[str] = Field(None, description="风格参考图片 base64 编码（仅参考风格，不复制内容）")
     
     # 模型选择
