@@ -94,6 +94,7 @@ export interface ProviderStatus {
   vision: { active: string; available: { [name: string]: ProviderInfo } }
   video: { active: string; available: { [name: string]: ProviderInfo } }
   audio: { active: string; available: { [name: string]: ProviderInfo } }
+  music: { active: string; available: { [name: string]: ProviderInfo } }
   hf_spaces: { [alias: string]: HfSpaceInfo }
 }
 
@@ -104,6 +105,7 @@ export interface ModelSelection {
   imageToImageProvider: string // "gemini" | "hf:image_turbo" | ...
   videoProvider: string      // "hf:video_i2v" | "hf:video_wan" | ...
   audioProvider: string      // "hf:tts_qwen" | ...
+  musicProvider: string      // "hf:music_gen" | ...
 }
 
 export const aiContentApi = {
@@ -477,10 +479,31 @@ export const aiContentApi = {
     audioUrl: string
   }> {
     try {
-      return await apiClient.post('/ai/speech', request)
+      return await apiClient.post('/ai/speech', request, { timeoutMs: 60_000 })
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to generate speech')
+    }
+  },
+
+  /**
+   * 生成音乐
+   */
+  async generateMusic(request: {
+    prompt: string
+    duration?: number
+    model?: string
+    provider?: string
+  }): Promise<{
+    success: boolean
+    message: string
+    audioUrl: string
+  }> {
+    try {
+      return await apiClient.post('/ai/generate-music', request, { timeoutMs: 120_000 })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to generate music')
     }
   },
 }

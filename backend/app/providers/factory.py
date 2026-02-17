@@ -9,7 +9,7 @@ REGISTRY dicts below.
 from functools import lru_cache
 from typing import Dict, Type, List, Any
 
-from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider, AudioProvider
+from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider, AudioProvider, MusicProvider
 from app.core.config import settings
 
 
@@ -51,6 +51,13 @@ def _video_registry() -> Dict[str, Type[VideoProvider]]:
 
 
 def _audio_registry() -> Dict[str, Type[AudioProvider]]:
+    from app.providers.huggingface import HuggingFaceProvider
+    return {
+        "huggingface": HuggingFaceProvider,
+    }
+
+
+def _music_registry() -> Dict[str, Type[MusicProvider]]:
     from app.providers.huggingface import HuggingFaceProvider
     return {
         "huggingface": HuggingFaceProvider,
@@ -202,3 +209,9 @@ def get_video_provider(name: str = None) -> VideoProvider:
 def get_audio_provider(name: str = None) -> AudioProvider:
     name = name or getattr(settings, "AUDIO_PROVIDER", "huggingface")
     return _create_provider(_audio_registry(), name, "audio")
+
+
+@lru_cache()
+def get_music_provider(name: str = None) -> MusicProvider:
+    name = name or getattr(settings, "MUSIC_PROVIDER", "huggingface")
+    return _create_provider(_music_registry(), name, "music")

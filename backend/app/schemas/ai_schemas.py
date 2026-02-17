@@ -349,3 +349,19 @@ class SpeechResponse(BaseModel):
     success: bool
     message: str
     audioUrl: str
+
+
+# Music Generation
+class GenerateMusicRequest(BaseModel):
+    """音乐生成请求"""
+    prompt: str = Field(..., description="音乐描述")
+    duration: float = Field(10.0, description="时长(秒)", ge=1.0, le=30.0)
+    model: str = Field("medium", description="模型: small, medium, melody, large")
+    provider: Optional[str] = Field("hf:music_gen", description="Music Provider")
+
+
+class GenerateMusicResponse(BaseModel):
+    """音乐生成响应"""
+    success: bool
+    message: str
+    audioUrl: str

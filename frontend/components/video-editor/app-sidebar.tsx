@@ -14,6 +14,7 @@ import {
   Sparkles,
   Settings,
   Mic,
+  Music,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type TabType = "workbench" | "image-studio" | "video-studio" | "audio-studio" | "media-vault" | "output-archive" | "configuration"
+export type TabType = "workbench" | "image-studio" | "video-studio" | "audio-studio" | "music-studio" | "media-vault" | "output-archive" | "configuration"
 
 interface AppSidebarProps {
   activeTab: TabType
@@ -58,6 +59,12 @@ const navItems = [
     label: "Audio Studio",
     icon: Mic,
     description: "AI Text-to-Speech Generation",
+  },
+  {
+    id: "music-studio" as TabType,
+    label: "Music Studio",
+    icon: Music,
+    description: "AI Music Generation",
   },
   {
     id: "media-vault" as TabType,

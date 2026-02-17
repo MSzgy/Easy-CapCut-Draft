@@ -9,14 +9,14 @@ import asyncio
 from typing import Optional
 
 from app.providers.base import (
-    ImageProvider, VideoProvider, AudioProvider,
-    ImageRequest, VideoRequest, AudioRequest,
+    ImageProvider, VideoProvider, AudioProvider, MusicProvider,
+    ImageRequest, VideoRequest, AudioRequest, MusicRequest,
 )
 from app.providers.spaces import get_space_adapter, list_spaces
 from app.core.config import settings
 
 
-class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider):
+class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProvider):
     """Provider for HuggingFace Spaces (Gradio-based).
     
     Uses the Space Registry to dynamically select adapters.
@@ -29,11 +29,13 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider):
         image_space: str = "image_turbo",
         video_space: str = "video_i2v",
         audio_space: str = "tts_qwen",
+        music_space: str = "music_gen",
     ):
         self.hf_token = hf_token or settings.HF_TOKEN
         self.image_space = image_space
         self.video_space = video_space
         self.audio_space = audio_space
+        self.music_space = music_space
 
     # ── ImageProvider ─────────────────────────────────────────────────────
 
@@ -138,3 +140,20 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider):
 
     async def close(self) -> None:
         pass  # gradio clients are ephemeral
+
+
+    # ── MusicProvider ─────────────────────────────────────────────────────
+
+    async def generate_music(self, request: MusicRequest) -> str:
+        adapter = get_space_adapter(self.music_space)
+        adapter.hf_token = self.hf_token
+
+        params = adapter.build_params(request)
+
+        def _run():
+            from gradio_client import Client
+            client = Client(adapter.space_id, token=self.hf_token)
+            return client.predict(**params, api_name=adapter.api_name)
+
+        result = await asyncio.to_thread(_run)
+        return adapter.parse_result(result)

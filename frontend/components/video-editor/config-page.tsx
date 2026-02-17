@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Settings, Type, Image, Video, Palette, AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
+import { Settings, Type, Image, Video, Palette, AlertCircle, CheckCircle2, Loader2, Music } from "lucide-react"
 import { aiContentApi, type ProviderStatus, type ModelSelection } from "@/lib/api/ai-content"
 
 interface ConfigPageProps {
@@ -91,6 +91,20 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
         Object.entries(providerStatus.hf_spaces || {}).forEach(([alias, info]) => {
             if (info.capability === "audio") {
                 audioOptions.push({
+                    value: `hf:${alias}`,
+                    label: `${info.display_name || alias} (${info.space_id})`,
+                    configured: info.configured,
+                })
+            }
+        })
+    }
+
+    // Build option list for music models: HF music spaces
+    const musicOptions: { value: string; label: string; configured: boolean }[] = []
+    if (providerStatus) {
+        Object.entries(providerStatus.hf_spaces || {}).forEach(([alias, info]) => {
+            if (info.capability === "music") {
+                musicOptions.push({
                     value: `hf:${alias}`,
                     label: `${info.display_name || alias} (${info.space_id})`,
                     configured: info.configured,
@@ -176,13 +190,24 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
 
                 {/* ─── 音频模型 ─── */}
                 <ModelCard
-                    icon={<Video className="h-5 w-5" />}
+                    icon={<Music className="h-5 w-5" />}
                     title="音频生成模型"
-                    description="从文字生成音频"
+                    description="从文字生成语音 (TTS)"
                     value={modelSelection.audioProvider}
                     onChange={(v) => update("audioProvider", v)}
                     options={audioOptions}
                     defaultLabel="默认: Qwen3语音生成"
+                />
+
+                {/* ─── 音乐模型 ─── */}
+                <ModelCard
+                    icon={<Music className="h-5 w-5" />}
+                    title="音乐生成模型"
+                    description="从文字生成背景音乐"
+                    value={modelSelection.musicProvider}
+                    onChange={(v) => update("musicProvider", v)}
+                    options={musicOptions}
+                    defaultLabel="默认: MusicGen 音乐生成"
                 />
             </div>
         </div>

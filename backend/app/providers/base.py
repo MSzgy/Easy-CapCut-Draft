@@ -76,6 +76,15 @@ class AudioRequest:
     emotion: Optional[str] = None
 
 
+@dataclass
+class MusicRequest:
+    """Unified request for music generation."""
+    prompt: str
+    duration_seconds: float = 10.0
+    model: str = "medium" # small, medium, large, melody
+
+
+
 # ─── Abstract Provider Interfaces ────────────────────────────────────────────
 
 class TextProvider(ABC):
@@ -147,6 +156,19 @@ class AudioProvider(ABC):
     @abstractmethod
     async def generate_speech(self, request: AudioRequest) -> str:
         """Generate speech from text. Returns a file path or URL."""
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        ...
+
+
+class MusicProvider(ABC):
+    """Interface for music generation providers."""
+
+    @abstractmethod
+    async def generate_music(self, request: MusicRequest) -> str:
+        """Generate music from text. Returns a file path or URL."""
         ...
 
     @abstractmethod

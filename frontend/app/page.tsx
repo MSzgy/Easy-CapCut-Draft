@@ -11,6 +11,7 @@ import { OutputArchive, type OutputProject, type OutputScene } from "@/component
 import { ImageStudio } from "@/components/video-editor/image-studio"
 import { VideoStudio } from "@/components/video-editor/video-studio"
 import { AudioStudio } from "@/components/video-editor/audio-studio"
+import { MusicStudio } from "@/components/video-editor/music-studio"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
 
@@ -30,6 +31,7 @@ export default function VideoEditorPage() {
     imageToImageProvider: "gemini",
     videoProvider: "hf:video_i2v",
     audioProvider: "hf:tts_qwen",
+    musicProvider: "hf:music_gen",
   })
   // Video render state
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
@@ -344,6 +346,12 @@ export default function VideoEditorPage() {
         {activeTab === "audio-studio" && (
           <main className="flex-1 overflow-hidden p-4">
             <AudioStudio audioProvider={modelSelection.audioProvider} />
+          </main>
+        )}
+
+        {activeTab === "music-studio" && (
+          <main className="flex-1 overflow-hidden p-4">
+            <MusicStudio musicProvider={modelSelection.musicProvider} />
           </main>
         )}
 

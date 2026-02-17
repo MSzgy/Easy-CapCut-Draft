@@ -35,6 +35,8 @@ from app.schemas.ai_schemas import (
     AnalyzeTransitionResponse,
     SpeechRequest,
     SpeechResponse,
+    GenerateMusicRequest,
+    GenerateMusicResponse,
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
@@ -803,6 +805,31 @@ async def face_swap(request: FaceSwapRequest):
         )
 
 
+@router.post("/generate-music", response_model=GenerateMusicResponse)
+async def generate_music(request: GenerateMusicRequest):
+    """音乐生成"""
+    try:
+        provider = request.provider or "hf:music_gen"
+        
+        result_path = await ai_service.generate_music(
+            prompt=request.prompt,
+            duration=request.duration,
+            provider=provider
+        )
+        
+        return GenerateMusicResponse(
+            success=True,
+            message="音乐生成成功",
+            audioUrl=result_path
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"音乐生成失败: {str(e)}"
+        )
+
+
 @router.post("/speech", response_model=SpeechResponse)
 async def generate_speech(request: SpeechRequest):
     """语音生成 - 文字转语音"""
@@ -821,6 +848,9 @@ async def generate_speech(request: SpeechRequest):
         )
 
     except Exception as e:
+        print(f"ERROR: generate_speech failed: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"语音生成失败: {str(e)}"

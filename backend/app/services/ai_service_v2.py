@@ -12,14 +12,16 @@ import json
 import re
 from typing import Optional, List
 
-from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest, AudioRequest
+from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest, AudioRequest, MusicRequest
 from app.providers.factory import (
     get_text_provider,
     get_image_provider,
     get_vision_provider,
     get_vision_provider,
     get_video_provider,
+    get_video_provider,
     get_audio_provider,
+    get_music_provider,
 )
 from app.core.config import settings
 
@@ -216,6 +218,8 @@ class AIService:
             voice_description=voice_description,
             language=language,
         ))
+        print(f"DEBUG: generate_speech provider result: {result_path}")
+
 
         # Handle local file path -> static URL mapping
         if result_path and os.path.exists(result_path) and not result_path.startswith("http"):
@@ -227,11 +231,56 @@ class AIService:
             target_dir = "static/audio"
             os.makedirs(target_dir, exist_ok=True)
             target_path = os.path.join(target_dir, filename)
+            print(f"DEBUG: Moving audio from {result_path} to {target_path}")
+
             
             shutil.move(result_path, target_path)
             
             # Return URL (assuming standard setup)
             # In production this should be configurable
+            return f"http://localhost:8000/static/audio/{filename}"
+            
+        return result_path
+
+    # ── Music ─────────────────────────────────────────────────────────────
+
+    async def generate_music(
+        self,
+        prompt: str,
+        duration: float = 10.0,
+        provider: Optional[str] = None,
+    ) -> str:
+        """Generate music from text."""
+        if provider and provider.startswith("hf:"):
+            from app.providers.huggingface import HuggingFaceProvider
+            space_alias = provider.split(":", 1)[1]
+            provider_instance = HuggingFaceProvider(music_space=space_alias)
+        else:
+            provider_instance = get_music_provider(provider)
+            
+        result_path = await provider_instance.generate_music(MusicRequest(
+            prompt=prompt,
+            duration_seconds=duration,
+        ))
+        
+        # Handle local file path -> static URL mapping
+        if result_path and os.path.exists(result_path) and not result_path.startswith("http"):
+            import shutil
+            import uuid
+            
+            # Use same static directory structure as video
+            filename = f"music_{uuid.uuid4()}.mp3" # MusicGen outputs mp3 or wav? usually wav or mp3
+            # Check extension
+            if result_path.endswith(".wav"):
+                filename = f"music_{uuid.uuid4()}.wav"
+                
+            target_dir = "static/audio"
+            os.makedirs(target_dir, exist_ok=True)
+            target_path = os.path.join(target_dir, filename)
+            
+            shutil.move(result_path, target_path)
+            
+            # Return URL (assuming standard setup)
             return f"http://localhost:8000/static/audio/{filename}"
             
         return result_path
