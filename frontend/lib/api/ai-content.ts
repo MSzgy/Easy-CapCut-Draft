@@ -473,6 +473,8 @@ export const aiContentApi = {
     speed?: number
     emotion?: string
     provider?: string
+    referenceAudio?: string
+    referenceText?: string
   }): Promise<{
     success: boolean
     message: string

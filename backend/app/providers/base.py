@@ -74,6 +74,8 @@ class AudioRequest:
     language: str = "Auto"
     speed: float = 1.0
     emotion: Optional[str] = None
+    reference_audio: Optional[str] = None
+    reference_text: Optional[str] = None
 
 
 @dataclass

@@ -342,6 +342,8 @@ class SpeechRequest(BaseModel):
     speed: float = Field(1.0, description="语速", ge=0.5, le=2.0)
     emotion: Optional[str] = Field(None, description="情感")
     provider: Optional[str] = Field("hf:tts_qwen", description="TTS提供商")
+    referenceAudio: Optional[str] = Field(None, description="参考音频 base64 或 URL (用于声音克隆)")
+    referenceText: Optional[str] = Field(None, description="参考音频对应的文本内容")
 
 
 class SpeechResponse(BaseModel):

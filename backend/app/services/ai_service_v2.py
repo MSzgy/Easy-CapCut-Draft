@@ -204,6 +204,8 @@ class AIService:
         voice_description: str = "A clear and professional voice.",
         language: str = "Auto",
         provider: Optional[str] = None,
+        reference_audio: Optional[str] = None,
+        reference_text: Optional[str] = None,
     ) -> str:
         """Generate speech from text."""
         if provider and provider.startswith("hf:"):
@@ -217,6 +219,8 @@ class AIService:
             text=text,
             voice_description=voice_description,
             language=language,
+            reference_audio=reference_audio,
+            reference_text=reference_text,
         ))
         print(f"DEBUG: generate_speech provider result: {result_path}")
 

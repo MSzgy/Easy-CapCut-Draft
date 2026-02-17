@@ -834,17 +834,19 @@ async def generate_music(request: GenerateMusicRequest):
 async def generate_speech(request: SpeechRequest):
     """语音生成 - 文字转语音"""
     try:
-        result = await ai_service.generate_speech(
+        generated_audio_path = await ai_service.generate_speech(
             text=request.text,
             voice_description=request.voiceDescription,
             language=request.language,
-            provider=request.provider
+            provider=request.provider,
+            reference_audio=request.referenceAudio,
+            reference_text=request.referenceText,
         )
         
         return SpeechResponse(
             success=True,
             message="语音生成成功",
-            audioUrl=result
+            audioUrl=generated_audio_path
         )
 
     except Exception as e:

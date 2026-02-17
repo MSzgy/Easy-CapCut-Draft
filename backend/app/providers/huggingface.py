@@ -126,6 +126,12 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
         adapter = get_space_adapter(self.audio_space)
         adapter.hf_token = self.hf_token
 
+        # Check if this is a voice clone request
+        if request.reference_audio:
+            # Voice Clone Mode
+            return await self._generate_voice_clone(request, adapter)
+        
+        # Standard TTS Mode
         params = adapter.build_params(request)
 
         def _run():
@@ -135,6 +141,60 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
 
         result = await asyncio.to_thread(_run)
         return adapter.parse_result(result)
+
+    async def _generate_voice_clone(self, request: AudioRequest, adapter) -> str:
+        """Handle voice cloning using Qwen3-TTS or compatible space."""
+        import tempfile
+        import base64
+        import os
+        from gradio_client import handle_file
+
+        # 1. Decode base64 audio to temp file
+        if ";base64," in request.reference_audio:
+            header, encoded = request.reference_audio.split(";base64,", 1)
+            data = base64.b64decode(encoded)
+            ext = ".wav"
+            if "mpeg" in header: ext = ".mp3"
+        else:
+            # Assume raw base64 or file path (if path, we might need to handle differently, but schema implies base64/url)
+            try:
+                data = base64.b64decode(request.reference_audio)
+                ext = ".wav" 
+            except:
+                # If it's a URL or path, we might need to download or use as is. 
+                # For now assume base64 as per frontend implementation plan.
+                raise ValueError("Invalid reference audio format. Expected base64.")
+
+        temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+        temp_audio.write(data)
+        temp_audio.close()
+        
+        try:
+            def _run_clone():
+                from gradio_client import Client
+                client = Client(adapter.space_id, token=self.hf_token)
+                
+                # Qwen3-TTS specific signature for voice cloning
+                # Note: api_name might differ for other spaces, but we optimize for Qwen3-TTS here
+                return client.predict(
+                    ref_audio=handle_file(temp_audio.name),
+                    ref_text=request.reference_text or "",
+                    target_text=request.text,
+                    language=request.language if request.language != "Auto" else "Auto",
+                    use_xvector_only=False, # Use prompt encoding for better quality if ref_text provided
+                    model_size="1.7B",
+                    api_name="/generate_voice_clone"
+                )
+
+            result = await asyncio.to_thread(_run_clone)
+            # The result from generate_voice_clone is typically (sample_rate, audio_data) or a filepath
+            # Gradio client usually returns a filepath for audio outputs
+            return adapter.parse_result(result)
+            
+        finally:
+            # Cleanup temp file
+            if os.path.exists(temp_audio.name):
+                os.unlink(temp_audio.name)
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 

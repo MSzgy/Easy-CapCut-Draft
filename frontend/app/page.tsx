@@ -262,6 +262,20 @@ export default function VideoEditorPage() {
     setOutputProjects((prev) => prev.filter((p) => p.id !== id))
   }
 
+  const handleAudioGenerated = (audio: any) => {
+    const newAsset: MediaAsset = {
+      id: audio.id,
+      name: `audio_${audio.mode}_${audio.id.split('_').pop()}.mp3`,
+      type: "audio" as const,
+      url: audio.url,
+      createdAt: new Date().toISOString().split("T")[0],
+      sceneUsedIn: "Audio Studio",
+      aiPrompt: audio.text, // Use script as prompt info
+      size: "Unknown",
+    }
+    setMediaAssets((prev) => [newAsset, ...prev])
+  }
+
   return (
     <div className="flex h-screen bg-background flex-col-reverse lg:flex-row">
       {/* Collapsible Sidebar */}
@@ -345,7 +359,10 @@ export default function VideoEditorPage() {
 
         {activeTab === "audio-studio" && (
           <main className="flex-1 overflow-hidden p-4">
-            <AudioStudio audioProvider={modelSelection.audioProvider} />
+            <AudioStudio
+              audioProvider={modelSelection.audioProvider}
+              onAudioGenerated={handleAudioGenerated}
+            />
           </main>
         )}
 
