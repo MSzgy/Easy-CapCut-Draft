@@ -7,19 +7,42 @@ import {
     Download,
     Loader2,
     Zap,
+    Sparkles,
+    ChevronDown,
+    ChevronUp,
+    ArrowRight,
+    Tag,
+    Gauge,
+    Guitar,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { useToast } from "@/hooks/use-toast"
 import { aiContentApi } from "@/lib/api/ai-content"
+import type { MusicRecommendation } from "@/lib/api/ai-content"
 import { cn } from "@/lib/utils"
+
+interface SceneData {
+    script: string
+    mood?: string
+    tags?: string[]
+    imageDescription?: string
+}
 
 interface MusicStudioProps {
     musicProvider?: string
+    textProvider?: string
+    scenes?: SceneData[]
 }
 
 interface GeneratedMusic {
@@ -29,9 +52,10 @@ interface GeneratedMusic {
     timestamp: string
 }
 
-export function MusicStudio({ musicProvider }: MusicStudioProps) {
+export function MusicStudio({ musicProvider, textProvider, scenes }: MusicStudioProps) {
     const { toast } = useToast()
     const audioRef = useRef<HTMLAudioElement>(null)
+    const promptRef = useRef<HTMLTextAreaElement>(null)
 
     // State
     const [prompt, setPrompt] = useState("")
@@ -39,6 +63,69 @@ export function MusicStudio({ musicProvider }: MusicStudioProps) {
     const [isGenerating, setIsGenerating] = useState(false)
     const [currentMusic, setCurrentMusic] = useState<GeneratedMusic | null>(null)
     const [history, setHistory] = useState<GeneratedMusic[]>([])
+
+    // Recommendation state
+    const [recommendations, setRecommendations] = useState<MusicRecommendation[]>([])
+    const [isRecommending, setIsRecommending] = useState(false)
+    const [recommendOpen, setRecommendOpen] = useState(true)
+    const [selectedRec, setSelectedRec] = useState<number | null>(null)
+
+    const hasScenes = scenes && scenes.length > 0
+
+    const handleRecommend = async () => {
+        if (!hasScenes) {
+            toast({
+                title: "没有分镜内容",
+                description: "请先在 Workbench 中生成视频分镜，然后返回此页面获取 BGM 推荐。",
+                variant: "destructive"
+            })
+            return
+        }
+
+        setIsRecommending(true)
+        setSelectedRec(null)
+        try {
+            const response = await aiContentApi.recommendMusic({
+                scenes: scenes!.map(s => ({
+                    script: s.script,
+                    mood: s.mood,
+                    tags: s.tags || [],
+                })),
+                textProvider: textProvider,
+            })
+
+            if (response.success && response.recommendations.length > 0) {
+                setRecommendations(response.recommendations)
+                setRecommendOpen(true)
+                toast({
+                    title: "推荐完成",
+                    description: `已为您推荐 ${response.recommendations.length} 种背景音乐方案`,
+                })
+            }
+        } catch (error: any) {
+            toast({
+                title: "推荐失败",
+                description: error.message || "无法获取音乐推荐",
+                variant: "destructive"
+            })
+        } finally {
+            setIsRecommending(false)
+        }
+    }
+
+    const applyRecommendation = (rec: MusicRecommendation, index: number) => {
+        setPrompt(rec.prompt)
+        setSelectedRec(index)
+        // Auto-scroll to prompt textarea
+        setTimeout(() => {
+            promptRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+            promptRef.current?.focus()
+        }, 100)
+        toast({
+            title: "已填入推荐 Prompt",
+            description: `风格: ${rec.genre} | 情绪: ${rec.mood}`,
+        })
+    }
 
     const handleGenerate = async () => {
         if (!prompt.trim()) {
@@ -95,8 +182,135 @@ export function MusicStudio({ musicProvider }: MusicStudioProps) {
     return (
         <div className="flex h-full flex-col lg:flex-row gap-6 p-4 overflow-hidden">
             {/* Left Column: Controls */}
-            <aside className="w-full lg:w-[400px] shrink-0 flex flex-col gap-4 overflow-hidden h-full">
-                <Card className="flex-1 flex flex-col overflow-hidden">
+            <aside className="w-full lg:w-[420px] shrink-0 flex flex-col gap-4 overflow-y-auto h-full pr-1">
+
+                {/* AI Smart Recommendation */}
+                <Card className="border-primary/20">
+                    <Collapsible open={recommendOpen} onOpenChange={setRecommendOpen}>
+                        <CollapsibleTrigger className="w-full">
+                            <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4 text-amber-500" />
+                                        AI 智能推荐
+                                    </CardTitle>
+                                    {recommendOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                                </div>
+                                <CardDescription className="text-left">
+                                    基于视频分镜内容，AI自动推荐合适的BGM风格
+                                </CardDescription>
+                            </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <CardContent className="pt-0 space-y-3">
+                                {/* Status indicator */}
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <div className={cn(
+                                        "h-2 w-2 rounded-full",
+                                        hasScenes ? "bg-green-500" : "bg-orange-400"
+                                    )} />
+                                    {hasScenes
+                                        ? `已检测到 ${scenes!.length} 个分镜场景`
+                                        : "尚未生成分镜内容（请先在 Workbench 中生成）"
+                                    }
+                                </div>
+
+                                {/* Recommend button */}
+                                <Button
+                                    className="w-full"
+                                    variant={hasScenes ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={handleRecommend}
+                                    disabled={isRecommending || !hasScenes}
+                                >
+                                    {isRecommending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                            分析中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="mr-2 h-3 w-3" />
+                                            获取 BGM 推荐
+                                        </>
+                                    )}
+                                </Button>
+
+                                {/* Recommendation cards */}
+                                {recommendations.length > 0 && (
+                                    <div className="space-y-2 pt-1">
+                                        {recommendations.map((rec, i) => (
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "rounded-lg border p-3 space-y-2 transition-all cursor-pointer hover:border-primary/50",
+                                                    selectedRec === i
+                                                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                                        : "border-border"
+                                                )}
+                                                onClick={() => applyRecommendation(rec, i)}
+                                            >
+                                                {/* Header */}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="secondary" className="text-[10px] font-medium">
+                                                            {rec.genre}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="text-[10px]">
+                                                            {rec.mood}
+                                                        </Badge>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 text-[10px] px-2"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            applyRecommendation(rec, i)
+                                                        }}
+                                                    >
+                                                        <ArrowRight className="h-3 w-3 mr-1" />
+                                                        使用
+                                                    </Button>
+                                                </div>
+
+                                                {/* Details */}
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                                                    <span className="flex items-center gap-1">
+                                                        <Gauge className="h-3 w-3" />
+                                                        BPM {rec.bpmRange}
+                                                    </span>
+                                                    {rec.instruments.length > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Guitar className="h-3 w-3" />
+                                                            {rec.instruments.slice(0, 3).join(", ")}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Prompt Preview */}
+                                                <div className="rounded-md bg-muted/60 px-3 py-2">
+                                                    <p className="text-[10px] text-muted-foreground mb-1 font-medium">Prompt:</p>
+                                                    <p className="text-xs leading-relaxed text-foreground">
+                                                        {rec.prompt}
+                                                    </p>
+                                                </div>
+
+                                                {/* Reason */}
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    💡 {rec.reason}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </Card>
+
+                {/* Music Generation Card */}
+                <Card className="flex flex-col">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Music className="h-5 w-5 text-primary" />
@@ -106,14 +320,15 @@ export function MusicStudio({ musicProvider }: MusicStudioProps) {
                             Generate original music from text descriptions using AI.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex-1 overflow-auto space-y-6">
+                    <CardContent className="space-y-6">
 
                         {/* Prompt Input */}
                         <div className="space-y-2">
                             <Label>Music Description</Label>
                             <Textarea
+                                ref={promptRef}
                                 placeholder="Describe the music (e.g., 'Uplifting cinematic orchestral track', 'Lo-fi hip hop beat for study')"
-                                className="min-h-[150px] resize-none text-base"
+                                className="min-h-[120px] resize-none text-base"
                                 value={prompt}
                                 onChange={(e) => setPrompt(e.target.value)}
                             />

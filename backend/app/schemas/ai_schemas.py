@@ -367,3 +367,34 @@ class GenerateMusicResponse(BaseModel):
     success: bool
     message: str
     audioUrl: str
+
+
+# BGM Smart Recommendation
+class SceneSummary(BaseModel):
+    """场景摘要（用于音乐推荐）"""
+    script: str = Field("", description="场景脚本")
+    mood: Optional[str] = Field(None, description="情绪/氛围")
+    tags: List[str] = Field(default_factory=list, description="标签")
+
+
+class RecommendMusicRequest(BaseModel):
+    """BGM智能推荐请求"""
+    scenes: List[SceneSummary] = Field(..., description="场景列表")
+    textProvider: Optional[str] = Field("gemini", description="文本AI提供商")
+
+
+class MusicRecommendation(BaseModel):
+    """单条音乐推荐"""
+    genre: str = Field(..., description="音乐风格，如 Cinematic Orchestral")
+    mood: str = Field(..., description="情绪，如 Uplifting, Melancholic")
+    instruments: List[str] = Field(default_factory=list, description="建议乐器")
+    bpmRange: str = Field("100-120", description="BPM范围")
+    prompt: str = Field(..., description="可直接用于音乐生成的完整 prompt")
+    reason: str = Field("", description="推荐理由")
+
+
+class RecommendMusicResponse(BaseModel):
+    """BGM智能推荐响应"""
+    success: bool
+    message: str
+    recommendations: List[MusicRecommendation] = Field(default_factory=list)

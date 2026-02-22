@@ -37,6 +37,9 @@ from app.schemas.ai_schemas import (
     SpeechResponse,
     GenerateMusicRequest,
     GenerateMusicResponse,
+    RecommendMusicRequest,
+    RecommendMusicResponse,
+    MusicRecommendation,
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
@@ -827,6 +830,43 @@ async def generate_music(request: GenerateMusicRequest):
         raise HTTPException(
             status_code=500,
             detail=f"音乐生成失败: {str(e)}"
+        )
+
+
+@router.post("/recommend-music", response_model=RecommendMusicResponse)
+async def recommend_music(request: RecommendMusicRequest):
+    """BGM智能推荐 - 根据视频分镜内容推荐合适的背景音乐风格"""
+    try:
+        scenes_data = [
+            {"script": s.script, "mood": s.mood, "tags": s.tags}
+            for s in request.scenes
+        ]
+        raw = await ai_service.recommend_music_tags(
+            scenes=scenes_data,
+            provider=request.textProvider,
+        )
+
+        recommendations = []
+        for item in raw:
+            recommendations.append(MusicRecommendation(
+                genre=item.get("genre", "Unknown"),
+                mood=item.get("mood", "Neutral"),
+                instruments=item.get("instruments", []),
+                bpmRange=item.get("bpmRange", "100-120"),
+                prompt=item.get("prompt", ""),
+                reason=item.get("reason", ""),
+            ))
+
+        return RecommendMusicResponse(
+            success=True,
+            message="BGM推荐成功",
+            recommendations=recommendations,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"BGM推荐失败: {str(e)}"
         )
 
 

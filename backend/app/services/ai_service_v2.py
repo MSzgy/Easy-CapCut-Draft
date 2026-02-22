@@ -342,20 +342,85 @@ class AIService:
         )
         return {"raw_response": response}
 
-    async def recommend_music_tags(self, theme: str, description: str = "") -> dict:
-        prompt = f"""基于以下视频内容，推荐合适的背景音乐标签：
+    async def recommend_music_tags(
+        self,
+        scenes: list[dict] | None = None,
+        theme: str = "",
+        description: str = "",
+        provider: str | None = None,
+    ) -> list[dict]:
+        """Analyze scene content and recommend BGM styles.
 
-主题: {theme}
-描述: {description}
+        Returns a list of recommendation dicts, each with:
+        genre, mood, instruments, bpmRange, prompt, reason.
+        """
+        # Build scene context from structured data
+        if scenes:
+            scene_lines = []
+            for i, s in enumerate(scenes, 1):
+                line = f"Scene {i}: {s.get('script', '')}"
+                if s.get('mood'):
+                    line += f" | Mood: {s['mood']}"
+                if s.get('tags'):
+                    line += f" | Tags: {', '.join(s['tags'])}"
+                scene_lines.append(line)
+            scene_text = "\n".join(scene_lines)
+        else:
+            scene_text = f"主题: {theme}\n描述: {description}"
 
-分析视频的情绪、节奏、音乐类型、BPM范围，以JSON格式返回。"""
+        prompt = f"""你是一个专业的影视配乐师和音乐推荐专家。
+
+请分析以下视频分镜内容，推荐 3 种不同风格的背景音乐方案。
+
+=== 视频分镜 ===
+{scene_text}
+=== END ===
+
+请严格按照以下JSON数组格式返回3条推荐，不要包含 Markdown 标记：
+[
+  {{
+    "genre": "音乐风格（英文，如 Cinematic Orchestral, Lo-Fi Hip Hop, Ambient Electronic）",
+    "mood": "情绪关键词（英文，如 Uplifting, Melancholic, Energetic）",
+    "instruments": ["建议乐器1", "建议乐器2"],
+    "bpmRange": "BPM范围，如 90-110",
+    "prompt": "一段完整的英文音乐生成 prompt，可直接用于AI音乐生成。应包含风格、情绪、乐器、节奏等细节，约30-60词",
+    "reason": "推荐理由（中文，简短说明为什么这种风格适合该视频）"
+  }}
+]
+
+注意：
+1. 3条推荐应有明显差异，涵盖不同风格
+2. prompt 必须是英文，风格描述要具体
+3. 只返回JSON数组，不要其他说明"""
 
         response = await self.generate_completion(
             prompt=prompt,
-            system_message="你是一个音乐推荐专家。",
-            temperature=0.5,
+            system_message="你是一个专业的影视配乐师。只返回JSON，不要返回其他内容。",
+            temperature=0.7,
+            provider=provider,
         )
-        return {"raw_response": response}
+
+        # Parse JSON from response
+        import json as _json
+        import re as _re
+
+        cleaned = response.strip()
+        match = _re.search(r'\[.*\]', cleaned, _re.DOTALL)
+        if match:
+            try:
+                return _json.loads(match.group())
+            except _json.JSONDecodeError:
+                pass
+
+        # Fallback: return a single generic recommendation
+        return [{
+            "genre": "Ambient Cinematic",
+            "mood": "Neutral",
+            "instruments": ["Piano", "Strings"],
+            "bpmRange": "80-110",
+            "prompt": "Ambient cinematic background music with soft piano and strings, calm and professional atmosphere",
+            "reason": "通用影视背景音乐风格，适合大多数场景"
+        }]
 
     # ── Prompt Optimization ───────────────────────────────────────────────
 

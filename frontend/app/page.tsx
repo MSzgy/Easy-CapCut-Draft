@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { AppSidebar, type TabType } from "@/components/video-editor/app-sidebar"
 import { ColumnInput, type GeneratedOutput } from "@/components/video-editor/column-input"
 import { ColumnContent } from "@/components/video-editor/column-content"
@@ -14,6 +14,7 @@ import { AudioStudio } from "@/components/video-editor/audio-studio"
 import { MusicStudio } from "@/components/video-editor/music-studio"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
+import { projectsApi } from "@/lib/api/projects"
 
 export default function VideoEditorPage() {
   const [activeTab, setActiveTab] = useState<TabType>("workbench")
@@ -38,8 +39,140 @@ export default function VideoEditorPage() {
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
 
+  // ── 项目持久化 ────────────────────────────────────────────────────────
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+  const hasMounted = useRef(false)
+
+  // 启动时恢复最新项目
+  useEffect(() => {
+    if (hasMounted.current) return
+    hasMounted.current = true
+    projectsApi.getLatestProject().then((res) => {
+      if (res.success && res.project && res.project.scenes.length > 0) {
+        const p = res.project
+        setCurrentProjectId(p.id)
+
+        // 恢复分镜内容
+        const restoredScenes = p.scenes.map((s) => ({
+          id: s.id,
+          timestamp: s.timestamp,
+          script: s.script,
+          imageUrl: s.imageUrl || "",
+          imageDescription: s.imageDescription || "",
+          imageMetadata: s.imageMetadata as any,
+          duration: s.duration,
+        }))
+        setGeneratedContent({
+          scenes: restoredScenes,
+          coverUrl: p.coverUrl,
+          copy: p.generatedCopy,
+        })
+
+        // 恢复 Media Vault（场景图片 + 视频）
+        const restoredAssets: MediaAsset[] = p.scenes
+          .filter((s) => s.imageUrl)
+          .map((s, i) => ({
+            id: s.id,
+            name: `scene_${i + 1}_${(s.imageDescription || "image").slice(0, 20)}.jpg`,
+            type: "image" as const,
+            url: s.imageUrl!,
+            createdAt: p.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+            sceneUsedIn: `Scene ${i + 1}`,
+            aiPrompt: s.imageDescription || undefined,
+            size: "-",
+          }))
+        // 场景视频也加入
+        p.scenes
+          .filter((s) => s.videoUrl)
+          .forEach((s, i) => {
+            restoredAssets.push({
+              id: `video_${s.id}`,
+              name: `scene_${i + 1}_video.mp4`,
+              type: "video" as const,
+              url: s.videoUrl!,
+              createdAt: p.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+              sceneUsedIn: `Scene ${i + 1}`,
+              size: "-",
+            })
+          })
+        // 封面也加入
+        if (p.coverUrl) {
+          restoredAssets.push({
+            id: `cover_${p.id}`,
+            name: "cover.jpg",
+            type: "image" as const,
+            url: p.coverUrl,
+            createdAt: p.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
+            sceneUsedIn: "Cover",
+            aiPrompt: "AI Generated Cover",
+            size: "-",
+          })
+        }
+        setMediaAssets(restoredAssets)
+
+        // 恢复 Output Archive
+        const restoredProject: OutputProject = {
+          id: p.id,
+          name: p.title || "Restored Project",
+          status: (p.status === "rendered" || p.status === "failed" || p.status === "processing")
+            ? p.status
+            : "rendered",
+          createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || "",
+          combinedVideoUrl: p.combinedVideoUrl || undefined,
+          sceneCount: p.scenes.length,
+          totalDuration: p.scenes.reduce((sum, s) => sum + (s.duration || 5), 0) + "s",
+          scenes: p.scenes
+            .filter((s) => s.videoUrl)
+            .map((s, i) => ({
+              id: s.id,
+              name: `Scene ${i + 1}`,
+              videoUrl: s.videoUrl!,
+              prompt: s.script,
+              thumbnail: s.imageUrl || undefined,
+            })),
+        }
+        setOutputProjects([restoredProject])
+
+        console.log("✅ 已恢复项目:", p.title, `(${p.scenes.length} 场景)`)
+      }
+    }).catch(() => {
+      // 数据库不可用时静默忽略
+    })
+  }, [])
+
+  // 保存项目到数据库
+  const saveProject = useCallback(async (output: GeneratedOutput, title?: string) => {
+    try {
+      const res = await projectsApi.saveProject({
+        projectId: currentProjectId || undefined,
+        title: title || "Untitled Project",
+        mode: "prompt",
+        generatedCopy: output.copy,
+        coverUrl: output.coverUrl,
+        modelConfig: modelSelection as any,
+        scenes: output.scenes.map((s) => ({
+          id: s.id,
+          timestamp: s.timestamp,
+          script: s.script,
+          imageUrl: s.imageUrl,
+          imageDescription: s.imageDescription,
+          imageMetadata: s.imageMetadata as any,
+          duration: s.duration,
+        })),
+      })
+      if (res.success) {
+        setCurrentProjectId(res.project.id)
+        console.log("✅ 项目已保存:", res.project.id)
+      }
+    } catch (e) {
+      console.warn("⚠️ 项目保存失败:", e)
+    }
+  }, [currentProjectId, modelSelection])
+
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
+    // 自动持久化到数据库
+    saveProject(output)
     // Add generated images to media vault
     const newAssets: MediaAsset[] = output.scenes.map((scene, index) => ({
       id: `generated_${Date.now()}_${index}`,
@@ -51,6 +184,19 @@ export default function VideoEditorPage() {
       aiPrompt: scene.imageDescription,
       size: "1.2 MB",
     }))
+    // 封面也加入 Media Vault
+    if (output.coverUrl) {
+      newAssets.push({
+        id: `cover_${Date.now()}`,
+        name: "cover.jpg",
+        type: "image" as const,
+        url: output.coverUrl,
+        createdAt: new Date().toISOString().split("T")[0],
+        sceneUsedIn: "Cover",
+        aiPrompt: "AI Generated Cover",
+        size: "1.0 MB",
+      })
+    }
     setMediaAssets((prev) => [...prev, ...newAssets])
   }
 
@@ -296,6 +442,18 @@ export default function VideoEditorPage() {
               <aside className="w-full shrink-0 overflow-auto lg:w-80 xl:w-96">
                 <ColumnInput
                   onGenerate={handleGenerate}
+                  onCoverGenerated={(coverUrl, prompt) => {
+                    setMediaAssets((prev) => [{
+                      id: `cover_${Date.now()}`,
+                      name: "ai_cover.jpg",
+                      type: "image" as const,
+                      url: coverUrl,
+                      createdAt: new Date().toISOString().split("T")[0],
+                      sceneUsedIn: "Cover",
+                      aiPrompt: prompt,
+                      size: "-",
+                    }, ...prev])
+                  }}
                   modelSelection={modelSelection}
                 />
               </aside>
@@ -368,7 +526,16 @@ export default function VideoEditorPage() {
 
         {activeTab === "music-studio" && (
           <main className="flex-1 overflow-hidden p-4">
-            <MusicStudio musicProvider={modelSelection.musicProvider} />
+            <MusicStudio
+              musicProvider={modelSelection.musicProvider}
+              textProvider={modelSelection.textProvider}
+              scenes={generatedContent?.scenes?.map(s => ({
+                script: s.script,
+                mood: s.imageMetadata?.mood,
+                tags: s.imageMetadata?.tags || [],
+                imageDescription: s.imageDescription,
+              }))}
+            />
           </main>
         )}
 

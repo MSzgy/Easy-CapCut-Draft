@@ -84,6 +84,7 @@ export interface GeneratedOutput {
 
 interface ColumnInputProps {
   onGenerate: (output: GeneratedOutput) => void
+  onCoverGenerated?: (coverUrl: string, prompt: string) => void
   modelSelection?: ModelSelection
 }
 
@@ -189,7 +190,7 @@ const coverStyleKeywords: Record<string, string[]> = {
   'nine-grid': ['structured', 'angular', 'pattern-based'],
 }
 
-export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
+export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: ColumnInputProps) {
   const [activeTab, setActiveTab] = useState("upload")
   const [prompt, setPrompt] = useState("")
   const [url, setUrl] = useState("")
@@ -547,6 +548,7 @@ export function ColumnInput({ onGenerate, modelSelection }: ColumnInputProps) {
 
       if (response.success) {
         setGeneratedCover(response.coverUrl)
+        onCoverGenerated?.(response.coverUrl, coverPrompt)
         toast({
           title: "Success",
           description: response.message || "Cover generated successfully",

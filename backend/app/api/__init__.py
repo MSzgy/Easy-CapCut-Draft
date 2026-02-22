@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import test, ai_content
+from app.api.routes import test, ai_content, video_gen, projects
 
 # 创建主路由
 router = APIRouter()
@@ -11,19 +11,10 @@ router.include_router(test.router, prefix="/test", tags=["Test"])
 router.include_router(ai_content.router, prefix="/ai", tags=["AI Content"])
 
 # 注册视频生成路由
-from app.api.routes import video_gen
 router.include_router(video_gen.router, prefix="/video", tags=["Video Generation"])
 
-# 导入子路由（稍后会创建）
-# from app.api.routes import projects, media, scripts, covers, music, drafts
-
-# 注册子路由
-# router.include_router(projects.router, prefix="/projects", tags=["Projects"])
-# router.include_router(media.router, prefix="/media", tags=["Media"])
-# router.include_router(scripts.router, prefix="/scripts", tags=["Scripts"])
-# router.include_router(covers.router, prefix="/covers", tags=["Covers"])
-# router.include_router(music.router, prefix="/music", tags=["Music"])
-# router.include_router(drafts.router, prefix="/drafts", tags=["Drafts"])
+# 注册项目持久化路由
+router.include_router(projects.router, prefix="/data", tags=["Data Persistence"])
 
 
 @router.get("/")
@@ -35,6 +26,9 @@ async def api_root():
         "docs": "/docs",
         "endpoints": {
             "test": "/api/test",
+            "ai": "/api/ai",
+            "data": "/api/data",
             "health": "/health",
         }
     }
+

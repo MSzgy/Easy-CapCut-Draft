@@ -1,15 +1,36 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
+# SQLite 需要特殊的引擎参数
+_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+# 如果使用 SQLite，确保数据目录存在
+if _is_sqlite:
+    db_path = settings.DATABASE_URL.split("///")[-1]
+    os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
+
 # 创建异步引擎
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,
-)
+_engine_kwargs: dict = {
+    "echo": settings.DEBUG,
+    "pool_pre_ping": True,
+}
+
+if _is_sqlite:
+    # SQLite 不支持 pool_size / max_overflow，使用 StaticPool 保持连接
+    from sqlalchemy.pool import StaticPool
+    _engine_kwargs.update({
+        "connect_args": {"check_same_thread": False},
+        "poolclass": StaticPool,
+    })
+else:
+    _engine_kwargs.update({
+        "pool_size": settings.DATABASE_POOL_SIZE,
+        "max_overflow": settings.DATABASE_MAX_OVERFLOW,
+    })
+
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 # 创建会话工厂
 async_session_maker = async_sessionmaker(
@@ -39,6 +60,8 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """初始化数据库（创建表）"""
+    # 需要先导入所有模型，确保 Base.metadata 包含所有表
+    import app.models.models  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

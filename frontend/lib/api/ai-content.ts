@@ -508,4 +508,32 @@ export const aiContentApi = {
       throw new Error(apiError.detail || 'Failed to generate music')
     }
   },
+
+  /**
+   * BGM 智能推荐 - 根据视频分镜内容推荐合适的背景音乐
+   */
+  async recommendMusic(request: {
+    scenes: Array<{ script: string; mood?: string; tags?: string[] }>
+    textProvider?: string
+  }): Promise<{
+    success: boolean
+    message: string
+    recommendations: MusicRecommendation[]
+  }> {
+    try {
+      return await apiClient.post('/ai/recommend-music', request, { timeoutMs: 60_000 })
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to recommend music')
+    }
+  },
+}
+
+export interface MusicRecommendation {
+  genre: string
+  mood: string
+  instruments: string[]
+  bpmRange: string
+  prompt: string
+  reason: string
 }
