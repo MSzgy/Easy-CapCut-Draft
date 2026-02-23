@@ -1,8 +1,11 @@
 from fastapi import APIRouter
-from app.api.routes import test, ai_content, video_gen, projects
+from app.api.routes import test, ai_content, video_gen, projects, auth
 
 # 创建主路由
 router = APIRouter()
+
+# 注册鉴权路由
+router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 
 # 注册测试路由
 router.include_router(test.router, prefix="/test", tags=["Test"])

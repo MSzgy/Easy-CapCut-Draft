@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # 速率限制
     RATE_LIMIT_PER_MINUTE: int = 60
 
+    # 管理员种子账户
+    ADMIN_EMAIL: str = "admin@clipforge.app"
+    ADMIN_PASSWORD: str = "admin123456"
+
     # ─── 向后兼容的属性 ───
 
     @property

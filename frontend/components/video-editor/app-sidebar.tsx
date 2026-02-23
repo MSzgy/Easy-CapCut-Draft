@@ -15,6 +15,8 @@ import {
   Settings,
   Mic,
   Music,
+  LogOut,
+  User,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +35,9 @@ interface AppSidebarProps {
   onTabChange: (tab: TabType) => void
   mediaCount?: number
   outputCount?: number
+  userRole?: string
+  username?: string
+  onLogout?: () => void
 }
 
 const navItems = [
@@ -91,6 +96,9 @@ export function AppSidebar({
   onTabChange,
   mediaCount = 0,
   outputCount = 0,
+  userRole,
+  username,
+  onLogout,
 }: AppSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -98,6 +106,12 @@ export function AppSidebar({
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
   }
+
+  // 根据角色过滤导航项：非管理员不显示 Configuration
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.id === "configuration" && userRole !== "admin") return false
+    return true
+  })
 
   const getCount = (id: TabType) => {
     if (id === "media-vault") return mediaCount
@@ -133,7 +147,7 @@ export function AppSidebar({
 
         {/* Navigation */}
         <nav className="flex flex-1 justify-around lg:block lg:space-y-1 lg:p-2">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const Icon = item.icon
             const count = getCount(item.id)
             const isActive = activeTab === item.id
@@ -246,6 +260,52 @@ export function AppSidebar({
               </>
             )}
           </Button>
+
+          {/* User Info & Logout */}
+          {username && (
+            <div className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5",
+              isCollapsed ? "justify-center" : ""
+            )}>
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-600">
+                <User className="h-3.5 w-3.5 text-white" />
+              </div>
+              {!isCollapsed && (
+                <div className="flex flex-1 items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-sidebar-foreground">{username}</span>
+                    <span className="text-[10px] text-sidebar-foreground/50">
+                      {userRole === "admin" ? "管理员" : "订阅用户"}
+                    </span>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={onLogout}
+                        className="rounded-md p-1 text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-red-400 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">退出登录</TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+              {isCollapsed && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={onLogout}
+                      className="absolute bottom-2 right-2 rounded-md p-1 text-sidebar-foreground/50 hover:text-red-400 transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">退出登录 ({username})</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
       </aside>
     </TooltipProvider>

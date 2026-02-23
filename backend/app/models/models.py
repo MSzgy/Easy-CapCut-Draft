@@ -7,6 +7,12 @@ import enum
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
+class UserRole(str, enum.Enum):
+    """用户角色"""
+    ADMIN = "admin"
+    SUBSCRIBER = "subscriber"
+
+
 class MediaType(str, enum.Enum):
     """素材类型枚举"""
     IMAGE = "image"
@@ -32,6 +38,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     username = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), default=UserRole.SUBSCRIBER, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

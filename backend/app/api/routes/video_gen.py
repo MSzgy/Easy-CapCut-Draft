@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict
 from app.services.ai_service_v2 import ai_service
 from app.core.config import settings
+from app.core.auth import get_current_user
 import os
 from fastapi.responses import FileResponse
 
@@ -22,7 +23,7 @@ class VideoGenerationResponse(BaseModel):
     message: str
 
 @router.post("/generate", response_model=VideoGenerationResponse)
-async def generate_video(request: VideoGenerationRequest):
+async def generate_video(request: VideoGenerationRequest, current_user=Depends(get_current_user)):
     """
     Generate a video project (CapCut Draft or MP4)
     """
@@ -61,7 +62,7 @@ async def generate_video(request: VideoGenerationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/download")
-async def download_video(path: str):
+async def download_video(path: str, current_user=Depends(get_current_user)):
     """
     Download the generated file
     """

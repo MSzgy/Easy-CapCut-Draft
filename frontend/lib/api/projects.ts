@@ -28,6 +28,8 @@ export interface SaveProjectRequest {
     generatedCopy?: string
     coverUrl?: string
     coverStyle?: string
+    combinedVideoUrl?: string
+    status?: string
     modelConfig?: Record<string, string>
     scenes?: SceneData[]
     projectId?: string

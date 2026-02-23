@@ -65,6 +65,39 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # 种子管理员账户
+    await seed_admin()
+
+
+async def seed_admin():
+    """如果管理员账户不存在，则自动创建"""
+    from app.models.models import User, UserRole
+    from app.core.auth import hash_password
+    import uuid
+
+    async with async_session_maker() as session:
+        try:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(User).where(User.email == settings.ADMIN_EMAIL)
+            )
+            if result.scalar_one_or_none() is None:
+                admin = User(
+                    id=str(uuid.uuid4()),
+                    email=settings.ADMIN_EMAIL,
+                    username="admin",
+                    hashed_password=hash_password(settings.ADMIN_PASSWORD),
+                    role=UserRole.ADMIN,
+                )
+                session.add(admin)
+                await session.commit()
+                print(f"✅ 管理员账户已创建: {settings.ADMIN_EMAIL}")
+            else:
+                print(f"ℹ️  管理员账户已存在: {settings.ADMIN_EMAIL}")
+        except Exception as e:
+            await session.rollback()
+            print(f"⚠️  管理员账户创建失败: {e}")
+
 
 async def close_db():
     """关闭数据库连接"""

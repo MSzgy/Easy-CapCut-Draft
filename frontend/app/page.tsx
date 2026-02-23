@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { AppSidebar, type TabType } from "@/components/video-editor/app-sidebar"
 import { ColumnInput, type GeneratedOutput } from "@/components/video-editor/column-input"
 import { ColumnContent } from "@/components/video-editor/column-content"
@@ -15,8 +16,11 @@ import { MusicStudio } from "@/components/video-editor/music-studio"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
 import { projectsApi } from "@/lib/api/projects"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function VideoEditorPage() {
+  const router = useRouter()
+  const { user, isLoading: authLoading, isAdmin, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>("workbench")
   const [generatedContent, setGeneratedContent] = useState<GeneratedOutput | null>(null)
   const [isComposing, setIsComposing] = useState(false)
@@ -47,6 +51,8 @@ export default function VideoEditorPage() {
   useEffect(() => {
     if (hasMounted.current) return
     hasMounted.current = true
+
+    // 1. 恢复最新项目到 Workbench
     projectsApi.getLatestProject().then((res) => {
       if (res.success && res.project && res.project.scenes.length > 0) {
         const p = res.project
@@ -110,12 +116,20 @@ export default function VideoEditorPage() {
         }
         setMediaAssets(restoredAssets)
 
-        // 恢复 Output Archive
-        const restoredProject: OutputProject = {
+        console.log("✅ 已恢复项目:", p.title, `(${p.scenes.length} 场景)`)
+      }
+    }).catch(() => {
+      // 数据库不可用时静默忽略
+    })
+
+    // 2. 加载所有项目到 Output Archive
+    projectsApi.listProjects().then((res) => {
+      if (res.success && res.projects) {
+        const allProjects: OutputProject[] = res.projects.map((p) => ({
           id: p.id,
-          name: p.title || "Restored Project",
+          name: p.title || "Untitled Project",
           status: (p.status === "rendered" || p.status === "failed" || p.status === "processing")
-            ? p.status
+            ? p.status as "rendered" | "processing" | "failed"
             : "rendered",
           createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || "",
           combinedVideoUrl: p.combinedVideoUrl || undefined,
@@ -130,13 +144,12 @@ export default function VideoEditorPage() {
               prompt: s.script,
               thumbnail: s.imageUrl || undefined,
             })),
-        }
-        setOutputProjects([restoredProject])
-
-        console.log("✅ 已恢复项目:", p.title, `(${p.scenes.length} 场景)`)
+        }))
+        setOutputProjects(allProjects)
+        console.log(`✅ 已加载 ${allProjects.length} 个项目到 Output Archive`)
       }
     }).catch(() => {
-      // 数据库不可用时静默忽略
+      // 静默忽略
     })
   }, [])
 
@@ -145,7 +158,7 @@ export default function VideoEditorPage() {
     try {
       const res = await projectsApi.saveProject({
         projectId: currentProjectId || undefined,
-        title: title || "Untitled Project",
+        title: title || `${new Date().toISOString().slice(0, 10)} - ${output.scenes[0]?.script?.slice(0, 30) || 'AI Project'}`,
         mode: "prompt",
         generatedCopy: output.copy,
         coverUrl: output.coverUrl,
@@ -163,6 +176,40 @@ export default function VideoEditorPage() {
       if (res.success) {
         setCurrentProjectId(res.project.id)
         console.log("✅ 项目已保存:", res.project.id)
+
+        // 同步到 Output Archive
+        const p = res.project
+        const newOutputProject: OutputProject = {
+          id: p.id,
+          name: p.title || "Untitled Project",
+          status: (p.status === "rendered" || p.status === "failed" || p.status === "processing")
+            ? p.status as "rendered" | "processing" | "failed"
+            : "rendered",
+          createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || new Date().toLocaleString(),
+          combinedVideoUrl: p.combinedVideoUrl || undefined,
+          sceneCount: p.scenes.length,
+          totalDuration: p.scenes.reduce((sum, s) => sum + (s.duration || 5), 0) + "s",
+          scenes: p.scenes
+            .filter((s) => s.videoUrl)
+            .map((s, i) => ({
+              id: s.id,
+              name: `Scene ${i + 1}`,
+              videoUrl: s.videoUrl!,
+              prompt: s.script,
+              thumbnail: s.imageUrl || undefined,
+            })),
+        }
+        setOutputProjects((prev) => {
+          const existing = prev.findIndex((op) => op.id === p.id)
+          if (existing >= 0) {
+            // 更新已有项目
+            const updated = [...prev]
+            updated[existing] = newOutputProject
+            return updated
+          }
+          // 新增项目
+          return [newOutputProject, ...prev]
+        })
       }
     } catch (e) {
       console.warn("⚠️ 项目保存失败:", e)
@@ -264,17 +311,29 @@ export default function VideoEditorPage() {
     setCombinedVideoUrl(null)
     setRenderProgress({ current: 0, total })
 
-    // Create a new project entry in "processing" state
-    const projectId = `proj_${Date.now()}`
-    const newProject: OutputProject = {
-      id: projectId,
-      name: `AI Video ${new Date().toLocaleTimeString()}`,
-      status: "processing",
-      createdAt: new Date().toLocaleString(),
-      scenes: [],
-      sceneCount: total,
-    }
-    setOutputProjects((prev) => [newProject, ...prev])
+    // 使用现有项目 ID，而不是创建新的
+    const projectId = currentProjectId || `proj_${Date.now()}`
+
+    // 更新现有项目状态为 processing（如果项目已在列表中）
+    setOutputProjects((prev) => {
+      const exists = prev.some(p => p.id === projectId)
+      if (exists) {
+        return prev.map(p =>
+          p.id === projectId
+            ? { ...p, status: "processing" as const, scenes: [], sceneCount: total }
+            : p
+        )
+      }
+      // 如果项目不在列表中（不太可能），则添加
+      return [{
+        id: projectId,
+        name: `${new Date().toISOString().slice(0, 10)} - AI Video`,
+        status: "processing" as const,
+        createdAt: new Date().toLocaleString(),
+        scenes: [],
+        sceneCount: total,
+      }, ...prev]
+    })
 
     const videos: string[] = []
     const projectScenes: OutputScene[] = []
@@ -395,17 +454,47 @@ export default function VideoEditorPage() {
       )
     )
 
+    // 持久化视频 URL 到数据库
+    if (currentProjectId && generatedContent) {
+      try {
+        await projectsApi.saveProject({
+          projectId: currentProjectId,
+          combinedVideoUrl: finalCombinedUrl || undefined,
+          status: finalCombinedUrl ? "rendered" : "failed",
+          scenes: generatedContent.scenes.map((s, i) => ({
+            id: s.id,
+            timestamp: s.timestamp,
+            script: s.script,
+            imageUrl: s.imageUrl,
+            imageDescription: s.imageDescription,
+            imageMetadata: s.imageMetadata as any,
+            duration: s.duration,
+            videoUrl: videos[i] || undefined,
+          })),
+        } as any)
+        console.log("✅ 视频 URL 已保存到数据库")
+      } catch (e) {
+        console.warn("⚠️ 视频 URL 保存失败:", e)
+      }
+    }
+
     setRenderProgress(null)
     setIsExporting(false)
     setExportType(null)
-  }, [generatedContent, modelSelection])
+  }, [generatedContent, modelSelection, currentProjectId])
 
   const handleDeleteAsset = (id: string) => {
     setMediaAssets((prev) => prev.filter((a) => a.id !== id))
   }
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = async (id: string) => {
     setOutputProjects((prev) => prev.filter((p) => p.id !== id))
+    try {
+      await projectsApi.deleteProject(id)
+      console.log("✅ 项目已从数据库删除:", id)
+    } catch (e) {
+      console.warn("⚠️ 项目删除失败:", e)
+    }
   }
 
   const handleAudioGenerated = (audio: any) => {
@@ -422,6 +511,25 @@ export default function VideoEditorPage() {
     setMediaAssets((prev) => [newAsset, ...prev])
   }
 
+  // ── 鉴权守卫 ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login")
+    }
+  }, [authLoading, user, router])
+
+  // 加载中或未登录时显示 loading
+  if (authLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">正在验证身份...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen bg-background flex-col-reverse lg:flex-row">
       {/* Collapsible Sidebar */}
@@ -430,6 +538,9 @@ export default function VideoEditorPage() {
         onTabChange={setActiveTab}
         mediaCount={mediaAssets.length}
         outputCount={outputProjects.length}
+        userRole={user.role}
+        username={user.username}
+        onLogout={logout}
       />
 
       {/* Main Content Area */}

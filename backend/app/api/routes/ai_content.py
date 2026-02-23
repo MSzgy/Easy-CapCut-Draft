@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.ai_schemas import (
     GenerateContentRequest,
     GenerateContentResponse,
@@ -43,6 +43,7 @@ from app.schemas.ai_schemas import (
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
+from app.core.auth import get_current_user, require_admin
 from typing import List
 import json
 import re
@@ -51,7 +52,7 @@ router = APIRouter()
 
 
 @router.get("/providers")
-async def list_providers():
+async def list_providers(current_user=Depends(require_admin)):
     """返回所有 provider 的配置状态，前端据此决定哪些可选"""
     try:
         return get_all_providers_status()
@@ -455,7 +456,7 @@ async def generate_scenes_from_url(url: str, video_style: str = None, copy_style
 
 
 @router.post("/generate", response_model=GenerateContentResponse)
-async def generate_content(request: GenerateContentRequest):
+async def generate_content(request: GenerateContentRequest, current_user=Depends(get_current_user)):
     """生成AI内容"""
     try:
         scenes = []
@@ -602,7 +603,7 @@ async def generate_content(request: GenerateContentRequest):
 
 
 @router.post("/generate-cover", response_model=GenerateCoverResponse)
-async def generate_cover(request: GenerateCoverRequest):
+async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get_current_user)):
     """生成AI封面"""
     try:
         provider = request.provider or "gemini"
@@ -671,7 +672,7 @@ async def generate_cover(request: GenerateCoverRequest):
 
 
 @router.post("/optimize-prompt", response_model=OptimizePromptResponse)
-async def optimize_prompt(request: OptimizePromptRequest):
+async def optimize_prompt(request: OptimizePromptRequest, current_user=Depends(get_current_user)):
     """优化图片生成提示词"""
     try:
         result = await ai_service.optimize_prompt(request.prompt)
@@ -691,7 +692,7 @@ async def optimize_prompt(request: OptimizePromptRequest):
 
 
 @router.post("/style-transfer", response_model=StyleTransferResponse)
-async def style_transfer(request: StyleTransferRequest):
+async def style_transfer(request: StyleTransferRequest, current_user=Depends(get_current_user)):
     """风格迁移 - 将图片转换为艺术风格"""
     try:
         result = await ai_service.transfer_style(
@@ -739,7 +740,7 @@ async def style_transfer(request: StyleTransferRequest):
 
 
 @router.post("/sketch-to-image", response_model=SketchToImageResponse)
-async def sketch_to_image(request: SketchToImageRequest):
+async def sketch_to_image(request: SketchToImageRequest, current_user=Depends(get_current_user)):
     """草图转图片 - 基于用户手绘草图生成精美图片"""
     try:
         result = await ai_service.sketch_to_image(
@@ -762,7 +763,7 @@ async def sketch_to_image(request: SketchToImageRequest):
 
 
 @router.post("/face-portrait", response_model=FacePortraitResponse)
-async def face_portrait(request: FacePortraitRequest):
+async def face_portrait(request: FacePortraitRequest, current_user=Depends(get_current_user)):
     """AI写真生成 - 基于人脸照片生成特定场景下的写真"""
     try:
         result = await ai_service.face_portrait(
@@ -786,7 +787,7 @@ async def face_portrait(request: FacePortraitRequest):
 
 
 @router.post("/face-swap", response_model=FaceSwapResponse)
-async def face_swap(request: FaceSwapRequest):
+async def face_swap(request: FaceSwapRequest, current_user=Depends(get_current_user)):
     """人脸融合 - 将人脸融合到目标图片中"""
     try:
         result = await ai_service.face_swap(
@@ -809,7 +810,7 @@ async def face_swap(request: FaceSwapRequest):
 
 
 @router.post("/generate-music", response_model=GenerateMusicResponse)
-async def generate_music(request: GenerateMusicRequest):
+async def generate_music(request: GenerateMusicRequest, current_user=Depends(get_current_user)):
     """音乐生成"""
     try:
         provider = request.provider or "hf:music_gen"
@@ -834,7 +835,7 @@ async def generate_music(request: GenerateMusicRequest):
 
 
 @router.post("/recommend-music", response_model=RecommendMusicResponse)
-async def recommend_music(request: RecommendMusicRequest):
+async def recommend_music(request: RecommendMusicRequest, current_user=Depends(get_current_user)):
     """BGM智能推荐 - 根据视频分镜内容推荐合适的背景音乐风格"""
     try:
         scenes_data = [
@@ -871,7 +872,7 @@ async def recommend_music(request: RecommendMusicRequest):
 
 
 @router.post("/speech", response_model=SpeechResponse)
-async def generate_speech(request: SpeechRequest):
+async def generate_speech(request: SpeechRequest, current_user=Depends(get_current_user)):
     """语音生成 - 文字转语音"""
     try:
         generated_audio_path = await ai_service.generate_speech(
@@ -900,7 +901,7 @@ async def generate_speech(request: SpeechRequest):
 
 
 @router.post("/remove-background", response_model=BackgroundRemovalResponse)
-async def remove_background(request: BackgroundRemovalRequest):
+async def remove_background(request: BackgroundRemovalRequest, current_user=Depends(get_current_user)):
     """智能抠图 - 自动移除背景，生成透明PNG"""
     try:
         result = await ai_service.remove_background(
@@ -923,7 +924,7 @@ async def remove_background(request: BackgroundRemovalRequest):
 
 
 @router.post("/replace-background", response_model=BackgroundReplacementResponse)
-async def replace_background(request: BackgroundReplacementRequest):
+async def replace_background(request: BackgroundReplacementRequest, current_user=Depends(get_current_user)):
     """背景替换 - 移除原背景，合成新的AI生成背景"""
     try:
         result = await ai_service.replace_background(
@@ -949,7 +950,7 @@ async def replace_background(request: BackgroundReplacementRequest):
 
 
 @router.post("/generate-storyboard", response_model=StoryboardResponse)
-async def generate_storyboard(request: StoryboardRequest):
+async def generate_storyboard(request: StoryboardRequest, current_user=Depends(get_current_user)):
     """生成故事板 - 根据故事生成连续分镜"""
     try:
         frames = await ai_service.generate_storyboard(
@@ -974,7 +975,7 @@ async def generate_storyboard(request: StoryboardRequest):
 
 
 @router.post("/generate-image-hf", response_model=HuggingFaceImageResponse)
-async def generate_image_huggingface(request: HuggingFaceImageRequest):
+async def generate_image_huggingface(request: HuggingFaceImageRequest, current_user=Depends(get_current_user)):
     """使用 Hugging Face Turbo 模型生成图片
     
     这个端点使用 Hugging Face 的 Z-Image-Turbo 模型，提供快速的图片生成能力。
@@ -1003,7 +1004,7 @@ async def generate_image_huggingface(request: HuggingFaceImageRequest):
 
 
 @router.post("/generate-video-hf", response_model=HuggingFaceVideoResponse)
-async def generate_video_huggingface(request: HuggingFaceVideoRequest):
+async def generate_video_huggingface(request: HuggingFaceVideoRequest, current_user=Depends(get_current_user)):
     """使用 Hugging Face 模型生成视频
     
     这个端点使用 Hugging Face 的 Dream-wan2-2-faster-Pro 模型，
@@ -1035,7 +1036,7 @@ async def generate_video_huggingface(request: HuggingFaceVideoRequest):
 
 
 @router.post("/generate-video-image-audio", response_model=ImageAudioToVideoResponse)
-async def generate_video_image_audio(request: ImageAudioToVideoRequest):
+async def generate_video_image_audio(request: ImageAudioToVideoRequest, current_user=Depends(get_current_user)):
     """使用 Hugging Face 图片音频生成视频
     
     这个端点使用 Hugging Face 的 image_audio_to_video 模型，
@@ -1073,7 +1074,7 @@ async def generate_video_image_audio(request: ImageAudioToVideoRequest):
 
 
 @router.post("/analyze-transition", response_model=AnalyzeTransitionResponse)
-async def analyze_transition(request: AnalyzeTransitionRequest):
+async def analyze_transition(request: AnalyzeTransitionRequest, current_user=Depends(get_current_user)):
     """分析首尾帧图片，生成视频转场提示词
     
     使用视觉 AI 分析两张图片之间的差异，
@@ -1098,7 +1099,7 @@ async def analyze_transition(request: AnalyzeTransitionRequest):
 
 
 @router.post("/concatenate-videos", response_model=ConcatenateVideosResponse)
-async def concatenate_videos(request: ConcatenateVideosRequest):
+async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Depends(get_current_user)):
     """拼接多个视频为一个长视频
     
     使用 ffmpeg concat 协议将多个视频文件拼接为一个完整视频。

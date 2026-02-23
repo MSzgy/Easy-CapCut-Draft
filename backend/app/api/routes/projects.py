@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.services import crud
 
 router = APIRouter()
@@ -35,7 +36,7 @@ class SceneData(BaseModel):
 
 
 class SaveProjectRequest(BaseModel):
-    title: str = Field("Untitled Project")
+    title: Optional[str] = None
     mode: Optional[str] = None
     prompt: Optional[str] = None
     sourceUrl: Optional[str] = None
@@ -45,6 +46,8 @@ class SaveProjectRequest(BaseModel):
     generatedCopy: Optional[str] = None
     coverUrl: Optional[str] = None
     coverStyle: Optional[str] = None
+    combinedVideoUrl: Optional[str] = None
+    status: Optional[str] = None
     modelConfig: Optional[dict] = None
     scenes: List[SceneData] = Field(default_factory=list)
     # 如果传入 projectId，则更新而非新建
@@ -157,27 +160,45 @@ def _project_to_response(project) -> ProjectResponse:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/projects", response_model=dict)
-async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_db)):
+async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """保存或更新项目（含场景）"""
     if req.projectId:
         # 更新已有项目
         project = await crud.get_project(db, req.projectId)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
-        await crud.update_project(
-            db, req.projectId,
-            title=req.title,
-            mode=req.mode,
-            prompt=req.prompt,
-            source_url=req.sourceUrl,
-            description=req.description,
-            video_style=req.videoStyle,
-            copy_style=req.copyStyle,
-            generated_copy=req.generatedCopy,
-            cover_url=req.coverUrl,
-            cover_style=req.coverStyle,
-            model_config_snapshot=req.modelConfig,
-        )
+
+        # 只更新非 None 的字段，避免覆盖已有数据
+        update_fields: dict = {}
+        field_map = {
+            "title": req.title,
+            "mode": req.mode,
+            "prompt": req.prompt,
+            "source_url": req.sourceUrl,
+            "description": req.description,
+            "video_style": req.videoStyle,
+            "copy_style": req.copyStyle,
+            "generated_copy": req.generatedCopy,
+            "cover_url": req.coverUrl,
+            "cover_style": req.coverStyle,
+            "combined_video_url": req.combinedVideoUrl,
+            "model_config_snapshot": req.modelConfig,
+        }
+        for k, v in field_map.items():
+            if v is not None:
+                update_fields[k] = v
+
+        # status 需要转换为 enum
+        if req.status is not None:
+            from app.models.models import ProjectStatus
+            try:
+                update_fields["status"] = ProjectStatus(req.status)
+            except ValueError:
+                pass
+
+        if update_fields:
+            await crud.update_project(db, req.projectId, **update_fields)
+
         # 删旧场景，重建
         from sqlalchemy import delete as sa_delete
         from app.models.models import Scene
@@ -190,7 +211,7 @@ async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_d
         # 创建新项目
         project = await crud.create_project(
             db,
-            title=req.title,
+            title=req.title or "Untitled Project",
             mode=req.mode,
             prompt=req.prompt,
             source_url=req.sourceUrl,
@@ -215,7 +236,7 @@ async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_d
 
 
 @router.get("/projects", response_model=dict)
-async def list_projects(limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
+async def list_projects(limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """列出所有项目"""
     projects = await crud.list_projects(db, limit=limit, offset=offset)
     return {
@@ -225,7 +246,7 @@ async def list_projects(limit: int = 50, offset: int = 0, db: AsyncSession = Dep
 
 
 @router.get("/projects/latest", response_model=dict)
-async def get_latest_project(db: AsyncSession = Depends(get_db)):
+async def get_latest_project(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """获取最新项目（前端启动恢复用）"""
     projects = await crud.list_projects(db, limit=1)
     if not projects:
@@ -237,7 +258,7 @@ async def get_latest_project(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/projects/{project_id}", response_model=dict)
-async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
+async def get_project(project_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """获取单个项目"""
     project = await crud.get_project(db, project_id)
     if not project:
@@ -249,7 +270,7 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/projects/{project_id}", response_model=dict)
-async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_project(project_id: str, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """删除项目"""
     deleted = await crud.delete_project(db, project_id)
     if not deleted:
@@ -260,7 +281,7 @@ async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
 # ── History Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/history/audio", response_model=dict)
-async def get_audio_history(limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def get_audio_history(limit: int = 50, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """获取语音生成历史"""
     audios = await crud.list_generated_audios(db, limit=limit)
     return {
@@ -282,7 +303,7 @@ async def get_audio_history(limit: int = 50, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/history/music", response_model=dict)
-async def get_music_history(limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def get_music_history(limit: int = 50, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """获取音乐生成历史"""
     music_list = await crud.list_generated_music(db, limit=limit)
     return {

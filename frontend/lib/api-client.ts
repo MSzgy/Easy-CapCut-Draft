@@ -21,10 +21,17 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
 
+    // 从 localStorage 读取 token（仅客户端）
+    let authToken: string | null = null
+    if (typeof window !== 'undefined') {
+      authToken = localStorage.getItem('clipforge_token')
+    }
+
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...options.headers,
       },
       signal: AbortSignal.timeout(timeoutMs),
@@ -32,6 +39,19 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config)
+
+      if (response.status === 401) {
+        // Token 过期或无效，清除并跳转到登录页
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('clipforge_token')
+          localStorage.removeItem('clipforge_user')
+          // 避免在登录页时循环跳转
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login'
+          }
+        }
+        throw { detail: '未认证，请重新登录', status: 401 } as ApiError
+      }
 
       if (!response.ok) {
         const error: ApiError = await response.json().catch(() => ({
