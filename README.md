@@ -82,7 +82,7 @@ cd ..
 #### 启动后端
 ```bash
 cd backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+source .venv/bin/activate && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 #### 启动前端
