@@ -41,6 +41,7 @@ export interface GenerateContentRequest {
   }>
   textProvider?: string
   imageProvider?: string
+  videoAnalysis?: string // Video analysis text from /ai/analyze-video
 }
 
 export interface GenerateContentResponse {
@@ -527,6 +528,39 @@ export const aiContentApi = {
       throw new Error(apiError.detail || 'Failed to recommend music')
     }
   },
+
+  /**
+   * 视频内容分析 — 上传视频文件，使用AI分析并返回文本描述
+   */
+  async analyzeVideo(file: File): Promise<AnalyzeVideoResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/proxy'
+    const url = `${API_BASE_URL}/ai/analyze-video`
+
+    let authToken: string | null = null
+    if (typeof window !== 'undefined') {
+      authToken = localStorage.getItem('clipforge_token')
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        // Do NOT set Content-Type — browser will set multipart/form-data with boundary
+      },
+      body: formData,
+      signal: AbortSignal.timeout(600_000), // 10 minutes for large video uploads
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }))
+      throw new Error(error.detail || 'Failed to analyze video')
+    }
+
+    return await response.json()
+  },
 }
 
 export interface MusicRecommendation {
@@ -536,4 +570,10 @@ export interface MusicRecommendation {
   bpmRange: string
   prompt: string
   reason: string
+}
+
+export interface AnalyzeVideoResponse {
+  success: boolean
+  message: string
+  analysis: string
 }

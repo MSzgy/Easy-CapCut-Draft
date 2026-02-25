@@ -9,7 +9,7 @@ REGISTRY dicts below.
 from functools import lru_cache
 from typing import Dict, Type, List, Any
 
-from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider, AudioProvider, MusicProvider
+from app.providers.base import TextProvider, ImageProvider, VisionProvider, VideoProvider, AudioProvider, MusicProvider, VideoUnderstandingProvider
 from app.core.config import settings
 
 
@@ -61,6 +61,13 @@ def _music_registry() -> Dict[str, Type[MusicProvider]]:
     from app.providers.huggingface import HuggingFaceProvider
     return {
         "huggingface": HuggingFaceProvider,
+    }
+
+
+def _video_understanding_registry() -> Dict[str, Type[VideoUnderstandingProvider]]:
+    from app.providers.gemini_video_understanding import GeminiVideoUnderstandingProvider
+    return {
+        "gemini": GeminiVideoUnderstandingProvider,
     }
 
 
@@ -129,6 +136,7 @@ def get_all_providers_status() -> Dict[str, Any]:
         "vision": (_vision_registry, "VISION_PROVIDER", "gemini"),
         "video":  (_video_registry,  "VIDEO_PROVIDER",  "huggingface"),
         "audio":  (_audio_registry,  "AUDIO_PROVIDER",  "huggingface"),
+        "video_understanding": (_video_understanding_registry, "VISION_PROVIDER", "gemini"),
     }
 
     result = {}
@@ -215,3 +223,9 @@ def get_audio_provider(name: str = None) -> AudioProvider:
 def get_music_provider(name: str = None) -> MusicProvider:
     name = name or getattr(settings, "MUSIC_PROVIDER", "huggingface")
     return _create_provider(_music_registry(), name, "music")
+
+
+@lru_cache()
+def get_video_understanding_provider(name: str = None) -> VideoUnderstandingProvider:
+    name = name or getattr(settings, "VISION_PROVIDER", "gemini")
+    return _create_provider(_video_understanding_registry(), name, "video_understanding")

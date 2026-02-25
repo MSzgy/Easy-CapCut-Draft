@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     GEMINI_TEXT_MODEL: str = "gemini-2.5-flash"
     GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"
     GEMINI_MAX_TOKENS: int = 200000
+    GEMINI_OFFICIAL_API_KEY: str = ""  # 直连 Google 官方 API 的 key（用于视频分析等需要 Files API 的功能）
 
     # ─── OpenAI 兼容配置 ───
     OPENAI_BASE_URL: str = ""

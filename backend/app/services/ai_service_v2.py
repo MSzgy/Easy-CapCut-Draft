@@ -12,7 +12,7 @@ import json
 import re
 from typing import Optional, List
 
-from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest, AudioRequest, MusicRequest
+from app.providers.base import TextRequest, ImageRequest, VisionRequest, VideoRequest, AudioRequest, MusicRequest, VideoUnderstandingRequest
 from app.providers.factory import (
     get_text_provider,
     get_image_provider,
@@ -22,6 +22,7 @@ from app.providers.factory import (
     get_video_provider,
     get_audio_provider,
     get_music_provider,
+    get_video_understanding_provider,
 )
 from app.core.config import settings
 
@@ -111,6 +112,21 @@ class AIService:
         """Analyze two frames and generate a cinematic transition/motion prompt."""
         provider = get_vision_provider()
         return await provider.analyze_transition(first_frame, end_frame)
+
+    # ── Video Understanding ───────────────────────────────────────────────
+
+    async def analyze_video(
+        self,
+        file_path: str,
+        prompt: Optional[str] = None,
+        provider: Optional[str] = None,
+    ) -> str:
+        """Analyze a video file and return text analysis."""
+        provider_instance = get_video_understanding_provider(provider)
+        request = VideoUnderstandingRequest(file_path=file_path)
+        if prompt:
+            request.prompt = prompt
+        return await provider_instance.analyze_video(request)
 
     # ── Video ─────────────────────────────────────────────────────────────
 

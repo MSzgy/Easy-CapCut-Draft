@@ -176,3 +176,25 @@ class MusicProvider(ABC):
     @abstractmethod
     async def close(self) -> None:
         ...
+
+
+@dataclass
+class VideoUnderstandingRequest:
+    """Unified request for video understanding / analysis."""
+    file_path: str                  # local path to the video file
+    prompt: str = "请详细分析这个视频的内容，包括：1. 视频的主题和概要 2. 关键场景描述（带时间戳）3. 视觉风格和色调 4. 适合的视频文案建议"
+    max_tokens: int = 8000
+
+
+class VideoUnderstandingProvider(ABC):
+    """Interface for video understanding / analysis providers."""
+
+    @abstractmethod
+    async def analyze_video(self, request: VideoUnderstandingRequest) -> str:
+        """Analyze a video file and return text analysis."""
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        """Release resources."""
+        ...

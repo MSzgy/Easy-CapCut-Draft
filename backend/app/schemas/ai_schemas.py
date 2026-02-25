@@ -50,6 +50,9 @@ class GenerateContentRequest(BaseModel):
     # 模型选择
     textProvider: Optional[str] = Field("gemini", description="文本生成模型提供商")
     imageProvider: Optional[str] = Field("gemini", description="图片生成模型提供商")
+    
+    # 视频分析结果 (由前端先调用 /ai/analyze-video 获取，再传入)
+    videoAnalysis: Optional[str] = Field(None, description="视频内容分析文本（来自 analyze-video 接口）")
 
 
 class GenerateContentResponse(BaseModel):
@@ -398,3 +401,11 @@ class RecommendMusicResponse(BaseModel):
     success: bool
     message: str
     recommendations: List[MusicRecommendation] = Field(default_factory=list)
+
+
+# Video Understanding / Analysis
+class AnalyzeVideoResponse(BaseModel):
+    """视频分析响应"""
+    success: bool
+    message: str
+    analysis: str = Field(..., description="视频内容分析文本")

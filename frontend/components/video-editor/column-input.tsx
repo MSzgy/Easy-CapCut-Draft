@@ -55,6 +55,7 @@ interface UploadedAsset {
   url: string
   progress: number
   content?: string // Base64 content
+  file?: File // Raw File object (for video upload)
 }
 
 export interface SceneContent {
@@ -270,6 +271,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
       size: formatFileSize(file.size),
       url: URL.createObjectURL(file),
       progress: 0,
+      file: getFileType(file) === "video" ? file : undefined, // Keep File ref for videos
     }))
 
     setUploadedAssets((prev) => [...prev, ...newAssets])
@@ -433,6 +435,31 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
         activeTab === "upload" ? uploadVideoStyle :
           activeTab === "url" ? urlVideoStyle : undefined
 
+      // If upload mode with video files, analyze them first
+      let videoAnalysisText: string | undefined
+      if (activeTab === "upload") {
+        const videoAssets = uploadedAssets.filter(a => a.type === "video" && a.file)
+        if (videoAssets.length > 0) {
+          try {
+            // Analyze the first video file
+            const videoFile = videoAssets[0].file!
+            console.log(`📹 Analyzing video: ${videoFile.name} (${videoFile.size} bytes)`)
+            const analysisResult = await aiContentApi.analyzeVideo(videoFile)
+            if (analysisResult.success) {
+              videoAnalysisText = analysisResult.analysis
+              console.log(`✅ Video analysis complete: ${videoAnalysisText.substring(0, 200)}...`)
+            }
+          } catch (videoErr) {
+            console.error("Video analysis failed:", videoErr)
+            toast({
+              title: "Video Analysis Warning",
+              description: "Could not analyze video content. Generating with basic info.",
+              variant: "destructive",
+            })
+          }
+        }
+      }
+
       const response = await aiContentApi.generateContent({
         mode: activeTab as "upload" | "prompt" | "url",
         prompt: activeTab === "prompt" ? prompt : undefined,
@@ -453,6 +480,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
         })) : undefined,
         textProvider: modelSelection?.textProvider,
         imageProvider: modelSelection?.imageProvider,
+        videoAnalysis: videoAnalysisText,
       })
 
       if (response.success) {

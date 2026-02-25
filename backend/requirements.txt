@@ -34,3 +34,5 @@ email-validator==2.2.0
 # Hugging Face
 gradio_client==1.5.0
 
+# Google GenAI (Gemini Files API for video understanding)
+google-genai

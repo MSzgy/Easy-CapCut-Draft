@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from app.schemas.ai_schemas import (
     GenerateContentRequest,
     GenerateContentResponse,
@@ -40,6 +40,7 @@ from app.schemas.ai_schemas import (
     RecommendMusicRequest,
     RecommendMusicResponse,
     MusicRecommendation,
+    AnalyzeVideoResponse,
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
@@ -47,6 +48,8 @@ from app.core.auth import get_current_user, require_admin
 from typing import List
 import json
 import re
+import os
+import tempfile
 
 router = APIRouter()
 
@@ -572,22 +575,42 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
                         )
                     ]
             else:
-                # 没有任何图片或图片内容
-                from app.schemas.ai_schemas import ImageMetadata
-                scenes = [
-                    SceneContent(
-                        id="scene_1",
-                        timestamp="0:00 - 0:10",
-                        script="基于上传素材生成的场景",
-                        imageUrl="https://images.unsplash.com/photo-1460925895917?w=400&h=300&fit=crop",
-                        imageDescription="Generic scene",
-                        imageMetadata=ImageMetadata(
-                            description="Generic scene",
-                            tags=["通用"]
-                        ),
-                        duration=10
+                # 没有图片 — 检查是否有视频分析文本
+                if request.videoAnalysis:
+                    # 基于视频分析结果生成场景
+                    print(f"📹 使用视频分析结果生成场景...")
+                    scenes = await generate_scenes_from_prompt(
+                        f"基于以下视频内容分析生成视频分镜：\n{request.videoAnalysis}",
+                        request.videoStyle or "promo",
+                        request.styleKeywords,
+                        request.generateImages,
+                        request.styleReferenceImage,
+                        text_provider=request.textProvider,
+                        image_provider=request.imageProvider,
+                        num_frames=request.numFrames,
+                        scene_duration=request.sceneDuration or 5
                     )
-                ]
+                    
+                    if not request.generateImages:
+                        for scene in scenes:
+                            scene.imageUrl = ""
+                else:
+                    # 没有任何图片、视频分析或其他内容
+                    from app.schemas.ai_schemas import ImageMetadata
+                    scenes = [
+                        SceneContent(
+                            id="scene_1",
+                            timestamp="0:00 - 0:10",
+                            script="基于上传素材生成的场景",
+                            imageUrl="https://images.unsplash.com/photo-1460925895917?w=400&h=300&fit=crop",
+                            imageDescription="Generic scene",
+                            imageMetadata=ImageMetadata(
+                                description="Generic scene",
+                                tags=["通用"]
+                            ),
+                            duration=10
+                        )
+                    ]
 
         return GenerateContentResponse(
             success=True,
@@ -670,6 +693,58 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
             detail=f"封面生成失败: {str(e)}"
         )
 
+
+@router.post("/analyze-video", response_model=AnalyzeVideoResponse)
+async def analyze_video(
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user)
+):
+    """分析视频内容 — 上传视频文件，使用AI分析内容并返回文本描述"""
+    # Validate file type
+    allowed_extensions = {"mp4", "mov", "avi", "webm", "mkv"}
+    file_ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename else ""
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的视频格式: .{file_ext}，支持: {', '.join(allowed_extensions)}"
+        )
+
+    temp_path = None
+    try:
+        # Save uploaded file to temp location
+        suffix = f".{file_ext}"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir=os.path.join(".", "uploads")) as tmp:
+            temp_path = tmp.name
+            # Read in chunks to handle large files
+            while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                tmp.write(chunk)
+
+        print(f"📁 Video saved to temp: {temp_path} ({os.path.getsize(temp_path)} bytes)")
+
+        # Delegate to provider via service
+        analysis = await ai_service.analyze_video(file_path=temp_path)
+
+        return AnalyzeVideoResponse(
+            success=True,
+            message="视频分析成功",
+            analysis=analysis
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"视频分析失败: {str(e)}"
+        )
+    finally:
+        # Clean up temp file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+                print(f"🗑️ Cleaned up temp file: {temp_path}")
+            except Exception as cleanup_err:
+                print(f"⚠️ Failed to clean up temp file: {cleanup_err}")
 
 @router.post("/optimize-prompt", response_model=OptimizePromptResponse)
 async def optimize_prompt(request: OptimizePromptRequest, current_user=Depends(get_current_user)):
