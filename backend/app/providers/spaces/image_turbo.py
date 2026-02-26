@@ -53,13 +53,19 @@ class ImageTurboAdapter(SpaceAdapter):
         }
         width, height = size_map.get(request.size, (1024, 576))
 
+        # Select model and inference steps
+        model_name = getattr(request, "image_model", None) or "Z-Image-Turbo"
+        num_inference_steps = 50 if model_name == "BitDance-14B-16x" else 9
+
         return {
+            "model_name": model_name,
             "prompt": full_prompt,
             "height": height,
             "width": width,
-            "num_inference_steps": 9,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": 8,
             "seed": random.randint(10, 10000),
-            "randomize_seed": False,
+            "randomize_seed": True,
         }
 
     def parse_result(self, result: Any) -> str:

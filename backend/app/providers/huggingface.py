@@ -69,8 +69,11 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
             gradio_client.utils.value_is_file = patched_value_is_file
 
             try:
+                import httpx
+                # Disable SSL verification and use HTTP/2 to bypass unstable proxy SSL handshakes
+                # http_client = httpx.Client(verify=False, http2=True, timeout=120.0)
                 client = Client(adapter.space_id, token=self.hf_token)
-                print(adapter.space_id)
+                print(f"Connected to {adapter.space_id}")
                 return client.predict(**params, api_name=adapter.api_name)
             except Exception:
                 traceback.print_exc()
@@ -80,9 +83,26 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
                 gradio_client.utils.get_type = original_get_type
                 gradio_client.utils.value_is_file = original_value_is_file
 
-        result = await asyncio.to_thread(_run)
-        print(result)
-        return adapter.parse_result(result)
+        MAX_RETRIES = 10
+        last_err = None
+
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                print(f"🖼️ Image generation attempt {attempt}/{MAX_RETRIES} "
+                      f"(space: {adapter.space_id})...")
+                result = await asyncio.to_thread(_run)
+                parsed = adapter.parse_result(result)
+                print(f"✅ Image generated (attempt {attempt})")
+                return parsed
+            except Exception as e:
+                last_err = e
+                print(f"⚠️ Attempt {attempt}/{MAX_RETRIES} failed: {e}")
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(attempt * 2)
+
+        raise Exception(
+            f"HF image generation failed after {MAX_RETRIES} retries: {last_err}"
+        )
 
     # ── VideoProvider ─────────────────────────────────────────────────────
 
@@ -95,7 +115,10 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
 
         def _run():
             from gradio_client import Client
-            client = Client(adapter.space_id, token=self.hf_token)
+            import httpx
+            http_client = httpx.Client(verify=False, http2=True, timeout=120.0)
+            client = Client(adapter.space_id, token=self.hf_token, httpx_client=http_client)
+            print(f"Connected to {adapter.space_id} (verify=False)")
             return client.predict(**params, api_name=adapter.api_name)
 
         last_err = None
@@ -136,7 +159,10 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
 
         def _run():
             from gradio_client import Client
-            client = Client(adapter.space_id, token=self.hf_token)
+            import httpx
+            http_client = httpx.Client(verify=False, http2=True, timeout=120.0)
+            client = Client(adapter.space_id, token=self.hf_token, httpx_client=http_client)
+            print(f"Connected to {adapter.space_id} (verify=False)")
             return client.predict(**params, api_name=adapter.api_name)
 
         result = await asyncio.to_thread(_run)
@@ -171,8 +197,11 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
         
         try:
             def _run_clone():
+                import httpx
                 from gradio_client import Client
-                client = Client(adapter.space_id, token=self.hf_token)
+                http_client = httpx.Client(verify=False, http2=True, timeout=120.0)
+                client = Client(adapter.space_id, token=self.hf_token, httpx_client=http_client)
+                print(f"Connected to {adapter.space_id} (verify=False)")
                 
                 # Qwen3-TTS specific signature for voice cloning
                 # Note: api_name might differ for other spaces, but we optimize for Qwen3-TTS here
@@ -212,7 +241,10 @@ class HuggingFaceProvider(ImageProvider, VideoProvider, AudioProvider, MusicProv
 
         def _run():
             from gradio_client import Client
-            client = Client(adapter.space_id, token=self.hf_token)
+            import httpx
+            http_client = httpx.Client(verify=False, http2=True, timeout=120.0)
+            client = Client(adapter.space_id, token=self.hf_token, httpx_client=http_client)
+            print(f"Connected to {adapter.space_id} (verify=False)")
             return client.predict(**params, api_name=adapter.api_name)
 
         result = await asyncio.to_thread(_run)

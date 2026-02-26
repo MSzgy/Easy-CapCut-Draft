@@ -62,11 +62,24 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
         // HF image spaces
         Object.entries(providerStatus.hf_spaces || {}).forEach(([alias, info]) => {
             if (info.capability === "image") {
-                imageOptions.push({
-                    value: `hf:${alias}`,
-                    label: `${info.display_name} (${info.space_id})`,
-                    configured: info.configured,
-                })
+                if (alias === "image_turbo") {
+                    imageOptions.push({
+                        value: `hf:${alias}:Z-Image-Turbo`,
+                        label: `Image Turbo (Z-Image)`,
+                        configured: info.configured,
+                    })
+                    imageOptions.push({
+                        value: `hf:${alias}:BitDance-14B-16x`,
+                        label: `Image Turbo (BitDance)`,
+                        configured: info.configured,
+                    })
+                } else {
+                    imageOptions.push({
+                        value: `hf:${alias}`,
+                        label: `${info.display_name} (${info.space_id})`,
+                        configured: info.configured,
+                    })
+                }
             }
         })
     }

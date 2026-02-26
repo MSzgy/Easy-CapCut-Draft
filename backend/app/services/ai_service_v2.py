@@ -63,6 +63,7 @@ class AIService:
         denoising_strength: float = 0.7,
         preserve_composition: bool = False,
         style_weights: Optional[dict] = None,
+        image_model: Optional[str] = None,
         provider: Optional[str] = None,
     ) -> str:
         if provider and provider.startswith("hf:"):
@@ -85,6 +86,7 @@ class AIService:
             denoising_strength=denoising_strength,
             preserve_composition=preserve_composition,
             style_weights=style_weights,
+            image_model=image_model,
         ))
 
     # ── Vision ────────────────────────────────────────────────────────────
@@ -768,7 +770,7 @@ Format as a numbered list."""
             **{k: v for k, v in kwargs.items()
                if k in ('style', 'theme', 'style_keywords', 'negative_prompt',
                          'resolution', 'reference_image', 'denoising_strength',
-                         'preserve_composition', 'style_weights')},
+                         'preserve_composition', 'style_weights', 'image_model')},
         )
 
     # ── Video Project ─────────────────────────────────────────────────────

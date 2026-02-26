@@ -202,7 +202,7 @@ async def extract_url_content(url: str, text_provider: str = None) -> dict:
         }
 
 
-async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True, user_style_reference: str = None, image_provider: str = None):
+async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: str = None, style_keywords: list = None, use_style_reference: bool = True, user_style_reference: str = None, image_provider: str = None, image_model: str = None):
     """为场景批量生成图片，保持风格一致性
     
     Args:
@@ -274,7 +274,8 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
                 reference_image=style_ref,
                 denoising_strength=denoising,
                 preserve_composition=False,  # 不保留构图，只保留风格
-                provider=image_provider
+                provider=image_provider,
+                image_model=image_model
             )
             
             # 更新场景的imageUrl
@@ -313,7 +314,7 @@ async def generate_images_for_scenes(scenes: List[SceneContent], unified_style: 
     print(f"✨ 所有场景图片生成完成")
 
 
-async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None, scene_duration: int = 5) -> List[SceneContent]:
+async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, image_model: str = None, num_frames: int = None, scene_duration: int = 5) -> List[SceneContent]:
     """根据提示词生成场景"""
     # Build keywords context if provided
     keywords_context = ""
@@ -420,7 +421,7 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
 
         # 并行生成所有场景的图片（传递统一风格参数保持一致性）
         if scenes and generate_images:
-            await generate_images_for_scenes(scenes, video_style, style_keywords, user_style_reference=style_reference_image, image_provider=image_provider)
+            await generate_images_for_scenes(scenes, video_style, style_keywords, user_style_reference=style_reference_image, image_provider=image_provider, image_model=image_model)
 
         return scenes
 
@@ -445,13 +446,13 @@ async def generate_scenes_from_prompt(prompt: str, video_style: str = "promo", s
         ]
 
 
-async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, num_frames: int = None, scene_duration: int = 5) -> tuple[List[SceneContent], str | None]:
+async def generate_scenes_from_url(url: str, video_style: str = None, copy_style: str = None, style_keywords: list = None, generate_images: bool = True, style_reference_image: str = None, text_provider: str = None, image_provider: str = None, image_model: str = None, num_frames: int = None, scene_duration: int = 5) -> tuple[List[SceneContent], str | None]:
     """根据URL生成场景"""
     # 1. 提取网页内容
     web_content = await extract_url_content(url, text_provider=text_provider)
     try: 
         generated_copy = await ai_service.generate_copy(web_content['main_content'], copy_style, provider=text_provider)
-        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider, num_frames=num_frames, scene_duration=scene_duration)
+        scenes = await generate_scenes_from_prompt(web_content['main_content'], video_style, style_keywords, generate_images, style_reference_image, text_provider=text_provider, image_provider=image_provider, image_model=image_model, num_frames=num_frames, scene_duration=scene_duration)
         return scenes, generated_copy
     except Exception as e:
         print(f"从URL生成场景失败: {str(e)}")
@@ -468,6 +469,17 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
         if request.mode == "prompt":
             if not request.prompt:
                 raise HTTPException(status_code=400, detail="Prompt is required for prompt mode")
+            
+            # Parse potential image_model from imageProvider
+            image_provider_raw = request.imageProvider or "gemini"
+            image_provider = image_provider_raw
+            image_model = None
+            if image_provider_raw.startswith("hf:") and ":" in image_provider_raw[3:]:
+                parts = image_provider_raw[3:].split(":")
+                image_provider = f"hf:{parts[0]}"
+                if len(parts) > 1:
+                    image_model = ":".join(parts[1:])
+
             scenes = await generate_scenes_from_prompt(
                 request.prompt, 
                 request.videoStyle or "promo", 
@@ -475,7 +487,8 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
                 request.generateImages, 
                 request.styleReferenceImage, 
                 text_provider=request.textProvider, 
-                image_provider=request.imageProvider,
+                image_provider=image_provider, # Use parsed image_provider
+                image_model=image_model,       # Use parsed image_model
                 num_frames=request.numFrames,
                 scene_duration=request.sceneDuration or 5
             )
@@ -488,7 +501,30 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
         elif request.mode == "url":
             if not request.url:
                 raise HTTPException(status_code=400, detail="URL is required for url mode")
-            scenes, generated_copy = await generate_scenes_from_url(request.url, request.videoStyle or "promo", request.copyStyle, request.styleKeywords, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames, scene_duration=request.sceneDuration or 5)
+            
+            # Parse potential image_model from imageProvider
+            image_provider_raw = request.imageProvider or "gemini"
+            image_provider = image_provider_raw
+            image_model = None
+            if image_provider_raw.startswith("hf:") and ":" in image_provider_raw[3:]:
+                parts = image_provider_raw[3:].split(":")
+                image_provider = f"hf:{parts[0]}"
+                if len(parts) > 1:
+                    image_model = ":".join(parts[1:])
+
+            scenes, generated_copy = await generate_scenes_from_url(
+                request.url, 
+                request.videoStyle or "promo", 
+                request.copyStyle, 
+                request.styleKeywords, 
+                request.generateImages, 
+                request.styleReferenceImage, 
+                text_provider=request.textProvider, 
+                image_provider=image_provider, # Use parsed image_provider
+                image_model=image_model,       # Use parsed image_model
+                num_frames=request.numFrames, 
+                scene_duration=request.sceneDuration or 5
+            )
             
             # 如果不生成图片，清空 imageUrl
             if not request.generateImages:
@@ -525,9 +561,28 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
                             """
                     image_analysis = await ai_service.analyze_image_detailed(prompt, image_content)
 
-                    # 基于图片识别结果生成场景
-                    basic_description = await ai_service.analyze_image(image_content)
-                    scenes = await generate_scenes_from_prompt(f"基于以下图片内容的描述生成视频：{basic_description}", "promo", None, request.generateImages, request.styleReferenceImage, text_provider=request.textProvider, image_provider=request.imageProvider, num_frames=request.numFrames, scene_duration=request.sceneDuration or 5)
+                    # Parse potential image_model from imageProvider
+                    image_provider_raw = request.imageProvider or "gemini"
+                    image_provider = image_provider_raw
+                    image_model = None
+                    if image_provider_raw.startswith("hf:") and ":" in image_provider_raw[3:]:
+                        parts = image_provider_raw[3:].split(":")
+                        image_provider = f"hf:{parts[0]}"
+                        if len(parts) > 1:
+                            image_model = ":".join(parts[1:])
+
+                    scenes = await generate_scenes_from_prompt(
+                        f"基于以下图片内容的描述生成视频：{basic_description}", 
+                        "promo", 
+                        None, 
+                        request.generateImages, 
+                        request.styleReferenceImage, 
+                        text_provider=request.textProvider, 
+                        image_provider=image_provider, # Use parsed image_provider
+                        image_model=image_model,       # Use parsed image_model
+                        num_frames=request.numFrames, 
+                        scene_duration=request.sceneDuration or 5
+                    )
                     
                     # 如果不生成图片，清空 imageUrl
                     if not request.generateImages:
@@ -577,6 +632,16 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
             else:
                 # 没有图片 — 检查是否有视频分析文本
                 if request.videoAnalysis:
+                    # Parse potential image_model from imageProvider
+                    image_provider_raw = request.imageProvider or "gemini"
+                    image_provider = image_provider_raw
+                    image_model = None
+                    if image_provider_raw.startswith("hf:") and ":" in image_provider_raw[3:]:
+                        parts = image_provider_raw[3:].split(":")
+                        image_provider = f"hf:{parts[0]}"
+                        if len(parts) > 1:
+                            image_model = ":".join(parts[1:])
+
                     # 基于视频分析结果生成场景
                     print(f"📹 使用视频分析结果生成场景...")
                     user_req = f"\n\n附加要求：{request.prompt}" if request.prompt else ""
@@ -587,7 +652,8 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
                         request.generateImages,
                         request.styleReferenceImage,
                         text_provider=request.textProvider,
-                        image_provider=request.imageProvider,
+                        image_provider=image_provider, # Use parsed image_provider
+                        image_model=image_model,       # Use parsed image_model
                         num_frames=request.numFrames,
                         scene_duration=request.sceneDuration or 5
                     )
@@ -632,6 +698,14 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
     try:
         provider = request.provider or "gemini"
         
+        # Parse potential image_model from provider
+        image_model = None
+        if provider.startswith("hf:") and ":" in provider[3:]:
+            parts = provider[3:].split(":")
+            provider = f"hf:{parts[0]}"
+            if len(parts) > 1:
+                image_model = ":".join(parts[1:])
+
         # Parse provider format: "hf:alias" or plain name
         if provider.startswith("hf:"):
             # HuggingFace space specified, e.g. "hf:image_turbo"
@@ -664,7 +738,7 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 reference_image=request.referenceImage,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
-                image_space=space_alias,
+                image_model=image_model # Use parsed image_model
             )
         else:
             # Gemini or other providers
@@ -679,7 +753,8 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 reference_image=request.referenceImage,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
-                style_weights=request.styleWeights
+                style_weights=request.styleWeights,
+                image_model=image_model # Use parsed image_model
             )
             
         return GenerateCoverResponse(
@@ -1059,15 +1134,22 @@ async def generate_image_huggingface(request: HuggingFaceImageRequest, current_u
     适合需要快速生成图片原型的场景。
     """
     try:
+        provider = request.provider or "hf:image_turbo" # Default to a specific HF model if not provided
+        image_model = None
+        if provider.startswith("hf:") and ":" in provider[3:]:
+            parts = provider[3:].split(":")
+            provider = f"hf:{parts[0]}"
+            if len(parts) > 1:
+                image_model = ":".join(parts[1:])
+
         result = await ai_service.generate_image_huggingface(
             prompt=request.prompt,
             height=request.height,
             width=request.width,
-            num_inference_steps=request.numInferenceSteps,
             seed=request.seed,
-            randomize_seed=request.randomizeSeed
+            randomize_seed=request.randomizeSeed,
+            image_model=image_model # Use parsed image_model
         )
-        
         return HuggingFaceImageResponse(
             success=True,
             message="图片生成成功",

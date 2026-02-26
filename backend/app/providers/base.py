@@ -35,6 +35,7 @@ class ImageRequest:
     denoising_strength: float = 0.7
     preserve_composition: bool = False
     style_weights: Optional[Dict[str, float]] = None
+    image_model: Optional[str] = None
 
 
 @dataclass
