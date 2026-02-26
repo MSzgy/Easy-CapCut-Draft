@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Loader2,
   Download,
+  Film,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -216,6 +217,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
   // Video Style for Upload and URL
   const [uploadVideoStyle, setUploadVideoStyle] = useState("promo")
   const [urlVideoStyle, setUrlVideoStyle] = useState("promo")
+  const [uploadPrompt, setUploadPrompt] = useState("")
 
   // Image Preview State
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
@@ -441,10 +443,10 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
         const videoAssets = uploadedAssets.filter(a => a.type === "video" && a.file)
         if (videoAssets.length > 0) {
           try {
-            // Analyze the first video file
+            // Analyze the first video file with the upload prompt if any
             const videoFile = videoAssets[0].file!
             console.log(`📹 Analyzing video: ${videoFile.name} (${videoFile.size} bytes)`)
-            const analysisResult = await aiContentApi.analyzeVideo(videoFile)
+            const analysisResult = await aiContentApi.analyzeVideo(videoFile, uploadPrompt)
             if (analysisResult.success) {
               videoAnalysisText = analysisResult.analysis
               console.log(`✅ Video analysis complete: ${videoAnalysisText.substring(0, 200)}...`)
@@ -462,7 +464,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
 
       const response = await aiContentApi.generateContent({
         mode: activeTab as "upload" | "prompt" | "url",
-        prompt: activeTab === "prompt" ? prompt : undefined,
+        prompt: activeTab === "prompt" ? prompt : activeTab === "upload" ? uploadPrompt : undefined,
         videoStyle: selectedStyle,
         styleKeywords: selectedStyle ? videoStyleKeywords[selectedStyle] : undefined,
         url: activeTab === "url" ? url : undefined,
@@ -783,9 +785,26 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
                 </div>
               )}
 
+              {/* Upload Prompt Guidance */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1 border-b pb-1 text-xs font-semibold text-muted-foreground">
+                  <Type className="h-3.5 w-3.5" />
+                  内容提示词 (可选)
+                </Label>
+                <Textarea
+                  value={uploadPrompt}
+                  onChange={(e) => setUploadPrompt(e.target.value)}
+                  placeholder="添加提示词引导AI更好地理解上传的素材，例如：这是一个产品开箱视频，请提炼3个卖点。"
+                  className="min-h-[80px] resize-none bg-secondary/50 text-sm"
+                />
+              </div>
+
               {/* Video Style Selection */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">视频风格</Label>
+                <Label className="flex items-center gap-1 border-b pb-1 text-xs font-semibold text-muted-foreground">
+                  <Film className="h-3.5 w-3.5" />
+                  视频风格
+                </Label>
                 <Select value={uploadVideoStyle} onValueChange={setUploadVideoStyle}>
                   <SelectTrigger className="bg-secondary">
                     <SelectValue />

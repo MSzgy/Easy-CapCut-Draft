@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from app.schemas.ai_schemas import (
     GenerateContentRequest,
     GenerateContentResponse,
@@ -45,7 +45,7 @@ from app.schemas.ai_schemas import (
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
 from app.core.auth import get_current_user, require_admin
-from typing import List
+from typing import List, Optional
 import json
 import re
 import os
@@ -579,8 +579,9 @@ async def generate_content(request: GenerateContentRequest, current_user=Depends
                 if request.videoAnalysis:
                     # 基于视频分析结果生成场景
                     print(f"📹 使用视频分析结果生成场景...")
+                    user_req = f"\n\n附加要求：{request.prompt}" if request.prompt else ""
                     scenes = await generate_scenes_from_prompt(
-                        f"基于以下视频内容分析生成视频分镜：\n{request.videoAnalysis}",
+                        f"基于以下视频内容分析生成视频分镜：\n{request.videoAnalysis}{user_req}",
                         request.videoStyle or "promo",
                         request.styleKeywords,
                         request.generateImages,
@@ -697,6 +698,7 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
 @router.post("/analyze-video", response_model=AnalyzeVideoResponse)
 async def analyze_video(
     file: UploadFile = File(...),
+    prompt: Optional[str] = Form(None),
     current_user=Depends(get_current_user)
 ):
     """分析视频内容 — 上传视频文件，使用AI分析内容并返回文本描述"""
@@ -722,7 +724,7 @@ async def analyze_video(
         print(f"📁 Video saved to temp: {temp_path} ({os.path.getsize(temp_path)} bytes)")
 
         # Delegate to provider via service
-        analysis = await ai_service.analyze_video(file_path=temp_path)
+        analysis = await ai_service.analyze_video(file_path=temp_path, prompt=prompt)
 
         return AnalyzeVideoResponse(
             success=True,

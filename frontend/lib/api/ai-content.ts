@@ -532,9 +532,12 @@ export const aiContentApi = {
   /**
    * 视频内容分析 — 上传视频文件，使用AI分析并返回文本描述
    */
-  async analyzeVideo(file: File): Promise<AnalyzeVideoResponse> {
+  async analyzeVideo(file: File, prompt?: string): Promise<AnalyzeVideoResponse> {
     const formData = new FormData()
     formData.append('file', file)
+    if (prompt) {
+      formData.append('prompt', prompt)
+    }
 
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/proxy'
     const url = `${API_BASE_URL}/ai/analyze-video`
