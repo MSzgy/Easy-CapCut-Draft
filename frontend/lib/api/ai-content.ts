@@ -564,6 +564,44 @@ export const aiContentApi = {
 
     return await response.json()
   },
+
+  /**
+   * 润色或生成完整剧本
+   */
+  async enhanceScript(
+    prompt: string,
+    provider: string = 'gemini'
+  ): Promise<EnhanceScriptResponse> {
+    try {
+      return await apiClient.post<EnhanceScriptResponse>(
+        '/ai/enhance-script',
+        { prompt, provider },
+        { timeoutMs: 120_000 }
+      )
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to enhance script')
+    }
+  },
+
+  /**
+   * 拆解剧本为分镜
+   */
+  async deconstructScript(
+    script: string,
+    provider: string = 'gemini'
+  ): Promise<DeconstructScriptResponse> {
+    try {
+      return await apiClient.post<DeconstructScriptResponse>(
+        '/ai/deconstruct-script',
+        { script, provider },
+        { timeoutMs: 120_000 }
+      )
+    } catch (error) {
+      const apiError = error as ApiError
+      throw new Error(apiError.detail || 'Failed to deconstruct script')
+    }
+  }
 }
 
 export interface MusicRecommendation {
@@ -580,3 +618,27 @@ export interface AnalyzeVideoResponse {
   message: string
   analysis: string
 }
+
+// --- Script Creation Features ---
+
+export interface ScriptShot {
+  shotNumber: number
+  scene: string
+  character: string
+  props: string
+  dialogue: string
+}
+
+export interface EnhanceScriptResponse {
+  success: boolean
+  message: string
+  script: string
+}
+
+export interface DeconstructScriptResponse {
+  success: boolean
+  message: string
+  shots: ScriptShot[]
+}
+
+

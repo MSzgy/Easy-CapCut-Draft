@@ -104,6 +104,42 @@ class OptimizePromptResponse(BaseModel):
     suggestions: List[str] = Field(default_factory=list, description="改进建议")
 
 
+# Script Creation Feature
+class EnhanceScriptRequest(BaseModel):
+    """剧本润色请求"""
+    prompt: str = Field(..., description="用户输入的剧本草稿或主题")
+    provider: Optional[str] = Field("gemini", description="AI provider")
+
+
+class EnhanceScriptResponse(BaseModel):
+    """剧本润色响应"""
+    success: bool
+    message: str
+    script: str = Field(..., description="润色或生成的完整剧本")
+
+
+class ScriptShot(BaseModel):
+    """剧本镜头分镜"""
+    shotNumber: int = Field(..., description="镜头编号")
+    scene: str = Field(..., description="场景描述")
+    character: str = Field(..., description="人物动态/外貌")
+    props: str = Field(..., description="道具及特效")
+    dialogue: str = Field(..., description="旁白/台词/音乐")
+
+
+class DeconstructScriptRequest(BaseModel):
+    """剧本拆解分镜请求"""
+    script: str = Field(..., description="完整剧本内容")
+    provider: Optional[str] = Field("gemini", description="AI provider")
+
+
+class DeconstructScriptResponse(BaseModel):
+    """剧本拆解分镜响应"""
+    success: bool
+    message: str
+    shots: List[ScriptShot] = Field(default_factory=list, description="拆解出的镜头列表")
+
+
 # Phase 3: 风格迁移
 class StyleTransferRequest(BaseModel):
     """风格迁移请求"""

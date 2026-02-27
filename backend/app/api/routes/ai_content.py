@@ -41,6 +41,11 @@ from app.schemas.ai_schemas import (
     RecommendMusicResponse,
     MusicRecommendation,
     AnalyzeVideoResponse,
+    ScriptShot,
+    EnhanceScriptRequest,
+    EnhanceScriptResponse,
+    DeconstructScriptRequest,
+    DeconstructScriptResponse,
 )
 from app.services.ai_service_v2 import ai_service
 from app.providers.factory import get_all_providers_status
@@ -1425,7 +1430,7 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
         
         # Construct URL (assuming default local dev setup, ideally from config)
         # In production this host should be dynamic
-        final_url = f"http://localhost:8000/static/videos/{final_filename}"
+        final_url = f"http://127.0.0.1:1111/static/videos/{final_filename}"
         
         print(f"✅ 视频拼接成功: {final_path} -> {final_url}")
         
@@ -1442,4 +1447,88 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
         raise HTTPException(
             status_code=500,
             detail=f"视频拼接失败: {str(e)}"
+        )
+
+
+# Script Creation Routes
+
+@router.post("/enhance-script", response_model=EnhanceScriptResponse)
+async def enhance_script(request: EnhanceScriptRequest, current_user=Depends(get_current_user)):
+    """润色或根据主题生成完整剧本"""
+    try:
+        system_message = "你是一个专业的短视频编剧和导演。请根据用户提供的草稿或主题，创作一个专业、引人入胜的视频剧本。剧本应该包含场景描述、旁白/台词以及画面视觉提示，语言生动形象，适合短视频呈现。直接输出剧本内容，无需多余解释。"
+        
+        script = await ai_service.generate_completion(
+            prompt=request.prompt,
+            system_message=system_message,
+            temperature=0.7,
+            max_tokens=4000,
+            provider=request.provider
+        )
+        
+        return EnhanceScriptResponse(
+            success=True,
+            message="剧本生成成功",
+            script=script
+        )
+    except Exception as e:
+        print(f"❌ 剧本生成失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"剧本生成失败: {str(e)}"
+        )
+
+
+@router.post("/deconstruct-script", response_model=DeconstructScriptResponse)
+async def deconstruct_script(request: DeconstructScriptRequest, current_user=Depends(get_current_user)):
+    """将完整剧本拆解为镜头分镜"""
+    try:
+        system_message = "你是一个专业的视频分镜师。你需要将用户提供的剧本精确拆解为一个个具体的镜头（Shot）。返回结果必须是一个JSON数组，每个元素包含以下字段：\n- shotNumber: 整数，序号\n- scene: 场景描述（如：咖啡厅内，白天）\n- character: 人物动态/外貌（如：女主端着咖啡走到窗前）\n- props: 道具及特效（如：咖啡杯上升起热气）\n- dialogue: 旁白/台词/音乐指示（如：女主OS：又是无聊的一天...）\n请仅返回合法的JSON数组，不包含任何Markdown包装（如无需 ```json 等）。"
+        
+        prompt = f"请拆解以下剧本：\n\n{request.script}"
+        
+        response_text = await ai_service.generate_completion(
+            prompt=prompt,
+            system_message=system_message,
+            temperature=0.5,
+            max_tokens=4000,
+            provider=request.provider
+        )
+        
+        import re
+        import json
+        
+        # 解析返回的JSON
+        cleaned_content = response_text.strip()
+        json_match = re.search(r'\[.*\]', cleaned_content, re.DOTALL)
+        if json_match:
+            cleaned_content = json_match.group()
+            
+        try:
+            shots_data = json.loads(cleaned_content)
+        except json.JSONDecodeError:
+            print(f"JSON解析失败，原始返回: {response_text}")
+            raise Exception("AI返回格式不正确，无法解析为JSON数组")
+            
+        # 转换为 ScriptShot
+        shots = []
+        for index, item in enumerate(shots_data):
+            shots.append(ScriptShot(
+                shotNumber=item.get("shotNumber", index + 1),
+                scene=item.get("scene", ""),
+                character=item.get("character", ""),
+                props=item.get("props", ""),
+                dialogue=item.get("dialogue", "")
+            ))
+            
+        return DeconstructScriptResponse(
+            success=True,
+            message="剧本拆解成功",
+            shots=shots
+        )
+    except Exception as e:
+        print(f"❌ 剧本拆解失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"剧本拆解失败: {str(e)}"
         )

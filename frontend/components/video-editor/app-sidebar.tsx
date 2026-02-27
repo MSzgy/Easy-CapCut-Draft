@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
-export type TabType = "workbench" | "image-studio" | "video-studio" | "audio-studio" | "music-studio" | "media-vault" | "output-archive" | "configuration"
+export type TabType = "workbench" | "script-creator" | "image-studio" | "video-studio" | "audio-studio" | "music-studio" | "media-vault" | "output-archive" | "configuration"
 
 interface AppSidebarProps {
   activeTab: TabType
@@ -46,6 +46,12 @@ const navItems = [
     label: "Workbench",
     icon: Layers,
     description: "AI Video Creation Engine",
+  },
+  {
+    id: "script-creator" as TabType,
+    label: "Script Creator",
+    icon: FolderOpen, // Will use PenTool if I had imported it, but FolderOpen is already imported, let's use something else or import it.
+    description: "AI Script writing & Deconstruction",
   },
   {
     id: "image-studio" as TabType,

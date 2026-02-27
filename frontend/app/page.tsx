@@ -13,6 +13,7 @@ import { ImageStudio } from "@/components/video-editor/image-studio"
 import { VideoStudio } from "@/components/video-editor/video-studio"
 import { AudioStudio } from "@/components/video-editor/audio-studio"
 import { MusicStudio } from "@/components/video-editor/music-studio"
+import { ScriptCreator } from "@/components/video-editor/script-creator"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
 import { projectsApi } from "@/lib/api/projects"
@@ -608,6 +609,12 @@ export default function VideoEditorPage() {
               />
             </footer>
           </>
+        )}
+
+        {activeTab === "script-creator" && (
+          <main className="flex-1 overflow-hidden p-0">
+            <ScriptCreator modelSelection={modelSelection} />
+          </main>
         )}
 
         {activeTab === "image-studio" && (
