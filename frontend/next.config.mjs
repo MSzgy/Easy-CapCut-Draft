@@ -11,7 +11,7 @@ const nextConfig = {
       {
         // 凡是访问 /api/proxy/xxx 的请求，都由 Next.js 转发给 8000 端口后端
         source: '/api/proxy/:path*',
-        destination: 'http://127.0.0.1:8000/api/:path*',
+        destination: 'http://127.0.0.1:1111/api/:path*',
       },
     ]
   },
