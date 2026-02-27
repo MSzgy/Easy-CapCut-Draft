@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar, type TabType } from "@/components/video-editor/app-sidebar"
-import { ColumnInput, type GeneratedOutput } from "@/components/video-editor/column-input"
+import { ColumnInput, type GeneratedOutput, type SceneContent } from "@/components/video-editor/column-input"
 import { ColumnContent } from "@/components/video-editor/column-content"
 import { ColumnOrchestrator } from "@/components/video-editor/column-orchestrator"
 import { SmartTimeline } from "@/components/video-editor/smart-timeline"
@@ -15,7 +15,7 @@ import { AudioStudio } from "@/components/video-editor/audio-studio"
 import { MusicStudio } from "@/components/video-editor/music-studio"
 import { ScriptCreator } from "@/components/video-editor/script-creator"
 import { ConfigPage } from "@/components/video-editor/config-page"
-import type { ModelSelection } from "@/lib/api/ai-content"
+import type { ModelSelection, ScriptShot } from "@/lib/api/ai-content"
 import { projectsApi } from "@/lib/api/projects"
 import { mediaApi } from "@/lib/api/media"
 import { useAuth } from "@/hooks/use-auth"
@@ -263,6 +263,32 @@ export default function VideoEditorPage() {
     // Save to backend
     mediaApi.saveMediaBatch(newAssets).catch(e => console.warn("Failed to save media:", e))
   }
+
+  const handleImportShots = useCallback((shots: ScriptShot[], scriptText: string) => {
+    if (!shots || shots.length === 0) return
+
+    const newScenes: SceneContent[] = shots.map((shot, index) => ({
+      id: `scene_${Date.now()}_${index}`,
+      timestamp: `0:00 - 0:05`, // Default 5 seconds, can be adjusted
+      script: `[镜头 ${shot.shotNumber}] ${shot.scene}\n角色: ${shot.character}\n道具: ${shot.props}\n台词: ${shot.dialogue}`,
+      imageUrl: "", // Left empty for generator to fill later
+      imageDescription: `${shot.scene}, ${shot.character}, ${shot.props}`,
+      duration: 5
+    }))
+
+    const importedContent: GeneratedOutput = {
+      scenes: newScenes,
+      copy: scriptText
+    }
+
+    setGeneratedContent(importedContent)
+
+    // Switch to workbench tab
+    setActiveTab("workbench")
+
+    // Auto-save the imported project
+    saveProject(importedContent, `脚本导入项目 - ${new Date().toLocaleTimeString()}`)
+  }, [saveProject])
 
   const handleImagesGenerated = (images: any[]) => {
     const newAssets: MediaAsset[] = images.map((img) => ({
@@ -638,7 +664,10 @@ export default function VideoEditorPage() {
 
         {activeTab === "script-creator" && (
           <main className="flex-1 overflow-hidden p-0">
-            <ScriptCreator modelSelection={modelSelection} />
+            <ScriptCreator
+              modelSelection={modelSelection}
+              onImportToWorkbench={handleImportShots}
+            />
           </main>
         )}
 
