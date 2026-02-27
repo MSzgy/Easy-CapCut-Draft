@@ -1430,7 +1430,7 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
         
         # Construct URL (assuming default local dev setup, ideally from config)
         # In production this host should be dynamic
-        final_url = f"http://127.0.0.1:1111/static/videos/{final_filename}"
+        final_url = f"/static/videos/{final_filename}"
         
         print(f"✅ 视频拼接成功: {final_path} -> {final_url}")
         

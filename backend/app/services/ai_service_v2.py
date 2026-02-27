@@ -210,7 +210,7 @@ class AIService:
             shutil.move(result_path, target_path)
             
             # In production this should be configurable
-            return f"http://127.0.0.1:1111/static/videos/{filename}"
+            return f"/static/videos/{filename}"
             
         return result_path
 
@@ -260,7 +260,7 @@ class AIService:
             
             # Return URL (assuming standard setup)
             # In production this should be configurable
-            return f"http://127.0.0.1:1111/static/audio/{filename}"
+            return f"/static/audio/{filename}"
             
         return result_path
 
@@ -303,7 +303,7 @@ class AIService:
             shutil.move(result_path, target_path)
             
             # Return URL (assuming standard setup)
-            return f"http://127.0.0.1:1111/static/audio/{filename}"
+            return f"/static/audio/{filename}"
             
         return result_path
 

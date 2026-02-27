@@ -6,6 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  allowedDevOrigins: ["capcut.mosuyang.org"],  // ← 加这一行
   async rewrites() {
     return [
       {
