@@ -1,0 +1,59 @@
+/Users/zouguoyang/Easy-CapCut-Draft/backend/.venv/lib/python3.11/site-packages/pydantic/_internal/_fields.py:192: UserWarning: Field name "copy" in "GenerateContentResponse" shadows an attribute in parent "BaseModel"
+  warnings.warn(
+INFO:     Started server process [99108]
+INFO:     Waiting for application startup.
+🚀 Starting Easy-CapCut-Draft v0.1.0
+2026-02-27 19:06:00,394 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 19:06:00,394 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-02-27 19:06:00,394 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,395 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("projects")
+2026-02-27 19:06:00,395 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,395 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("scenes")
+2026-02-27 19:06:00,395 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,395 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("media")
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("generated_audios")
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("generated_music")
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-02-27 19:06:00,396 INFO sqlalchemy.engine.Engine COMMIT
+2026-02-27 19:06:00,397 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 19:06:00,402 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.username, users.hashed_password, users.role, users.created_at 
+FROM users 
+WHERE users.email = ?
+2026-02-27 19:06:00,402 INFO sqlalchemy.engine.Engine [generated in 0.00011s] ('admin@clipforge.app',)
+2026-02-27 19:06:00,404 INFO sqlalchemy.engine.Engine SELECT projects.user_id AS projects_user_id, projects.id AS projects_id, projects.title AS projects_title, projects.description AS projects_description, projects.mode AS projects_mode, projects.prompt AS projects_prompt, projects.source_url AS projects_source_url, projects.video_style AS projects_video_style, projects.copy_style AS projects_copy_style, projects.generated_copy AS projects_generated_copy, projects.cover_url AS projects_cover_url, projects.cover_style AS projects_cover_style, projects.status AS projects_status, projects.combined_video_url AS projects_combined_video_url, projects.total_duration AS projects_total_duration, projects.model_config_snapshot AS projects_model_config_snapshot, projects.created_at AS projects_created_at, projects.updated_at AS projects_updated_at 
+FROM projects 
+WHERE projects.user_id IN (?)
+2026-02-27 19:06:00,404 INFO sqlalchemy.engine.Engine [generated in 0.00016s] ('0969638d-8f47-4be1-950b-266f70faa003',)
+ℹ️  管理员账户已存在: admin@clipforge.app
+2026-02-27 19:06:00,405 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:1115 (Press CTRL+C to quit)
+✅ Database initialized
+2026-02-27 19:06:04,823 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 19:06:04,823 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.username, users.hashed_password, users.role, users.created_at 
+FROM users 
+WHERE users.email = ?
+2026-02-27 19:06:04,823 INFO sqlalchemy.engine.Engine [cached since 4.421s ago] ('admin@clipforge.app',)
+2026-02-27 19:06:04,826 INFO sqlalchemy.engine.Engine SELECT projects.user_id AS projects_user_id, projects.id AS projects_id, projects.title AS projects_title, projects.description AS projects_description, projects.mode AS projects_mode, projects.prompt AS projects_prompt, projects.source_url AS projects_source_url, projects.video_style AS projects_video_style, projects.copy_style AS projects_copy_style, projects.generated_copy AS projects_generated_copy, projects.cover_url AS projects_cover_url, projects.cover_style AS projects_cover_style, projects.status AS projects_status, projects.combined_video_url AS projects_combined_video_url, projects.total_duration AS projects_total_duration, projects.model_config_snapshot AS projects_model_config_snapshot, projects.created_at AS projects_created_at, projects.updated_at AS projects_updated_at 
+FROM projects 
+WHERE projects.user_id IN (?)
+2026-02-27 19:06:04,826 INFO sqlalchemy.engine.Engine [cached since 4.421s ago] ('0969638d-8f47-4be1-950b-266f70faa003',)
+INFO:     127.0.0.1:61588 - "POST /api/auth/login HTTP/1.1" 200 OK
+2026-02-27 19:06:05,082 INFO sqlalchemy.engine.Engine COMMIT
+2026-02-27 19:06:05,085 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 19:06:05,086 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.username, users.hashed_password, users.role, users.created_at 
+FROM users 
+WHERE users.id = ?
+2026-02-27 19:06:05,086 INFO sqlalchemy.engine.Engine [generated in 0.00007s] ('0969638d-8f47-4be1-950b-266f70faa003',)
+2026-02-27 19:06:05,086 INFO sqlalchemy.engine.Engine SELECT projects.user_id AS projects_user_id, projects.id AS projects_id, projects.title AS projects_title, projects.description AS projects_description, projects.mode AS projects_mode, projects.prompt AS projects_prompt, projects.source_url AS projects_source_url, projects.video_style AS projects_video_style, projects.copy_style AS projects_copy_style, projects.generated_copy AS projects_generated_copy, projects.cover_url AS projects_cover_url, projects.cover_style AS projects_cover_style, projects.status AS projects_status, projects.combined_video_url AS projects_combined_video_url, projects.total_duration AS projects_total_duration, projects.model_config_snapshot AS projects_model_config_snapshot, projects.created_at AS projects_created_at, projects.updated_at AS projects_updated_at 
+FROM projects 
+WHERE projects.user_id IN (?)
+2026-02-27 19:06:05,086 INFO sqlalchemy.engine.Engine [cached since 4.682s ago] ('0969638d-8f47-4be1-950b-266f70faa003',)
+INFO:     127.0.0.1:61589 - "POST /api/ai/enhance-script HTTP/1.1" 200 OK
+2026-02-27 19:06:43,146 INFO sqlalchemy.engine.Engine COMMIT
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [99108]
