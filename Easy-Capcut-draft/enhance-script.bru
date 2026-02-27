@@ -1,0 +1,27 @@
+meta {
+  name: enhance-script
+  type: http
+  seq: 10
+}
+
+post {
+  url: http://localhost:2222/api/proxy/ai/enhance-script
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwOTY5NjM4ZC04ZjQ3LTRiZTEtOTUwYi0yNjZmNzBmYWEwMDMiLCJyb2xlIjoiYWRtaW4iLCJleHAiOjE3NzIxOTQ3ODF9.P8ClQVhNsRKQbXMVvFLfL3lO2FEi29v2ZkDVK4oXUrE
+}
+
+body:json {
+  {
+    "prompt": "一只小狗",
+    "provider": "gemini"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

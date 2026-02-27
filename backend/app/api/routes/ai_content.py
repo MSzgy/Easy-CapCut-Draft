@@ -1465,7 +1465,6 @@ async def enhance_script(request: EnhanceScriptRequest, current_user=Depends(get
             max_tokens=4000,
             provider=request.provider
         )
-        
         return EnhanceScriptResponse(
             success=True,
             message="剧本生成成功",

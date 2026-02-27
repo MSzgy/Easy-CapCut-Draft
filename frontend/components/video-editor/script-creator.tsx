@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils"
 
 interface ScriptCreatorProps {
     modelSelection: ModelSelection
+    onImportToWorkbench?: (shots: ScriptShot[], script: string) => void
 }
 
-export function ScriptCreator({ modelSelection }: ScriptCreatorProps) {
+export function ScriptCreator({ modelSelection, onImportToWorkbench }: ScriptCreatorProps) {
     const [prompt, setPrompt] = useState("")
     const [script, setScript] = useState("")
     const [shots, setShots] = useState<ScriptShot[]>([])
@@ -125,9 +126,21 @@ export function ScriptCreator({ modelSelection }: ScriptCreatorProps) {
                         <Camera className="h-5 w-5 text-indigo-500" />
                         <h2 className="text-lg font-semibold text-foreground">分镜拆解结果</h2>
                         {shots.length > 0 && (
-                            <span className="ml-auto text-xs font-medium bg-indigo-500/10 text-indigo-500 px-2.5 py-1 rounded-full">
-                                共 {shots.length} 个镜头
-                            </span>
+                            <div className="ml-auto flex items-center gap-2">
+                                <span className="text-xs font-medium bg-indigo-500/10 text-indigo-500 px-2.5 py-1 rounded-full">
+                                    共 {shots.length} 个镜头
+                                </span>
+                                {onImportToWorkbench && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => onImportToWorkbench(shots, script)}
+                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 rounded-lg px-3 ml-2"
+                                    >
+                                        <Save className="h-3 w-3" />
+                                        一键导入工作台
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
 
