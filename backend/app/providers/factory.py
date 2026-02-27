@@ -19,9 +19,11 @@ from app.core.config import settings
 def _text_registry() -> Dict[str, Type[TextProvider]]:
     from app.providers.gemini import GeminiProvider
     from app.providers.openai_compat import OpenAICompatProvider
+    from app.providers.anthropic import AnthropicProvider
     return {
         "gemini": GeminiProvider,
         "openai": OpenAICompatProvider,
+        "anthropic": AnthropicProvider,
     }
 
 
@@ -37,9 +39,11 @@ def _image_registry() -> Dict[str, Type[ImageProvider]]:
 def _vision_registry() -> Dict[str, Type[VisionProvider]]:
     from app.providers.gemini import GeminiProvider
     from app.providers.openai_compat import OpenAICompatProvider
+    from app.providers.anthropic import AnthropicProvider
     return {
         "gemini": GeminiProvider,
         "openai": OpenAICompatProvider,
+        "anthropic": AnthropicProvider,
     }
 
 
@@ -77,12 +81,14 @@ PROVIDER_REQUIRED_VARS: Dict[str, List[str]] = {
     "gemini":      ["GEMINI_API_KEY", "GEMINI_BASE_URL"],
     "openai":      ["OPENAI_API_KEY", "OPENAI_BASE_URL"],
     "huggingface": ["HF_TOKEN"],
+    "anthropic":   ["ANTHROPIC_API_KEY"],
 }
 
 PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
     "gemini":      "Google Gemini",
     "openai":      "OpenAI 兼容",
     "huggingface": "HuggingFace",
+    "anthropic":   "Anthropic (Claude)",
 }
 
 

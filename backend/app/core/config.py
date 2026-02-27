@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     VIDEO_PROVIDER: str = "huggingface"
 
     # 可选的Claude配置
+    ANTHROPIC_BASE_URL: str = ""
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-3-opus-20240229"
 

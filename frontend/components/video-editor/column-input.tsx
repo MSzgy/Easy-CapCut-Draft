@@ -1375,7 +1375,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Cover Prompt</Label>
             <Textarea
-              placeholder="e.g., 沙滩上笑着的清纯女生"
+              placeholder="e.g., 靓丽明星躺在沙滩上"
               value={coverPrompt}
               onChange={(e) => setCoverPrompt(e.target.value)}
               className="min-h-[80px] resize-none bg-secondary text-sm"
@@ -1385,7 +1385,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Theme (Optional)</Label>
             <Input
-              placeholder="e.g., 女生写真"
+              placeholder="e.g., 时尚封面杂志"
               value={coverTheme}
               onChange={(e) => setCoverTheme(e.target.value)}
               className="bg-secondary text-sm"
