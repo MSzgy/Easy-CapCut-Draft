@@ -19,6 +19,10 @@ router.include_router(video_gen.router, prefix="/video", tags=["Video Generation
 # 注册项目持久化路由
 router.include_router(projects.router, prefix="/data", tags=["Data Persistence"])
 
+# 注册素材库路由
+from app.api.routes import media
+router.include_router(media.router, prefix="/media", tags=["Media Vault"])
+
 
 @router.get("/")
 async def api_root():

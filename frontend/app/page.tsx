@@ -17,6 +17,7 @@ import { ScriptCreator } from "@/components/video-editor/script-creator"
 import { ConfigPage } from "@/components/video-editor/config-page"
 import type { ModelSelection } from "@/lib/api/ai-content"
 import { projectsApi } from "@/lib/api/projects"
+import { mediaApi } from "@/lib/api/media"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function VideoEditorPage() {
@@ -152,6 +153,18 @@ export default function VideoEditorPage() {
     }).catch(() => {
       // 静默忽略
     })
+
+    // 3. 加载 Media Vault 素材
+    mediaApi.listMedia().then((res) => {
+      if (res.success && res.assets) {
+        setMediaAssets((prev) => {
+          const existingIds = new Set(prev.map(a => a.id))
+          const newAssets = res.assets.filter(a => !existingIds.has(a.id))
+          return [...prev, ...newAssets]
+        })
+        console.log(`✅ 已加载 ${res.assets.length} 个全局素材到 Media Vault`)
+      }
+    }).catch(() => { })
   }, [])
 
   // 保存项目到数据库
@@ -246,6 +259,9 @@ export default function VideoEditorPage() {
       })
     }
     setMediaAssets((prev) => [...prev, ...newAssets])
+
+    // Save to backend
+    mediaApi.saveMediaBatch(newAssets).catch(e => console.warn("Failed to save media:", e))
   }
 
   const handleImagesGenerated = (images: any[]) => {
@@ -260,6 +276,9 @@ export default function VideoEditorPage() {
       size: "1.0 MB", // Placeholder size
     }))
     setMediaAssets((prev) => [...newAssets, ...prev])
+
+    // Save to backend
+    mediaApi.saveMediaBatch(newAssets).catch(e => console.warn("Failed to save generated images to media vault:", e))
   }
 
   const handleContentUpdate = (content: GeneratedOutput) => {
@@ -486,6 +505,7 @@ export default function VideoEditorPage() {
 
   const handleDeleteAsset = (id: string) => {
     setMediaAssets((prev) => prev.filter((a) => a.id !== id))
+    mediaApi.deleteMedia(id).catch(e => console.warn("Failed to delete media:", e))
   }
 
   const handleDeleteProject = async (id: string) => {
@@ -510,6 +530,9 @@ export default function VideoEditorPage() {
       size: "Unknown",
     }
     setMediaAssets((prev) => [newAsset, ...prev])
+
+    // Save to backend
+    mediaApi.saveMediaBatch([newAsset]).catch(e => console.warn("Failed to save generated audio to media vault:", e))
   }
 
   // ── 鉴权守卫 ────────────────────────────────────────────────────────────
@@ -555,7 +578,7 @@ export default function VideoEditorPage() {
                 <ColumnInput
                   onGenerate={handleGenerate}
                   onCoverGenerated={(coverUrl, prompt) => {
-                    setMediaAssets((prev) => [{
+                    const newAsset = {
                       id: `cover_${Date.now()}`,
                       name: "ai_cover.jpg",
                       type: "image" as const,
@@ -564,7 +587,9 @@ export default function VideoEditorPage() {
                       sceneUsedIn: "Cover",
                       aiPrompt: prompt,
                       size: "-",
-                    }, ...prev])
+                    };
+                    setMediaAssets((prev) => [newAsset, ...prev]);
+                    mediaApi.saveMediaBatch([newAsset]).catch(e => console.warn("Failed to save cover to media vault:", e));
                   }}
                   modelSelection={modelSelection}
                 />
