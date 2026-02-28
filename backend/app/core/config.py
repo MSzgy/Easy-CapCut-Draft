@@ -49,7 +49,7 @@ class Settings(BaseSettings):
 
     # ─── OpenAI 兼容配置 ───
     OPENAI_BASE_URL: str = ""
-    OPENAI_API_KEY: str = ""
+    OPENAI_OWN_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
 
     # ─── HuggingFace 配置 ───

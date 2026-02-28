@@ -627,6 +627,7 @@ export interface ScriptShot {
   character: string
   props: string
   dialogue: string
+  imageUrl?: string
 }
 
 export interface EnhanceScriptResponse {

@@ -28,7 +28,7 @@ class OpenAICompatProvider(TextProvider, VisionProvider):
         model: str = None,
         max_tokens: int = None,
     ):
-        self.api_key = api_key or settings.OPENAI_API_KEY
+        self.api_key = api_key or settings.OPENAI_OWN_API_KEY
         self.base_url = (base_url or settings.OPENAI_BASE_URL).rstrip("/")
         self.model = model or settings.OPENAI_MODEL
         self.max_tokens = max_tokens or settings.GEMINI_MAX_TOKENS
@@ -65,9 +65,9 @@ class OpenAICompatProvider(TextProvider, VisionProvider):
             "max_tokens": request.max_tokens or self.max_tokens,
         }
 
-        result = await self._request("/v1/chat/completions", payload)
+        result = await self._request("/v1/messages", payload)
         try:
-            return result["choices"][0]["message"]["content"]
+            return result["content"][0]["text"]
         except (KeyError, IndexError) as e:
             raise Exception(f"Failed to parse response: {e}, response: {result}")
 

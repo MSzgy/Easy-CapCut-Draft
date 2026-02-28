@@ -1,4 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from typing import List, Optional
+from app.core.auth import get_current_user
+from app.core.prompts import get_image_prompt
+import json
+import re
 from app.schemas.ai_schemas import (
     GenerateContentRequest,
     GenerateContentResponse,
@@ -731,8 +736,9 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 except:
                     print(f"分辨率解析失败: {request.resolution}, 使用默认值 1024x1024")
             
+            final_prompt = get_image_prompt(intent=request.theme or "general", base_prompt=request.prompt)
             data = await ai_service.generate_image_huggingface(
-                prompt=request.prompt,
+                prompt=final_prompt,
                 width=width,
                 height=height,
                 style=request.style,
@@ -747,8 +753,9 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
             )
         else:
             # Gemini or other providers
+            final_prompt = get_image_prompt(intent=request.theme or "general", base_prompt=request.prompt)
             data = await ai_service.generate_image(
-                prompt=request.prompt, 
+                prompt=final_prompt, 
                 style=request.style,
                 style_keywords=request.styleKeywords,
                 negative_prompt=request.negativePrompt,

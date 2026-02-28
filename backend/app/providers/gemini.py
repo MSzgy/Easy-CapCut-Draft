@@ -102,39 +102,36 @@ class GeminiProvider(TextProvider, ImageProvider, VisionProvider):
     # ── ImageProvider ─────────────────────────────────────────────────────
 
     async def generate_image(self, request: ImageRequest) -> str:
-        # Build context strings
-        keywords_ctx = ""
+        # 提取并组合可选的额外参数，拼接到系统提示词中
+        extra_ctx = []
+        if request.style and getattr(request, 'theme', None) != "shot_scene" and getattr(request, 'theme', None) != "cover_douyin":
+            extra_ctx.append(f"- 美术风格: {request.style}")
+        
         if request.style_keywords:
-            keywords_ctx = f"\n7. 风格关键词参考：{', '.join(request.style_keywords)}"
+            extra_ctx.append(f"- 风格关键词要求: {', '.join(request.style_keywords)}")
 
-        negative_ctx = ""
         if request.negative_prompt and request.negative_prompt.strip():
-            negative_ctx = f"\n8. 避免出现的元素：{request.negative_prompt}"
+            extra_ctx.append(f"- 避免出现的元素 (Negative Prompt): {request.negative_prompt}")
 
-        style_mix_ctx = ""
-        style = request.style
         if request.style_weights:
             descs = [f"{s} ({int(w*100)}%)" for s, w in request.style_weights.items()]
-            style_mix_ctx = f"\n9. 风格混合：{', '.join(descs)}"
-            style = "混合风格 - " + ", ".join(request.style_weights.keys())
+            extra_ctx.append(f"- 风格混合比例: {', '.join(descs)}")
 
-        i2i_ctx = ""
         if request.reference_image:
-            strength = (
-                "轻微" if request.denoising_strength < 0.4
-                else "中等" if request.denoising_strength < 0.7
-                else "强烈"
+            strength_desc = (
+                "轻微幅度" if request.denoising_strength < 0.4
+                else "中等幅度" if request.denoising_strength < 0.7
+                else "强烈重绘"
             )
-            comp = "，必须保留原图构图和布局" if request.preserve_composition else ""
-            i2i_ctx = f"\n10. 图生图模式：基于参考图片进行{strength}程度的重绘{comp}"
+            comp_desc = "，且必须保留原参考图的构图和空间布局" if request.preserve_composition else ""
+            extra_ctx.append(f"- 图生图模式：基于参考图片进行{strength_desc}的重绘{comp_desc}")
 
-        system_message = f"""你是一个专业的视频封面设计AI助手。你的任务是生成适合抖音平台的高清晰度视频封面图片。要求：
-1. 符合抖音平台的视觉风格：鲜艳、吸引眼球、高对比度
-2. 符合用户要求
-3. 符合平台内容审核标准
-4. 主题：{request.theme}
-5. 风格：{style}{keywords_ctx}{negative_ctx}{style_mix_ctx}{i2i_ctx}
-6. 质量指标: 最终图像必须在视觉上与高端摄影编辑传播难以区分"""
+        extra_text = ("\n\n此外，请遵循以下附加生成限制和风格要求：\n" + "\n".join(extra_ctx)) if extra_ctx else ""
+
+        system_message = f"""你是一个专业的图像生成AI助理。你的任务是根据用户的详细描述生成对应的图片。
+要求：
+1. 严格遵循用户的提示词要求。
+2. 保证生成图片的质量和清晰度。{extra_text}"""
 
         user_parts = [{"text": request.prompt}]
 

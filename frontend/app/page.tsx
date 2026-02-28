@@ -15,7 +15,7 @@ import { AudioStudio } from "@/components/video-editor/audio-studio"
 import { MusicStudio } from "@/components/video-editor/music-studio"
 import { ScriptCreator } from "@/components/video-editor/script-creator"
 import { ConfigPage } from "@/components/video-editor/config-page"
-import type { ModelSelection, ScriptShot } from "@/lib/api/ai-content"
+import type { ModelSelection, ScriptShot, ScriptCharacter } from "@/lib/api/ai-content"
 import { projectsApi } from "@/lib/api/projects"
 import { mediaApi } from "@/lib/api/media"
 import { useAuth } from "@/hooks/use-auth"
@@ -44,7 +44,7 @@ export default function VideoEditorPage() {
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
-  const [scriptCreatorData, setScriptCreatorData] = useState<{ prompt: string; script: string; shots: ScriptShot[], characters?: any[] } | null>(null)
+  const [scriptCreatorData, setScriptCreatorData] = useState<{ id?: string, prompt: string; script: string; shots: ScriptShot[], characters?: any[] } | null>(null)
 
   // ── 项目持久化 ────────────────────────────────────────────────────────
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -241,10 +241,11 @@ export default function VideoEditorPage() {
     }
   }, [currentProjectId, modelSelection])
 
-  const handleSaveScriptProject = useCallback(async (prompt: string, script: string, shots: ScriptShot[], characters: any[]) => {
+  const handleSaveScriptProject = useCallback(async (prompt: string, script: string, shots: ScriptShot[], characters: any[], projectId?: string) => {
     try {
       const title = `剧本草稿 - ${new Date().toLocaleTimeString()}`
       const res = await projectsApi.saveProject({
+        projectId: projectId, // Pass projectId to override if it exists
         title,
         mode: "script",
         prompt: prompt,
@@ -259,6 +260,10 @@ export default function VideoEditorPage() {
       if (res.success) {
         console.log("✅ 剧本草稿已保存:", res.project.id)
         const p = res.project
+
+        // Update the script creator data with the new ID and latest data so future saves overwrite it
+        setScriptCreatorData({ id: p.id, prompt, script, shots, characters })
+
         const newOutputProject: OutputProject = {
           id: p.id,
           name: p.title || "Untitled Project",
@@ -272,7 +277,15 @@ export default function VideoEditorPage() {
           rawShots: shots,
           scenes: [],
         }
-        setOutputProjects((prev) => [newOutputProject, ...prev])
+        setOutputProjects((prev) => {
+          const existingIdx = prev.findIndex(proj => proj.id === p.id)
+          if (existingIdx >= 0) {
+            const newProjects = [...prev]
+            newProjects[existingIdx] = newOutputProject
+            return newProjects
+          }
+          return [newOutputProject, ...prev]
+        })
       }
     } catch (e) {
       console.warn("⚠️ 剧本草稿保存失败:", e)
@@ -282,6 +295,7 @@ export default function VideoEditorPage() {
   const handleImportScriptProject = useCallback((project: OutputProject) => {
     if (project.mode !== "script") return
     setScriptCreatorData({
+      id: project.id,
       prompt: project.draftPrompt || "",
       script: project.draftScript || "",
       shots: project.rawShots || [],
@@ -728,6 +742,7 @@ export default function VideoEditorPage() {
               modelSelection={modelSelection}
               onImportToWorkbench={handleImportShots}
               onSaveToArchive={handleSaveScriptProject}
+              onMediaAdded={(assets) => setMediaAssets(prev => [...assets, ...prev])}
               initialData={scriptCreatorData}
             />
           </main>
