@@ -44,6 +44,7 @@ export default function VideoEditorPage() {
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
+  const [scriptCreatorData, setScriptCreatorData] = useState<{ prompt: string; script: string; shots: ScriptShot[] } | null>(null)
 
   // ── 项目持久化 ────────────────────────────────────────────────────────
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -127,26 +128,35 @@ export default function VideoEditorPage() {
     // 2. 加载所有项目到 Output Archive
     projectsApi.listProjects().then((res) => {
       if (res.success && res.projects) {
-        const allProjects: OutputProject[] = res.projects.map((p) => ({
-          id: p.id,
-          name: p.title || "Untitled Project",
-          status: (p.status === "rendered" || p.status === "failed" || p.status === "processing")
-            ? p.status as "rendered" | "processing" | "failed"
-            : "rendered",
-          createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || "",
-          combinedVideoUrl: p.combinedVideoUrl || undefined,
-          sceneCount: p.scenes.length,
-          totalDuration: p.scenes.reduce((sum, s) => sum + (s.duration || 5), 0) + "s",
-          scenes: p.scenes
-            .filter((s) => s.videoUrl)
-            .map((s, i) => ({
-              id: s.id,
-              name: `Scene ${i + 1}`,
-              videoUrl: s.videoUrl!,
-              prompt: s.script,
-              thumbnail: s.imageUrl || undefined,
-            })),
-        }))
+        const allProjects: OutputProject[] = res.projects.map((p) => {
+          const isScript = p.mode === "script"
+          return {
+            id: p.id,
+            name: p.title || "Untitled Project",
+            status: isScript ? "draft" : ((p.status === "rendered" || p.status === "failed" || p.status === "processing")
+              ? p.status as "rendered" | "processing" | "failed" | "draft"
+              : "rendered"),
+            mode: p.mode,
+            createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || "",
+            combinedVideoUrl: p.combinedVideoUrl || undefined,
+            sceneCount: p.scenes.length,
+            totalDuration: p.scenes.reduce((sum, s) => sum + (s.duration || 5), 0) + "s",
+            draftPrompt: isScript ? p.prompt : undefined,
+            draftScript: isScript ? p.generatedCopy : undefined,
+            rawShots: isScript ? p.scenes.map(s => {
+              try { return JSON.parse(s.script) } catch { return null }
+            }).filter(Boolean) : undefined,
+            scenes: p.scenes
+              .filter((s) => s.videoUrl)
+              .map((s, i) => ({
+                id: s.id,
+                name: `Scene ${i + 1}`,
+                videoUrl: s.videoUrl!,
+                prompt: s.script,
+                thumbnail: s.imageUrl || undefined,
+              })),
+          }
+        })
         setOutputProjects(allProjects)
         console.log(`✅ 已加载 ${allProjects.length} 个项目到 Output Archive`)
       }
@@ -229,6 +239,52 @@ export default function VideoEditorPage() {
       console.warn("⚠️ 项目保存失败:", e)
     }
   }, [currentProjectId, modelSelection])
+
+  const handleSaveScriptProject = useCallback(async (prompt: string, script: string, shots: ScriptShot[]) => {
+    try {
+      const title = `剧本草稿 - ${new Date().toLocaleTimeString()}`
+      const res = await projectsApi.saveProject({
+        title,
+        mode: "script",
+        prompt: prompt,
+        generatedCopy: script,
+        modelConfig: modelSelection as any,
+        scenes: shots.map((s) => ({
+          script: JSON.stringify(s),
+          duration: 5,
+        })),
+      })
+      if (res.success) {
+        console.log("✅ 剧本草稿已保存:", res.project.id)
+        const p = res.project
+        const newOutputProject: OutputProject = {
+          id: p.id,
+          name: p.title || "Untitled Project",
+          status: "draft",
+          mode: "script",
+          createdAt: p.createdAt?.replace("T", " ").slice(0, 16) || new Date().toLocaleString(),
+          sceneCount: shots.length,
+          draftPrompt: prompt,
+          draftScript: script,
+          rawShots: shots,
+          scenes: [],
+        }
+        setOutputProjects((prev) => [newOutputProject, ...prev])
+      }
+    } catch (e) {
+      console.warn("⚠️ 剧本草稿保存失败:", e)
+    }
+  }, [modelSelection])
+
+  const handleImportScriptProject = useCallback((project: OutputProject) => {
+    if (project.mode !== "script") return
+    setScriptCreatorData({
+      prompt: project.draftPrompt || "",
+      script: project.draftScript || "",
+      shots: project.rawShots || [],
+    })
+    setActiveTab("script-creator")
+  }, [])
 
   const handleGenerate = (output: GeneratedOutput) => {
     setGeneratedContent(output)
@@ -667,6 +723,8 @@ export default function VideoEditorPage() {
             <ScriptCreator
               modelSelection={modelSelection}
               onImportToWorkbench={handleImportShots}
+              onSaveToArchive={handleSaveScriptProject}
+              initialData={scriptCreatorData}
             />
           </main>
         )}
@@ -725,6 +783,7 @@ export default function VideoEditorPage() {
             <OutputArchive
               projects={outputProjects}
               onDelete={handleDeleteProject}
+              onImportScript={handleImportScriptProject}
             />
           </main>
         )}
