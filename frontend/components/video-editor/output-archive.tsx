@@ -60,18 +60,24 @@ export interface OutputScene {
 export interface OutputProject {
   id: string
   name: string
-  status: "rendered" | "processing" | "failed"
+  status: "rendered" | "processing" | "failed" | "draft"
+  mode?: string
   createdAt: string
   combinedVideoUrl?: string
   scenes: OutputScene[]
   totalDuration?: string
   totalSize?: string
   sceneCount: number
+  draftPrompt?: string
+  draftScript?: string
+  characters?: any[]
+  rawShots?: any[]
 }
 
 interface OutputArchiveProps {
   projects: OutputProject[]
   onDelete?: (id: string) => void
+  onImportScript?: (project: OutputProject) => void
 }
 
 const sampleProjects: OutputProject[] = [
@@ -110,6 +116,7 @@ const sampleProjects: OutputProject[] = [
 export function OutputArchive({
   projects = sampleProjects,
   onDelete,
+  onImportScript,
 }: OutputArchiveProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedProject, setSelectedProject] = useState<OutputProject | null>(null)
@@ -119,27 +126,34 @@ export function OutputArchive({
     project.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const getStatusBadge = (status: OutputProject["status"]) => {
+  const getStatusBadge = (status: OutputProject["status"], mode?: string) => {
     switch (status) {
       case "rendered":
         return (
           <Badge className="bg-green-500/10 text-green-500">
             <CheckCircle2 className="mr-1 h-3 w-3" />
-            Rendered
+            渲染完成
           </Badge>
         )
       case "failed":
         return (
           <Badge className="bg-red-500/10 text-red-500">
             <XCircle className="mr-1 h-3 w-3" />
-            Failed
+            渲染失败
           </Badge>
         )
       case "processing":
         return (
           <Badge className="bg-yellow-500/10 text-yellow-500">
             <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-            Processing
+            处理中
+          </Badge>
+        )
+      case "draft":
+        return (
+          <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <Pencil className="mr-1 h-3 w-3" />
+            {mode === "script" ? "剧本草稿" : "草稿"}
           </Badge>
         )
       default:
@@ -209,7 +223,7 @@ export function OutputArchive({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{getStatusBadge(project.status)}</TableCell>
+                    <TableCell>{getStatusBadge(project.status, project.mode)}</TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Layers className="h-3 w-3" />
@@ -245,6 +259,18 @@ export function OutputArchive({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {project.mode === "script" && onImportScript && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onImportScript(project)
+                                }}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                导入到剧本创作
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => onDelete?.(project.id)}
@@ -278,7 +304,7 @@ export function OutputArchive({
           <DialogHeader className="p-4 border-b border-border shrink-0">
             <DialogTitle className="flex items-center gap-2">
               {selectedProject?.name}
-              {selectedProject && getStatusBadge(selectedProject.status)}
+              {selectedProject && getStatusBadge(selectedProject.status, selectedProject.mode)}
             </DialogTitle>
             <DialogDescription>
               {selectedProject?.sceneCount} Scenes • {selectedProject?.totalDuration} • {selectedProject?.createdAt}

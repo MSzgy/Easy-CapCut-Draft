@@ -627,6 +627,7 @@ export interface ScriptShot {
   character: string
   props: string
   dialogue: string
+  imageUrl?: string
 }
 
 export interface EnhanceScriptResponse {
@@ -635,9 +636,16 @@ export interface EnhanceScriptResponse {
   script: string
 }
 
+export interface ScriptCharacter {
+  name: string
+  description: string
+  imageUrl: string
+}
+
 export interface DeconstructScriptResponse {
   success: boolean
   message: string
+  characters?: ScriptCharacter[]
   shots: ScriptShot[]
 }
 

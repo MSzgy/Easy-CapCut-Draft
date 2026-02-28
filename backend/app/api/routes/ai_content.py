@@ -1,4 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from typing import List, Optional
+from app.core.auth import get_current_user
+from app.core.prompts import get_image_prompt
+import json
+import re
 from app.schemas.ai_schemas import (
     GenerateContentRequest,
     GenerateContentResponse,
@@ -731,8 +736,9 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 except:
                     print(f"分辨率解析失败: {request.resolution}, 使用默认值 1024x1024")
             
+            final_prompt = get_image_prompt(intent=request.theme or "general", base_prompt=request.prompt)
             data = await ai_service.generate_image_huggingface(
-                prompt=request.prompt,
+                prompt=final_prompt,
                 width=width,
                 height=height,
                 style=request.style,
@@ -747,8 +753,9 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
             )
         else:
             # Gemini or other providers
+            final_prompt = get_image_prompt(intent=request.theme or "general", base_prompt=request.prompt)
             data = await ai_service.generate_image(
-                prompt=request.prompt, 
+                prompt=final_prompt, 
                 style=request.style,
                 style_keywords=request.styleKeywords,
                 negative_prompt=request.negativePrompt,
@@ -1480,9 +1487,25 @@ async def enhance_script(request: EnhanceScriptRequest, current_user=Depends(get
 
 @router.post("/deconstruct-script", response_model=DeconstructScriptResponse)
 async def deconstruct_script(request: DeconstructScriptRequest, current_user=Depends(get_current_user)):
-    """将完整剧本拆解为镜头分镜"""
+    """将完整剧本拆解为角色列表和镜头分镜"""
     try:
-        system_message = "你是一个专业的视频分镜师。你需要将用户提供的剧本精确拆解为一个个具体的镜头（Shot）。返回结果必须是一个JSON数组，每个元素包含以下字段：\n- shotNumber: 整数，序号\n- scene: 场景描述（如：咖啡厅内，白天）\n- character: 人物动态/外貌（如：女主端着咖啡走到窗前）\n- props: 道具及特效（如：咖啡杯上升起热气）\n- dialogue: 旁白/台词/音乐指示（如：女主OS：又是无聊的一天...）\n请仅返回合法的JSON数组，不包含任何Markdown包装（如无需 ```json 等）。"
+        system_message = """你是一个专业的视频分镜师，兼具角色设定分析能力。
+你需要将用户提供的剧本精确进行两项工作：
+1. 提取出所有出现的核心角色设定（名字及详细的外貌、背景、性格描述）。
+2. 将剧本拆解为具体的镜头分镜（Shot）。
+
+返回结果必须是一个JSON对象，包含两个键：
+- characters: 角色数组。每个元素包含：
+  - name: 字符串，角色名称
+  - description: 字符串，角色的详细背景信息、性格特点、外貌描写
+- shots: 分镜数组。每个元素包含：
+  - shotNumber: 整数，序号
+  - scene: 场景描述（如：咖啡厅内，白天）
+  - character: 人物动态/外貌（如：女主端着咖啡走到窗前）
+  - props: 道具及特效（如：咖啡杯上升起热气）
+  - dialogue: 旁白/台词/音乐指示（如：女主OS：又是无聊的一天...）
+
+请仅返回合法的JSON对象（Dict，包含 characters 和 shots 两个 key），不包含任何Markdown包装（如无需 ```json 等）。"""
         
         prompt = f"请拆解以下剧本：\n\n{request.script}"
         
@@ -1490,26 +1513,42 @@ async def deconstruct_script(request: DeconstructScriptRequest, current_user=Dep
             prompt=prompt,
             system_message=system_message,
             temperature=0.5,
-            max_tokens=4000,
+            max_tokens=8000,
             provider=request.provider
         )
         
         import re
         import json
+        from app.schemas.ai_schemas import ScriptCharacter
         
         # 解析返回的JSON
         cleaned_content = response_text.strip()
-        json_match = re.search(r'\[.*\]', cleaned_content, re.DOTALL)
+        json_match = re.search(r'\{.*\}', cleaned_content, re.DOTALL)
         if json_match:
             cleaned_content = json_match.group()
             
         try:
-            shots_data = json.loads(cleaned_content)
+            result_data = json.loads(cleaned_content)
         except json.JSONDecodeError:
             print(f"JSON解析失败，原始返回: {response_text}")
-            raise Exception("AI返回格式不正确，无法解析为JSON数组")
+            raise Exception("AI返回格式不正确，无法解析为JSON对象")
             
-        # 转换为 ScriptShot
+        # Extract Characters
+        characters = []
+        chars_data = result_data.get("characters", [])
+        for item in chars_data:
+            characters.append(ScriptCharacter(
+                name=item.get("name", "Unknown"),
+                description=item.get("description", ""),
+                imageUrl=""
+            ))
+            
+        # Extract Shots
+        shots_data = result_data.get("shots", [])
+        if not shots_data and isinstance(result_data, list):
+            # Fallback if the AI incorrectly just returned the array of shots anyway
+            shots_data = result_data
+
         shots = []
         for index, item in enumerate(shots_data):
             shots.append(ScriptShot(
@@ -1523,6 +1562,7 @@ async def deconstruct_script(request: DeconstructScriptRequest, current_user=Dep
         return DeconstructScriptResponse(
             success=True,
             message="剧本拆解成功",
+            characters=characters,
             shots=shots
         )
     except Exception as e:

@@ -50,6 +50,7 @@ class SaveProjectRequest(BaseModel):
     status: Optional[str] = None
     modelConfig: Optional[dict] = None
     scenes: List[SceneData] = Field(default_factory=list)
+    characters: Optional[list] = Field(default_factory=list)
     # 如果传入 projectId，则更新而非新建
     projectId: Optional[str] = None
 
@@ -86,6 +87,7 @@ class ProjectResponse(BaseModel):
     modelConfig: Optional[dict]
     createdAt: Optional[str]
     updatedAt: Optional[str]
+    characters: Optional[list] = []
     scenes: List[SceneResponse] = []
 
     class Config:
@@ -137,6 +139,7 @@ def _project_to_response(project) -> ProjectResponse:
         status=project.status.value if project.status else None,
         combinedVideoUrl=project.combined_video_url,
         modelConfig=project.model_config_snapshot,
+        characters=project.characters,
         createdAt=project.created_at.isoformat() if project.created_at else None,
         updatedAt=project.updated_at.isoformat() if project.updated_at else None,
         scenes=[
@@ -183,6 +186,7 @@ async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_d
             "cover_style": req.coverStyle,
             "combined_video_url": req.combinedVideoUrl,
             "model_config_snapshot": req.modelConfig,
+            "characters": req.characters,
         }
         for k, v in field_map.items():
             if v is not None:
@@ -222,6 +226,7 @@ async def save_project(req: SaveProjectRequest, db: AsyncSession = Depends(get_d
             cover_url=req.coverUrl,
             cover_style=req.coverStyle,
             model_config_snapshot=req.modelConfig,
+            characters=req.characters,
         )
         if req.scenes:
             await crud.bulk_create_scenes(db, project.id, [s.model_dump() for s in req.scenes])

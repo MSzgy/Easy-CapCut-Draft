@@ -61,6 +61,7 @@ class Project(Base):
     video_style = Column(String(50))  # promo, tutorial, cinematic, etc.
     copy_style = Column(String(50))   # 文案风格
     generated_copy = Column(Text)     # 生成的文案
+    characters = Column(JSON)         # 剧本角色卡片提取 (Array of ScriptCharacter)
 
     # 封面
     cover_url = Column(String(500))

@@ -570,7 +570,7 @@ export function ColumnInput({ onGenerate, onCoverGenerated, modelSelection }: Co
         style: coverStyle,
         styleKeywords: coverStyleKeywords[coverStyle],
         prompt: coverPrompt,
-        theme: coverTheme || undefined,
+        theme: coverTheme || "cover_douyin",
         size: coverSize,
         resolution: coverResolution,
         provider: modelSelection?.imageProvider,

@@ -79,7 +79,7 @@ def _video_understanding_registry() -> Dict[str, Type[VideoUnderstandingProvider
 
 PROVIDER_REQUIRED_VARS: Dict[str, List[str]] = {
     "gemini":      ["GEMINI_API_KEY", "GEMINI_BASE_URL"],
-    "openai":      ["OPENAI_API_KEY", "OPENAI_BASE_URL"],
+    "openai":      ["OPENAI_OWN_API_KEY", "OPENAI_BASE_URL"],
     "huggingface": ["HF_TOKEN"],
     "anthropic":   ["ANTHROPIC_API_KEY"],
 }
