@@ -127,6 +127,13 @@ class ScriptShot(BaseModel):
     dialogue: str = Field(..., description="旁白/台词/音乐")
 
 
+class ScriptCharacter(BaseModel):
+    """剧本角色卡片"""
+    name: str = Field(..., description="角色名称")
+    description: str = Field(..., description="角色的详细背景信息、性格特点、外貌描写")
+    imageUrl: str = Field("", description="角色生成的图片URL")
+
+
 class DeconstructScriptRequest(BaseModel):
     """剧本拆解分镜请求"""
     script: str = Field(..., description="完整剧本内容")
@@ -137,6 +144,7 @@ class DeconstructScriptResponse(BaseModel):
     """剧本拆解分镜响应"""
     success: bool
     message: str
+    characters: List[ScriptCharacter] = Field(default_factory=list, description="提取出的角色列表")
     shots: List[ScriptShot] = Field(default_factory=list, description="拆解出的镜头列表")
 
 

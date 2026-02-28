@@ -31,6 +31,7 @@ export interface SaveProjectRequest {
     combinedVideoUrl?: string
     status?: string
     modelConfig?: Record<string, string>
+    characters?: Record<string, any>[]
     scenes?: SceneData[]
     projectId?: string
 }
@@ -62,6 +63,7 @@ export interface ProjectData {
     status?: string
     combinedVideoUrl?: string
     modelConfig?: Record<string, string>
+    characters?: Record<string, any>[]
     createdAt?: string
     updatedAt?: string
     scenes: ProjectScene[]

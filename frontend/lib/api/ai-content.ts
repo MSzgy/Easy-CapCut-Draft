@@ -635,9 +635,16 @@ export interface EnhanceScriptResponse {
   script: string
 }
 
+export interface ScriptCharacter {
+  name: string
+  description: string
+  imageUrl: string
+}
+
 export interface DeconstructScriptResponse {
   success: boolean
   message: string
+  characters?: ScriptCharacter[]
   shots: ScriptShot[]
 }
 

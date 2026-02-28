@@ -32,6 +32,7 @@ async def create_project(
     cover_style: str | None = None,
     model_config_snapshot: dict | None = None,
     user_id: str | None = None,
+    characters: list | None = None,
 ) -> Project:
     project = Project(
         id=_uuid(),
@@ -48,6 +49,7 @@ async def create_project(
         cover_style=cover_style,
         model_config_snapshot=model_config_snapshot,
         status=ProjectStatus.DRAFT,
+        characters=characters,
     )
     db.add(project)
     await db.flush()

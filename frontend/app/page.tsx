@@ -44,7 +44,7 @@ export default function VideoEditorPage() {
   const [generatedVideos, setGeneratedVideos] = useState<string[]>([])
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
-  const [scriptCreatorData, setScriptCreatorData] = useState<{ prompt: string; script: string; shots: ScriptShot[] } | null>(null)
+  const [scriptCreatorData, setScriptCreatorData] = useState<{ prompt: string; script: string; shots: ScriptShot[], characters?: any[] } | null>(null)
 
   // ── 项目持久化 ────────────────────────────────────────────────────────
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -143,6 +143,7 @@ export default function VideoEditorPage() {
             totalDuration: p.scenes.reduce((sum, s) => sum + (s.duration || 5), 0) + "s",
             draftPrompt: isScript ? p.prompt : undefined,
             draftScript: isScript ? p.generatedCopy : undefined,
+            characters: isScript ? p.characters as any : undefined,
             rawShots: isScript ? p.scenes.map(s => {
               try { return JSON.parse(s.script) } catch { return null }
             }).filter(Boolean) : undefined,
@@ -240,7 +241,7 @@ export default function VideoEditorPage() {
     }
   }, [currentProjectId, modelSelection])
 
-  const handleSaveScriptProject = useCallback(async (prompt: string, script: string, shots: ScriptShot[]) => {
+  const handleSaveScriptProject = useCallback(async (prompt: string, script: string, shots: ScriptShot[], characters: any[]) => {
     try {
       const title = `剧本草稿 - ${new Date().toLocaleTimeString()}`
       const res = await projectsApi.saveProject({
@@ -248,6 +249,7 @@ export default function VideoEditorPage() {
         mode: "script",
         prompt: prompt,
         generatedCopy: script,
+        characters: characters,
         modelConfig: modelSelection as any,
         scenes: shots.map((s) => ({
           script: JSON.stringify(s),
@@ -266,6 +268,7 @@ export default function VideoEditorPage() {
           sceneCount: shots.length,
           draftPrompt: prompt,
           draftScript: script,
+          characters: characters,
           rawShots: shots,
           scenes: [],
         }
@@ -282,6 +285,7 @@ export default function VideoEditorPage() {
       prompt: project.draftPrompt || "",
       script: project.draftScript || "",
       shots: project.rawShots || [],
+      characters: project.characters || [],
     })
     setActiveTab("script-creator")
   }, [])

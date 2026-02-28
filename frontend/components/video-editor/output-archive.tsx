@@ -70,6 +70,7 @@ export interface OutputProject {
   sceneCount: number
   draftPrompt?: string
   draftScript?: string
+  characters?: any[]
   rawShots?: any[]
 }
 

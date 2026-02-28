@@ -5,27 +5,32 @@ import { Wand2, LayoutList, Loader2, Save, Camera, User, Package, Mic, Upload, F
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { aiContentApi, type ScriptShot } from "@/lib/api/ai-content"
+import { aiContentApi, type ScriptShot, type ScriptCharacter } from "@/lib/api/ai-content"
 import type { ModelSelection } from "@/lib/api/ai-content"
 import { cn } from "@/lib/utils"
 
 interface ScriptCreatorProps {
     modelSelection: ModelSelection
     onImportToWorkbench?: (shots: ScriptShot[], script: string) => void
-    onSaveToArchive?: (prompt: string, script: string, shots: ScriptShot[]) => void
-    initialData?: { prompt: string; script: string; shots: ScriptShot[] } | null
+    onSaveToArchive?: (prompt: string, script: string, shots: ScriptShot[], characters: ScriptCharacter[]) => void
+    initialData?: { prompt: string; script: string; shots: ScriptShot[], characters?: ScriptCharacter[] } | null
 }
 
 export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArchive, initialData }: ScriptCreatorProps) {
     const [prompt, setPrompt] = useState(initialData?.prompt || "")
     const [script, setScript] = useState(initialData?.script || "")
     const [shots, setShots] = useState<ScriptShot[]>(initialData?.shots || [])
+    const [characters, setCharacters] = useState<ScriptCharacter[]>(initialData?.characters || [])
+    const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({})
 
     useEffect(() => {
         if (initialData) {
             setPrompt(initialData.prompt)
             setScript(initialData.script)
             setShots(initialData.shots)
+            if (initialData.characters) {
+                setCharacters(initialData.characters)
+            }
         }
     }, [initialData])
 
@@ -110,14 +115,43 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
             const res = await aiContentApi.deconstructScript(script, modelSelection.textProvider)
             if (res.success && res.shots) {
                 setShots(res.shots)
+                if (res.characters) {
+                    setCharacters(res.characters)
+                }
                 if (onSaveToArchive) {
-                    onSaveToArchive(prompt, script, res.shots)
+                    onSaveToArchive(prompt, script, res.shots, res.characters || [])
                 }
             }
         } catch (err) {
             console.error("Deconstruct failed:", err)
         } finally {
             setIsDeconstructing(false)
+        }
+    }
+
+    const handleGenerateCharacterImage = async (index: number, character: ScriptCharacter) => {
+        setGeneratingImages(prev => ({ ...prev, [index]: true }))
+        try {
+            const prompt = `Character Design Portrait, ${character.description}, clear face, high quality, photorealistic, cinematic lighting`
+            const res = await aiContentApi.generateCover({
+                style: "photorealistic",
+                prompt: prompt,
+                theme: "character portrait",
+                size: "9:16",
+                resolution: "1080p",
+                provider: modelSelection.imageProvider
+            })
+            if (res.success && res.coverUrl) {
+                setCharacters(prev => {
+                    const newChars = [...prev]
+                    newChars[index] = { ...newChars[index], imageUrl: res.coverUrl }
+                    return newChars
+                })
+            }
+        } catch (error) {
+            console.error("生成角色形象失败:", error)
+        } finally {
+            setGeneratingImages(prev => ({ ...prev, [index]: false }))
         }
     }
 
@@ -132,7 +166,7 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2 flex-1 min-h-0">
+            <div className={cn("grid gap-6 flex-1 min-h-0", characters.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
                 {/* Left Column: Input and Script Editing */}
                 <div className="flex flex-col gap-4 overflow-hidden">
                     {/* Step 1: Prompt Input */}
@@ -260,6 +294,70 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                         </div>
                     </div>
                 </div>
+
+                {/* Middle Column: Character Cards (Only visible when characters are extracted) */}
+                {characters.length > 0 && (
+                    <div className="flex flex-col gap-4 overflow-hidden rounded-2xl border bg-card/30 shadow-sm backdrop-blur-sm p-1">
+                        <div className="p-4 border-b bg-muted/20 flex items-center gap-2 rounded-t-2xl shrink-0">
+                            <User className="h-5 w-5 text-emerald-500" />
+                            <h2 className="text-lg font-semibold text-foreground">核心角色卡</h2>
+                            <div className="ml-auto flex items-center gap-2">
+                                <span className="text-xs font-medium bg-emerald-500/10 text-emerald-500 px-2.5 py-1 rounded-full">
+                                    共 {characters.length} 名角色
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-4 space-y-4 pr-3 custom-scrollbar">
+                            {characters.map((char, idx) => (
+                                <div
+                                    key={`char-${idx}`}
+                                    className="group flex flex-col gap-3 p-4 rounded-xl border bg-background/80 shadow-sm hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-4"
+                                    style={{ animationDelay: `${idx * 100}ms`, animationFillMode: "both" }}
+                                >
+                                    <div className="font-semibold text-foreground border-b pb-2 flex justify-between items-center">
+                                        <span className="text-emerald-600 dark:text-emerald-400">{char.name}</span>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed min-h-[60px]">
+                                        {char.description}
+                                    </div>
+
+                                    {/* Image Area */}
+                                    <div className="mt-2 w-full flex flex-col items-center gap-3">
+                                        {char.imageUrl ? (
+                                            <div className="w-full relative aspect-[3/4] rounded-lg overflow-hidden border bg-muted shadow-sm">
+                                                <img
+                                                    src={char.imageUrl}
+                                                    alt={char.name}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                    crossOrigin="anonymous"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-full aspect-[3/4] rounded-lg border-2 border-dashed bg-muted/30 flex flex-col items-center justify-center text-muted-foreground/50 transition-colors group-hover:bg-muted/50">
+                                                <User className="h-10 w-10 mb-2 opacity-50" />
+                                                <span className="text-xs">暂无形象</span>
+                                            </div>
+                                        )}
+
+                                        <Button
+                                            onClick={() => handleGenerateCharacterImage(idx, char)}
+                                            size="sm"
+                                            className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+                                            disabled={generatingImages[idx]}
+                                        >
+                                            {generatingImages[idx] ? (
+                                                <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                                            ) : (
+                                                <><Wand2 className="h-4 w-4" />生成角色形象</>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Right Column: Deconstructed Shots */}
                 <div className="flex flex-col gap-4 overflow-hidden rounded-2xl border bg-card/30 shadow-sm backdrop-blur-sm p-1">
