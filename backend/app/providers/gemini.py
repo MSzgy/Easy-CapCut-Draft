@@ -117,7 +117,7 @@ class GeminiProvider(TextProvider, ImageProvider, VisionProvider):
             descs = [f"{s} ({int(w*100)}%)" for s, w in request.style_weights.items()]
             extra_ctx.append(f"- 风格混合比例: {', '.join(descs)}")
 
-        if request.reference_image:
+        if request.reference_image and not request.reference_images:
             strength_desc = (
                 "轻微幅度" if request.denoising_strength < 0.4
                 else "中等幅度" if request.denoising_strength < 0.7
@@ -135,7 +135,18 @@ class GeminiProvider(TextProvider, ImageProvider, VisionProvider):
 
         user_parts = [{"text": request.prompt}]
 
-        if request.reference_image and request.reference_image.startswith("data:"):
+        # 多角色参考图片（优先使用）
+        if request.reference_images and len(request.reference_images) > 0:
+            for i, ref_img in enumerate(request.reference_images):
+                if ref_img and ref_img.startswith("data:"):
+                    parts = ref_img.split(",", 1)
+                    if len(parts) == 2:
+                        mime = parts[0].split(";")[0].split(":")[1]
+                        user_parts.insert(i, {
+                            "inlineData": {"mimeType": mime, "data": parts[1]}
+                        })
+        # 单张参考图（向后兼容）
+        elif request.reference_image and request.reference_image.startswith("data:"):
             parts = request.reference_image.split(",", 1)
             if len(parts) == 2:
                 mime = parts[0].split(";")[0].split(":")[1]

@@ -63,6 +63,7 @@ export interface GenerateCoverRequest {
   // Phase 2 & 3: 高级功能
   mode?: 'text-to-image' | 'image-to-image' | 'style-mix' | 'style-transfer' | 'sketch-to-image' | 'face-portrait' | 'background-removal' | 'background-replacement' | 'storyboard'
   referenceImage?: string // base64
+  referenceImages?: string[] // 多张参考图 base64（按人物顺序）
   denoisingStrength?: number
   preserveComposition?: boolean
   styleWeights?: { [styleId: string]: number }

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
@@ -17,8 +18,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Settings, Type, Image, Video, Palette, AlertCircle, CheckCircle2, Loader2, Music } from "lucide-react"
+import { Settings, Type, Image, Video, Palette, AlertCircle, CheckCircle2, Loader2, Music, Download, Database } from "lucide-react"
 import { aiContentApi, type ProviderStatus, type ModelSelection } from "@/lib/api/ai-content"
+import { toast } from "sonner"
 
 interface ConfigPageProps {
     modelSelection: ModelSelection
@@ -28,6 +30,7 @@ interface ConfigPageProps {
 export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProps) {
     const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isExporting, setIsExporting] = useState(false)
 
     useEffect(() => {
         async function fetchProviders() {
@@ -45,6 +48,47 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
 
     const update = (key: keyof ModelSelection, value: string) => {
         setModelSelection({ ...modelSelection, [key]: value })
+    }
+
+    const handleExportDb = async () => {
+        setIsExporting(true)
+        try {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/proxy'
+            let authToken: string | null = null
+            if (typeof window !== 'undefined') {
+                authToken = localStorage.getItem('clipforge_token')
+            }
+
+            const response = await fetch(`${API_BASE_URL}/auth/export-db`, {
+                method: 'GET',
+                headers: {
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+                },
+            })
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }))
+                throw new Error(err.detail || '导出失败')
+            }
+
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            const now = new Date()
+            const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
+            a.download = `capcut_backup_${ts}.db`
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+            toast.success('数据库导出成功')
+        } catch (error: any) {
+            console.error('Export DB failed:', error)
+            toast.error(error.message || '数据库导出失败')
+        } finally {
+            setIsExporting(false)
+        }
     }
 
     // Build option list for image models: gemini + HF image spaces
@@ -222,6 +266,39 @@ export function ConfigPage({ modelSelection, setModelSelection }: ConfigPageProp
                     options={musicOptions}
                     defaultLabel="默认: MusicGen 音乐生成"
                 />
+
+                {/* ─── 数据管理 ─── */}
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <Database className="h-5 w-5" />
+                            数据管理
+                        </CardTitle>
+                        <CardDescription>导出数据库以便备份或迁移数据</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">
+                                    导出完整的 SQLite 数据库文件，包含所有项目、素材、用户数据。
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleExportDb}
+                                disabled={isExporting}
+                                variant="outline"
+                                className="gap-2 shrink-0 ml-4"
+                            >
+                                {isExporting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="h-4 w-4" />
+                                )}
+                                {isExporting ? "导出中..." : "导出数据库"}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     )

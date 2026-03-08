@@ -183,9 +183,28 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
     const handleGenerateShotImage = async (index: number, shot: ScriptShot) => {
         setGeneratingShotImages(prev => ({ ...prev, [index]: true }))
         try {
-            // Find matched character with image
-            const matchedChar = characters.find(c => c.imageUrl && (shot.character.includes(c.name) || c.name.includes(shot.character)))
-            const imagePrompt = `Cinematic shot, ${shot.scene}, ${shot.character}, ${shot.props}, photorealistic, high quality, 8k resolution, cinematic lighting`
+            // Find ALL matched characters with images, ordered by their appearance in shot.character
+            const matchedChars = characters.filter(c =>
+                c.imageUrl && (shot.character.includes(c.name) || c.name.includes(shot.character))
+            )
+
+            // Sort by order of appearance in shot.character text
+            matchedChars.sort((a, b) => {
+                const posA = shot.character.indexOf(a.name)
+                const posB = shot.character.indexOf(b.name)
+                return (posA === -1 ? Infinity : posA) - (posB === -1 ? Infinity : posB)
+            })
+
+            // Build character reference instruction for the prompt
+            let charRefInstruction = ""
+            if (matchedChars.length > 1) {
+                const charNames = matchedChars.map((c, i) => `第${i + 1}张参考图对应角色「${c.name}」`).join("，")
+                charRefInstruction = `\nIMPORTANT: ${matchedChars.length} reference character images are provided (in order). ${charNames}. Ensure each character's appearance, clothing, and hairstyle match their corresponding reference image exactly.`
+            } else if (matchedChars.length === 1) {
+                charRefInstruction = `\nIMPORTANT: A reference image is provided for character「${matchedChars[0].name}」. Ensure the character's appearance matches the reference image exactly.`
+            }
+
+            const imagePrompt = `Cinematic shot, ${shot.scene}, ${shot.character}, ${shot.props}, photorealistic, high quality, 8k resolution, cinematic lighting${charRefInstruction}`
 
             const req: any = {
                 style: "photorealistic",
@@ -196,8 +215,11 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                 provider: modelSelection.imageProvider
             }
 
-            if (matchedChar && matchedChar.imageUrl) {
-                req.referenceImage = matchedChar.imageUrl;
+            // 多角色：传 referenceImages 数组；单角色：传 referenceImage 保持兼容
+            if (matchedChars.length > 1) {
+                req.referenceImages = matchedChars.map(c => c.imageUrl)
+            } else if (matchedChars.length === 1) {
+                req.referenceImage = matchedChars[0].imageUrl
             }
 
             const res = await aiContentApi.generateCover(req)

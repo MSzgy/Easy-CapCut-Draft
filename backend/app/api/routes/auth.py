@@ -96,3 +96,36 @@ async def get_me(current_user: User = Depends(get_current_user)):
         username=current_user.username,
         role=current_user.role,
     ).model_dump()
+
+
+@router.get("/export-db")
+async def export_database(current_user: User = Depends(get_current_user)):
+    """导出数据库文件（仅限管理员）"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅管理员可导出数据库",
+        )
+
+    from app.core.config import settings
+    db_url = settings.DATABASE_URL
+    if not db_url.startswith("sqlite"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持 SQLite 数据库导出",
+        )
+
+    import os
+    from fastapi.responses import FileResponse
+    db_path = db_url.split("///")[-1]
+    if not os.path.exists(db_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="数据库文件不存在",
+        )
+
+    return FileResponse(
+        path=db_path,
+        filename="capcut.db",
+        media_type="application/octet-stream",
+    )
