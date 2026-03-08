@@ -749,7 +749,8 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 reference_image=request.referenceImage,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
-                image_model=image_model # Use parsed image_model
+                image_model=image_model, # Use parsed image_model
+                reference_images=request.referenceImages,
             )
         else:
             # Gemini or other providers
@@ -763,6 +764,7 @@ async def generate_cover(request: GenerateCoverRequest, current_user=Depends(get
                 size=request.size,
                 resolution=request.resolution,
                 reference_image=request.referenceImage,
+                reference_images=request.referenceImages,
                 denoising_strength=request.denoisingStrength or 0.7,
                 preserve_composition=request.preserveComposition or False,
                 style_weights=request.styleWeights,

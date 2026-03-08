@@ -32,6 +32,7 @@ class ImageRequest:
     negative_prompt: Optional[str] = None
     resolution: str = "1024"
     reference_image: Optional[str] = None       # base64 data URL
+    reference_images: Optional[List[str]] = None  # 多张 base64 data URL（按人物顺序）
     denoising_strength: float = 0.7
     preserve_composition: bool = False
     style_weights: Optional[Dict[str, float]] = None
