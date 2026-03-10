@@ -360,6 +360,8 @@ class ImageAudioToVideoResponse(BaseModel):
 class ConcatenateVideosRequest(BaseModel):
     """视频拼接请求"""
     videoPaths: List[str] = Field(..., description="视频文件路径列表，按顺序拼接")
+    crossfade: bool = Field(default=False, description="是否启用交叉淡入淡出转场")
+    crossfadeDuration: float = Field(default=0.5, description="转场时长（秒）")
 
 
 class ConcatenateVideosResponse(BaseModel):

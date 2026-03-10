@@ -48,6 +48,8 @@ interface ColumnOrchestratorProps {
   onGenerateVideo?: () => void
   isExporting?: boolean
   exportType?: "json" | "video" | null
+  enableCrossfade?: boolean
+  onCrossfadeChange?: (enabled: boolean) => void
 }
 
 interface ContentSelection {
@@ -89,6 +91,8 @@ export function ColumnOrchestrator({
   onGenerateVideo,
   isExporting = false,
   exportType = null,
+  enableCrossfade = true,
+  onCrossfadeChange,
 }: ColumnOrchestratorProps) {
   const [copied, setCopied] = useState(false)
   const [mappingSteps, setMappingSteps] = useState<MappingStep[]>(initialMappingSteps)
@@ -364,10 +368,10 @@ export function ColumnOrchestrator({
                 )}
                 <span
                   className={`text-xs ${step.status === "done"
-                      ? "text-foreground"
-                      : step.status === "processing"
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                    ? "text-foreground"
+                    : step.status === "processing"
+                      ? "text-primary"
+                      : "text-muted-foreground"
                     }`}
                 >
                   {step.label}
@@ -384,45 +388,61 @@ export function ColumnOrchestrator({
           {/* Generate Actions */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Generate Output</Label>
+
+            {/* Crossfade Toggle */}
+            <div
+              onClick={() => onCrossfadeChange?.(!enableCrossfade)}
+              className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 transition-colors ${enableCrossfade ? "border-primary bg-primary/10" : "border-border bg-secondary/50"
+                }`}
+            >
+              <Checkbox
+                checked={enableCrossfade}
+                onCheckedChange={(checked) => onCrossfadeChange?.(!!checked)}
+              />
+              <Video className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs">Crossfade 转场</span>
+              <span className="text-[10px] text-muted-foreground ml-auto">0.5s 淡入淡出</span>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={onGenerateJson}
-                disabled={!content || isExporting || selectedCount === 0}
-                className="bg-transparent"
+            size="sm"
+            onClick={onGenerateJson}
+            disabled={!content || isExporting || selectedCount === 0}
+            className="bg-transparent"
               >
-                {isExporting && exportType === "json" ? (
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                <span className="text-xs">Export JSON</span>
-              </Button>
-
-              <Button
-                size="sm"
-                onClick={onGenerateVideo}
-                disabled={!content || isExporting || selectedCount === 0}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {isExporting && exportType === "video" ? (
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Video className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                <span className="text-xs">Render Video</span>
-              </Button>
-            </div>
-            {selectedCount === 0 && (
-              <p className="text-[10px] text-destructive">Please select at least one content type</p>
+            {isExporting && exportType === "json" ? (
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 h-3.5 w-3.5" />
             )}
-          </div>
-        </CardContent>
-      </Card>
+            <span className="text-xs">Export JSON</span>
+          </Button>
 
-      {/* JSON Debugger */}
-      <Card className="flex flex-1 flex-col border-border bg-card">
+          <Button
+            size="sm"
+            onClick={onGenerateVideo}
+            disabled={!content || isExporting || selectedCount === 0}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {isExporting && exportType === "video" ? (
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Video className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            <span className="text-xs">Render Video</span>
+          </Button>
+        </div>
+        {selectedCount === 0 && (
+          <p className="text-[10px] text-destructive">Please select at least one content type</p>
+        )}
+    </div>
+        </CardContent >
+      </Card >
+
+    {/* JSON Debugger */ }
+    < Card className = "flex flex-1 flex-col border-border bg-card" >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-sm font-medium">
             <div className="flex items-center gap-2">
@@ -461,10 +481,10 @@ export function ColumnOrchestrator({
             </pre>
           </ScrollArea>
         </CardContent>
-      </Card>
+      </Card >
 
-      {/* Pre-export Checklist */}
-      <Card className="border-border bg-card">
+    {/* Pre-export Checklist */ }
+    < Card className = "border-border bg-card" >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-sm font-medium">
             <span>Pre-export Checklist</span>
@@ -504,7 +524,7 @@ export function ColumnOrchestrator({
             </Collapsible>
           ))}
         </CardContent>
-      </Card>
-    </div>
+      </Card >
+    </div >
   )
 }

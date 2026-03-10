@@ -1389,26 +1389,93 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
                 videoUrl=normalized_paths[0]
             )
         
-        # 第二步：创建 ffmpeg concat 文件列表
-        concat_list_path = os.path.join(output_dir, "concat_list.txt")
-        with open(concat_list_path, "w") as f:
-            for npath in normalized_paths:
-                f.write(f"file '{npath}'\n")
-        
-        # 第三步：执行拼接
+        # 第二步：拼接视频
         import uuid
         output_filename = f"combined_{uuid.uuid4().hex[:8]}.mp4"
         output_path = os.path.join(output_dir, output_filename)
         
-        concat_cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0",
-            "-i", concat_list_path,
-            "-c", "copy",
-            output_path
-        ]
+        if request.crossfade and len(normalized_paths) >= 2:
+            # ── Crossfade 模式：使用 xfade 滤镜 ──
+            cf_dur = max(0.1, min(request.crossfadeDuration, 2.0))  # 限制 0.1~2s
+            
+            # 获取每个视频的时长
+            durations = []
+            for npath in normalized_paths:
+                probe_cmd = [
+                    "ffprobe", "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    npath
+                ]
+                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10)
+                try:
+                    durations.append(float(probe_result.stdout.strip()))
+                except (ValueError, AttributeError):
+                    durations.append(5.0)  # fallback
+            
+            # 构建 xfade 滤镜链
+            n = len(normalized_paths)
+            inputs = []
+            for npath in normalized_paths:
+                inputs.extend(["-i", npath])
+            
+            filter_parts = []
+            # 计算每个 xfade 的 offset（前一个视频结束前 cf_dur 秒）
+            cumulative_duration = durations[0]
+            
+            # 第一对
+            offset = cumulative_duration - cf_dur
+            if offset < 0:
+                offset = 0
+            filter_parts.append(f"[0:v][1:v]xfade=transition=fade:duration={cf_dur}:offset={offset}[v01]")
+            cumulative_duration = cumulative_duration + durations[1] - cf_dur
+            
+            # 后续对
+            for i in range(2, n):
+                prev_label = f"v{str(i-2).zfill(1)}{str(i-1).zfill(1)}"
+                curr_label = f"v{str(i-1).zfill(1)}{str(i).zfill(1)}"
+                offset = cumulative_duration - cf_dur
+                if offset < 0:
+                    offset = 0
+                filter_parts.append(f"[{prev_label}][{i}:v]xfade=transition=fade:duration={cf_dur}:offset={offset}[{curr_label}]")
+                cumulative_duration = cumulative_duration + durations[i] - cf_dur
+            
+            # 最后一个输出标签
+            if n == 2:
+                final_label = "v01"
+            else:
+                final_label = f"v{str(n-2).zfill(1)}{str(n-1).zfill(1)}"
+            
+            filter_complex = ";".join(filter_parts)
+            
+            concat_cmd = [
+                "ffmpeg", "-y",
+                *inputs,
+                "-filter_complex", filter_complex,
+                "-map", f"[{final_label}]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                output_path
+            ]
+            
+            print(f"🔗 正在拼接视频 (crossfade {cf_dur}s)...")
+        else:
+            # ── 普通硬切模式 ──
+            concat_list_path = os.path.join(output_dir, "concat_list.txt")
+            with open(concat_list_path, "w") as f:
+                for npath in normalized_paths:
+                    f.write(f"file '{npath}'\n")
+            
+            concat_cmd = [
+                "ffmpeg", "-y",
+                "-f", "concat", "-safe", "0",
+                "-i", concat_list_path,
+                "-c", "copy",
+                output_path
+            ]
+            
+            print(f"🔗 正在拼接视频 (硬切)...")
         
-        print(f"🔗 正在拼接视频...")
         result = subprocess.run(concat_cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
@@ -1421,10 +1488,6 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
                 os.remove(npath)
             except:
                 pass
-        try:
-            os.remove(concat_list_path)
-        except:
-            pass
         
         # Move to static directory for access
         import shutil
@@ -1437,15 +1500,13 @@ async def concatenate_videos(request: ConcatenateVideosRequest, current_user=Dep
         
         shutil.move(output_path, final_path)
         
-        # Construct URL (assuming default local dev setup, ideally from config)
-        # In production this host should be dynamic
         final_url = f"http://127.0.0.1:1111/static/videos/{final_filename}"
         
         print(f"✅ 视频拼接成功: {final_path} -> {final_url}")
         
         return ConcatenateVideosResponse(
             success=True,
-            message=f"成功拼接 {len(normalized_paths)} 个视频",
+            message=f"成功拼接 {len(normalized_paths)} 个视频" + (f" (crossfade {request.crossfadeDuration}s)" if request.crossfade else ""),
             videoUrl=final_url
         )
         

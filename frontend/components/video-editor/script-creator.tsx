@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Wand2, LayoutList, Loader2, Save, Camera, User, Package, Mic, Upload, FileText } from "lucide-react"
+import { Wand2, LayoutList, Loader2, Save, Camera, User, Package, Mic, Upload, FileText, Plus, ImagePlus, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,12 @@ import type { ModelSelection } from "@/lib/api/ai-content"
 import { mediaApi } from "@/lib/api/media"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+
+interface Chapter {
+    prompt: string
+    script: string
+    shots: ScriptShot[]
+}
 
 interface ScriptCreatorProps {
     modelSelection: ModelSelection
@@ -20,27 +26,52 @@ interface ScriptCreatorProps {
 }
 
 export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArchive, onMediaAdded, initialData }: ScriptCreatorProps) {
-    const [prompt, setPrompt] = useState(initialData?.prompt || "")
-    const [script, setScript] = useState(initialData?.script || "")
-    const [shots, setShots] = useState<ScriptShot[]>(initialData?.shots || [])
+    // Helper: try parsing multi-chapter format from a script string
+    const parseChapters = (s: string | undefined): Chapter[] | null => {
+        if (!s) return null
+        try { const p = JSON.parse(s); if (p?.__multiChapter__ && Array.isArray(p.chapters)) return p.chapters } catch { }
+        return null
+    }
+
+    // Compute initial chapter data from initialData prop
+    const _initCh = parseChapters(initialData?.script)
+    const [chapters, setChapters] = useState<Chapter[]>(
+        _initCh || [{ prompt: initialData?.prompt || "", script: initialData?.script || "", shots: initialData?.shots || [] }]
+    )
+    const [activeChapterIndex, setActiveChapterIndex] = useState(0)
+
+    const [prompt, setPrompt] = useState(_initCh?.[0]?.prompt || initialData?.prompt || "")
+    const [script, setScript] = useState(_initCh?.[0]?.script || (_initCh ? "" : (initialData?.script || "")))
+    const [shots, setShots] = useState<ScriptShot[]>(_initCh?.[0]?.shots || initialData?.shots || [])
     const [characters, setCharacters] = useState<ScriptCharacter[]>(initialData?.characters || [])
     const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({})
     const [generatingShotImages, setGeneratingShotImages] = useState<Record<number, boolean>>({})
     const [projectId, setProjectId] = useState<string | undefined>(initialData?.id)
 
+    // Restore data when initialData changes (e.g. loading a different project)
     useEffect(() => {
         if (initialData) {
-            setPrompt(initialData.prompt)
-            setScript(initialData.script)
-            setShots(initialData.shots)
             setProjectId(initialData.id)
-            if (initialData.characters) {
-                setCharacters(initialData.characters)
+            if (initialData.characters) setCharacters(initialData.characters)
+
+            const parsed = parseChapters(initialData.script)
+            if (parsed && parsed.length > 0) {
+                setChapters(parsed)
+                setActiveChapterIndex(0)
+                setPrompt(parsed[0].prompt || "")
+                setScript(parsed[0].script || "")
+                setShots(parsed[0].shots || [])
+            } else {
+                setPrompt(initialData.prompt || "")
+                setScript(initialData.script || "")
+                setShots(initialData.shots || [])
+                setChapters([{ prompt: initialData.prompt || "", script: initialData.script || "", shots: initialData.shots || [] }])
+                setActiveChapterIndex(0)
             }
         }
     }, [initialData])
 
-    // Auto-save characters to draft project on change
+    // Auto-save (debounced) — serializes all chapters
     const isFirstRender = useRef(true)
     useEffect(() => {
         if (isFirstRender.current) {
@@ -48,13 +79,16 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
             return
         }
 
-        // Only auto-save if we have some characters/shots
         if (characters.length > 0 || shots.length > 0) {
             const timeoutId = setTimeout(() => {
                 if (onSaveToArchive) {
-                    onSaveToArchive(prompt, script, shots, characters, projectId)
+                    const updatedChapters = chapters.map((ch, i) =>
+                        i === activeChapterIndex ? { prompt, script, shots } : ch
+                    )
+                    const multiScript = JSON.stringify({ __multiChapter__: true, chapters: updatedChapters })
+                    onSaveToArchive(prompt, multiScript, shots, characters, projectId)
                 }
-            }, 1500) // Debounce 1.5s
+            }, 1500)
             return () => clearTimeout(timeoutId)
         }
     }, [characters, shots])
@@ -144,7 +178,11 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                     setCharacters(res.characters)
                 }
                 if (onSaveToArchive) {
-                    onSaveToArchive(prompt, script, res.shots, res.characters || [], projectId)
+                    const updatedChapters = chapters.map((ch, i) =>
+                        i === activeChapterIndex ? { prompt, script, shots: res.shots } : ch
+                    )
+                    const multiScript = JSON.stringify({ __multiChapter__: true, chapters: updatedChapters })
+                    onSaveToArchive(prompt, multiScript, res.shots, res.characters || [], projectId)
                 }
             }
         } catch (err) {
@@ -152,6 +190,57 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
         } finally {
             setIsDeconstructing(false)
         }
+    }
+
+    // ── Chapter management ──
+    const switchChapter = (targetIndex: number) => {
+        if (targetIndex === activeChapterIndex) return
+        setChapters(prev => {
+            const updated = [...prev]
+            updated[activeChapterIndex] = { prompt, script, shots }
+            return updated
+        })
+        const target = chapters[targetIndex]
+        setPrompt(target.prompt)
+        setScript(target.script)
+        setShots(target.shots)
+        setActiveChapterIndex(targetIndex)
+    }
+
+    const addChapter = () => {
+        setChapters(prev => {
+            const updated = [...prev]
+            updated[activeChapterIndex] = { prompt, script, shots }
+            return [...updated, { prompt: "", script: "", shots: [] }]
+        })
+        setActiveChapterIndex(chapters.length)
+        setPrompt("")
+        setScript("")
+        setShots([])
+    }
+
+    // ── Character image upload ──
+    const handleUploadCharacterImage = (index: number) => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0]
+            if (!file) return
+            const reader = new FileReader()
+            reader.onload = (ev) => {
+                const dataUrl = ev.target?.result as string
+                if (dataUrl) {
+                    setCharacters(prev => {
+                        const newChars = [...prev]
+                        newChars[index] = { ...newChars[index], imageUrl: dataUrl }
+                        return newChars
+                    })
+                }
+            }
+            reader.readAsDataURL(file)
+        }
+        input.click()
     }
 
     const handleGenerateCharacterImage = async (index: number, character: ScriptCharacter) => {
@@ -292,6 +381,37 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                         输入主题生成完整剧本，支持AI智能润色和一键拆解镜头。
                     </p>
                 </div>
+            </div>
+
+            {/* ── Chapter Tabs ── */}
+            <div className="flex items-center gap-2 -mt-2">
+                <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex items-center gap-1 overflow-x-auto">
+                    {chapters.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => switchChapter(idx)}
+                            className={cn(
+                                "px-3 py-1.5 text-sm font-medium rounded-lg transition-all whitespace-nowrap",
+                                idx === activeChapterIndex
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                        >
+                            第 {idx + 1} 章
+                        </button>
+                    ))}
+                    <button
+                        onClick={addChapter}
+                        className="p-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+                        title="添加新章节"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </button>
+                </div>
+                <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                    共 {chapters.length} 章 · 角色全局共享
+                </span>
             </div>
 
             <div className={cn("grid gap-6 flex-1 min-h-0", characters.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
@@ -480,18 +600,29 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                                             </div>
                                         )}
 
-                                        <Button
-                                            onClick={() => handleGenerateCharacterImage(idx, char)}
-                                            size="sm"
-                                            className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
-                                            disabled={generatingImages[idx]}
-                                        >
-                                            {generatingImages[idx] ? (
-                                                <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
-                                            ) : (
-                                                <><Wand2 className="h-4 w-4" />生成角色形象</>
-                                            )}
-                                        </Button>
+                                        <div className="w-full flex gap-2">
+                                            <Button
+                                                onClick={() => handleGenerateCharacterImage(idx, char)}
+                                                size="sm"
+                                                className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+                                                disabled={generatingImages[idx]}
+                                            >
+                                                {generatingImages[idx] ? (
+                                                    <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                                                ) : (
+                                                    <><Wand2 className="h-4 w-4" />AI 生成</>
+                                                )}
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleUploadCharacterImage(idx)}
+                                                size="sm"
+                                                variant="outline"
+                                                className="gap-2 rounded-lg"
+                                            >
+                                                <ImagePlus className="h-4 w-4" />
+                                                上传
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

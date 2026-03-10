@@ -45,6 +45,7 @@ export default function VideoEditorPage() {
   const [renderProgress, setRenderProgress] = useState<{ current: number; total: number } | null>(null)
   const [combinedVideoUrl, setCombinedVideoUrl] = useState<string | null>(null)
   const [scriptCreatorData, setScriptCreatorData] = useState<{ id?: string, prompt: string; script: string; shots: ScriptShot[], characters?: any[] } | null>(null)
+  const [enableCrossfade, setEnableCrossfade] = useState(true)
 
   // ── 项目持久化 ────────────────────────────────────────────────────────
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -545,7 +546,7 @@ export default function VideoEditorPage() {
         setRenderProgress({ current: total, total })
         console.log(`🔗 Concatenating ${successVideos.length} videos...`)
         const { aiContentApi } = await import("@/lib/api/ai-content")
-        const concatResponse = await aiContentApi.concatenateVideos(successVideos)
+        const concatResponse = await aiContentApi.concatenateVideos(successVideos, { crossfade: enableCrossfade, crossfadeDuration: 0.5 })
         if (concatResponse.success && concatResponse.videoUrl) {
           finalCombinedUrl = concatResponse.videoUrl
           setCombinedVideoUrl(concatResponse.videoUrl)
@@ -716,6 +717,8 @@ export default function VideoEditorPage() {
                   onGenerateVideo={handleRenderVideo}
                   isExporting={isExporting}
                   exportType={exportType}
+                  enableCrossfade={enableCrossfade}
+                  onCrossfadeChange={setEnableCrossfade}
                 />
               </aside>
             </main>

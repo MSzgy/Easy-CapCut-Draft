@@ -452,13 +452,17 @@ export const aiContentApi = {
   /**
    * 拼接多个视频为一个长视频
    */
-  async concatenateVideos(videoPaths: string[]): Promise<{
+  async concatenateVideos(videoPaths: string[], options?: { crossfade?: boolean; crossfadeDuration?: number }): Promise<{
     success: boolean
     message: string
     videoUrl: string
   }> {
     try {
-      return await apiClient.post('/ai/concatenate-videos', { videoPaths })
+      return await apiClient.post('/ai/concatenate-videos', {
+        videoPaths,
+        crossfade: options?.crossfade ?? false,
+        crossfadeDuration: options?.crossfadeDuration ?? 0.5,
+      })
     } catch (error) {
       const apiError = error as ApiError
       throw new Error(apiError.detail || 'Failed to concatenate videos')
