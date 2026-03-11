@@ -75,7 +75,7 @@ class GenerateCoverRequest(BaseModel):
     size: Optional[str] = Field(None, description="封面尺寸")
     resolution: Optional[str] = Field(None, description="图片分辨率")
     # Phase 2: 高级功能
-    mode: Optional[Literal["text-to-image", "image-to-image", "style-mix"]] = Field("text-to-image", description="生成模式")
+    mode: Optional[Literal["text-to-image", "image-to-image", "style-mix", "transition-grid"]] = Field("text-to-image", description="生成模式")
     referenceImage: Optional[str] = Field(None, description="参考图片 base64 编码 (用于图生图)")
     referenceImages: Optional[List[str]] = Field(None, description="多张参考图片 base64 编码列表（按人物顺序，用于分镜多角色场景）")
     denoisingStrength: Optional[float] = Field(0.7, description="重绘强度 0-1，值越低保留原图越多")

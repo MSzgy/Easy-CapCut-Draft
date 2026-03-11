@@ -142,8 +142,8 @@ class GeminiProvider(TextProvider, ImageProvider, VisionProvider):
                     parts = ref_img.split(",", 1)
                     if len(parts) == 2:
                         mime = parts[0].split(";")[0].split(":")[1]
-                        user_parts.insert(i, {
-                            "inlineData": {"mimeType": mime, "data": parts[1]}
+                        user_parts.append({
+                            "inline_data": {"mime_type": mime, "data": parts[1]}
                         })
         # 单张参考图（向后兼容）
         elif request.reference_image and request.reference_image.startswith("data:"):

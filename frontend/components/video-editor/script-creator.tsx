@@ -15,6 +15,7 @@ interface Chapter {
     prompt: string
     script: string
     shots: ScriptShot[]
+    transitionImages?: Record<number, string>
 }
 
 interface ScriptCreatorProps {
@@ -36,7 +37,7 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
     // Compute initial chapter data from initialData prop
     const _initCh = parseChapters(initialData?.script)
     const [chapters, setChapters] = useState<Chapter[]>(
-        _initCh || [{ prompt: initialData?.prompt || "", script: initialData?.script || "", shots: initialData?.shots || [] }]
+        _initCh || [{ prompt: initialData?.prompt || "", script: initialData?.script || "", shots: initialData?.shots || [], transitionImages: {} }]
     )
     const [activeChapterIndex, setActiveChapterIndex] = useState(0)
 
@@ -46,6 +47,9 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
     const [characters, setCharacters] = useState<ScriptCharacter[]>(initialData?.characters || [])
     const [generatingImages, setGeneratingImages] = useState<Record<number, boolean>>({})
     const [generatingShotImages, setGeneratingShotImages] = useState<Record<number, boolean>>({})
+    const [generatingTransitions, setGeneratingTransitions] = useState<Record<number, boolean>>({})
+    const [transitionImages, setTransitionImages] = useState<Record<number, string>>(_initCh?.[0]?.transitionImages || {}) // key: idx (between idx and idx+1)
+    const [transitionGrids, setTransitionGrids] = useState<Record<number, string>>({}) // "1x2" | "2x2"
     const [projectId, setProjectId] = useState<string | undefined>(initialData?.id)
 
     // Restore data when initialData changes (e.g. loading a different project)
@@ -61,11 +65,13 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                 setPrompt(parsed[0].prompt || "")
                 setScript(parsed[0].script || "")
                 setShots(parsed[0].shots || [])
+                setTransitionImages(parsed[0].transitionImages || {})
             } else {
                 setPrompt(initialData.prompt || "")
                 setScript(initialData.script || "")
                 setShots(initialData.shots || [])
-                setChapters([{ prompt: initialData.prompt || "", script: initialData.script || "", shots: initialData.shots || [] }])
+                setTransitionImages({})
+                setChapters([{ prompt: initialData.prompt || "", script: initialData.script || "", shots: initialData.shots || [], transitionImages: {} }])
                 setActiveChapterIndex(0)
             }
         }
@@ -83,7 +89,7 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
             const timeoutId = setTimeout(() => {
                 if (onSaveToArchive) {
                     const updatedChapters = chapters.map((ch, i) =>
-                        i === activeChapterIndex ? { prompt, script, shots } : ch
+                        i === activeChapterIndex ? { prompt, script, shots, transitionImages } : ch
                     )
                     const multiScript = JSON.stringify({ __multiChapter__: true, chapters: updatedChapters })
                     onSaveToArchive(prompt, multiScript, shots, characters, projectId)
@@ -91,7 +97,7 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
             }, 1500)
             return () => clearTimeout(timeoutId)
         }
-    }, [characters, shots])
+    }, [characters, shots, transitionImages])
 
     const [isEnhancing, setIsEnhancing] = useState(false)
     const [isDeconstructing, setIsDeconstructing] = useState(false)
@@ -197,26 +203,28 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
         if (targetIndex === activeChapterIndex) return
         setChapters(prev => {
             const updated = [...prev]
-            updated[activeChapterIndex] = { prompt, script, shots }
+            updated[activeChapterIndex] = { prompt, script, shots, transitionImages }
             return updated
         })
         const target = chapters[targetIndex]
         setPrompt(target.prompt)
         setScript(target.script)
         setShots(target.shots)
+        setTransitionImages(target.transitionImages || {})
         setActiveChapterIndex(targetIndex)
     }
 
     const addChapter = () => {
         setChapters(prev => {
             const updated = [...prev]
-            updated[activeChapterIndex] = { prompt, script, shots }
-            return [...updated, { prompt: "", script: "", shots: [] }]
+            updated[activeChapterIndex] = { prompt, script, shots, transitionImages }
+            return [...updated, { prompt: "", script: "", shots: [], transitionImages: {} }]
         })
         setActiveChapterIndex(chapters.length)
         setPrompt("")
         setScript("")
         setShots([])
+        setTransitionImages({})
     }
 
     // ── Character image upload ──
@@ -326,6 +334,65 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
             toast.error("生成分镜画面失败，请检查网络或配置")
         } finally {
             setGeneratingShotImages(prev => ({ ...prev, [index]: false }))
+        }
+    }
+
+    // ── Generate Transition Frame ────────────────────────────────────────────────
+    const handleGenerateTransition = async (idx: number) => {
+        if (!shots[idx].imageUrl || !shots[idx + 1].imageUrl) {
+            toast.error("上一镜和下一镜都需要图片才能生成过渡")
+            return
+        }
+
+        const gridType = transitionGrids[idx] || "2x2"
+
+        setGeneratingTransitions(prev => ({ ...prev, [idx]: true }))
+        toast.info(`开始生成镜头 ${shots[idx].shotNumber} 到 ${shots[idx + 1].shotNumber} 的过渡帧...`)
+
+        try {
+            const provider = modelSelection.imageProvider || "gemini"
+
+            // Build rich context from both shots
+            const shotA = shots[idx]
+            const shotB = shots[idx + 1]
+
+            const promptLines = [
+                `Grid layout: ${gridType}. Generate ${gridType === "2x2" ? "4" : "2"} intermediate transition frames.`,
+                ``,
+                `--- Shot A (Start - 镜头${shotA.shotNumber}) ---`,
+                `Scene: ${shotA.scene}`,
+                `Character: ${shotA.character}`,
+                `Props/FX: ${shotA.props}`,
+                `Dialogue/Narration: ${shotA.dialogue}`,
+                ``,
+                `--- Shot B (End - 镜头${shotB.shotNumber}) ---`,
+                `Scene: ${shotB.scene}`,
+                `Character: ${shotB.character}`,
+                `Props/FX: ${shotB.props}`,
+                `Dialogue/Narration: ${shotB.dialogue}`,
+            ]
+
+            // Using GenerateCover API with transition-grid mode
+            const res = await aiContentApi.generateCover({
+                style: "cinematic",
+                prompt: promptLines.join("\n"),
+                theme: "transition_grid",
+                mode: "transition-grid",
+                referenceImages: [shotA.imageUrl!, shotB.imageUrl!],
+                provider
+            })
+
+            if (res.success && res.coverUrl) {
+                setTransitionImages(prev => ({ ...prev, [idx]: res.coverUrl }))
+                toast.success(`镜头 ${shots[idx].shotNumber} -> ${shots[idx + 1].shotNumber} 过过渡帧已生成`)
+            } else {
+                toast.error(res.message || "过渡帧生成失败")
+            }
+        } catch (error) {
+            console.error("生成过渡图片失败:", error)
+            toast.error(error instanceof Error ? error.message : "图片生成失败")
+        } finally {
+            setGeneratingTransitions(prev => ({ ...prev, [idx]: false }))
         }
     }
 
@@ -662,90 +729,148 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
                             </div>
                         ) : (
                             shots.map((shot, idx) => (
-                                <div
-                                    key={idx}
-                                    className="group flex flex-col gap-3 p-4 rounded-xl border bg-background/80 shadow-sm hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-4"
-                                    style={{ animationDelay: `${idx * 100}ms`, animationFillMode: "both" }}
-                                >
-                                    <div className="flex items-center gap-2 font-black text-indigo-500 text-lg border-b pb-2">
-                                        镜头 {shot.shotNumber < 10 ? `0${shot.shotNumber}` : shot.shotNumber}
-                                    </div>
-
-                                    <div className="grid gap-3 mt-1">
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-1.5 rounded-md bg-sky-500/10 shrink-0 mt-0.5">
-                                                <Camera className="h-3.5 w-3.5 text-sky-500" />
-                                            </div>
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">场景</Label>
-                                                <p className="text-sm leading-snug">{shot.scene}</p>
-                                            </div>
+                                <React.Fragment key={idx}>
+                                    <div
+                                        className="group flex flex-col gap-3 p-4 rounded-xl border bg-background/80 shadow-sm hover:shadow-md transition-all animate-in fade-in slide-in-from-bottom-4"
+                                        style={{ animationDelay: `${idx * 100}ms`, animationFillMode: "both" }}
+                                    >
+                                        <div className="flex items-center gap-2 font-black text-indigo-500 text-lg border-b pb-2">
+                                            镜头 {shot.shotNumber < 10 ? `0${shot.shotNumber}` : shot.shotNumber}
                                         </div>
 
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-1.5 rounded-md bg-amber-500/10 shrink-0 mt-0.5">
-                                                <User className="h-3.5 w-3.5 text-amber-500" />
-                                            </div>
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">人物</Label>
-                                                <p className="text-sm leading-snug">{shot.character}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-1.5 rounded-md bg-emerald-500/10 shrink-0 mt-0.5">
-                                                <Package className="h-3.5 w-3.5 text-emerald-500" />
-                                            </div>
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">道具与特效</Label>
-                                                <p className="text-sm leading-snug">{shot.props}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-1.5 rounded-md bg-rose-500/10 shrink-0 mt-0.5">
-                                                <Mic className="h-3.5 w-3.5 text-rose-500" />
-                                            </div>
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">台词 / 旁白</Label>
-                                                <p className="text-sm italic leading-snug text-foreground/90">&ldquo;{shot.dialogue}&rdquo;</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Shot Image Generation Area */}
-                                        <div className="mt-2 w-full flex flex-col items-center gap-3 border-t border-border/50 pt-3">
-                                            {shot.imageUrl ? (
-                                                <div className="w-full relative aspect-[16/9] rounded-lg overflow-hidden border bg-muted shadow-sm">
-                                                    <img
-                                                        src={shot.imageUrl}
-                                                        alt={`Scene ${shot.shotNumber}`}
-                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                        crossOrigin="anonymous"
-                                                    />
+                                        <div className="grid gap-3 mt-1">
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-1.5 rounded-md bg-sky-500/10 shrink-0 mt-0.5">
+                                                    <Camera className="h-3.5 w-3.5 text-sky-500" />
                                                 </div>
-                                            ) : (
-                                                <div className="w-full aspect-[16/9] rounded-lg border-2 border-dashed bg-muted/30 flex flex-col items-center justify-center text-muted-foreground/50 transition-colors group-hover:bg-muted/50">
-                                                    <Camera className="h-8 w-8 mb-2 opacity-50" />
-                                                    <span className="text-xs">暂无分镜画面</span>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">场景</Label>
+                                                    <p className="text-sm leading-snug">{shot.scene}</p>
                                                 </div>
-                                            )}
+                                            </div>
 
-                                            <Button
-                                                onClick={() => handleGenerateShotImage(idx, shot)}
-                                                size="sm"
-                                                variant="outline"
-                                                className="w-full gap-2 rounded-lg"
-                                                disabled={generatingShotImages[idx]}
-                                            >
-                                                {generatingShotImages[idx] ? (
-                                                    <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-1.5 rounded-md bg-amber-500/10 shrink-0 mt-0.5">
+                                                    <User className="h-3.5 w-3.5 text-amber-500" />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">人物</Label>
+                                                    <p className="text-sm leading-snug">{shot.character}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-1.5 rounded-md bg-emerald-500/10 shrink-0 mt-0.5">
+                                                    <Package className="h-3.5 w-3.5 text-emerald-500" />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">道具与特效</Label>
+                                                    <p className="text-sm leading-snug">{shot.props}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-1.5 rounded-md bg-rose-500/10 shrink-0 mt-0.5">
+                                                    <Mic className="h-3.5 w-3.5 text-rose-500" />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">台词 / 旁白</Label>
+                                                    <p className="text-sm italic leading-snug text-foreground/90">&ldquo;{shot.dialogue}&rdquo;</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Shot Image Generation Area */}
+                                            <div className="mt-2 w-full flex flex-col items-center gap-3 border-t border-border/50 pt-3">
+                                                {shot.imageUrl ? (
+                                                    <div className="w-full relative aspect-[16/9] rounded-lg overflow-hidden border bg-muted shadow-sm">
+                                                        <img
+                                                            src={shot.imageUrl}
+                                                            alt={`Scene ${shot.shotNumber}`}
+                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                            crossOrigin="anonymous"
+                                                        />
+                                                    </div>
                                                 ) : (
-                                                    <><Camera className="h-4 w-4" />生成分镜画面</>
+                                                    <div className="w-full aspect-[16/9] rounded-lg border-2 border-dashed bg-muted/30 flex flex-col items-center justify-center text-muted-foreground/50 transition-colors group-hover:bg-muted/50">
+                                                        <Camera className="h-8 w-8 mb-2 opacity-50" />
+                                                        <span className="text-xs">暂无分镜画面</span>
+                                                    </div>
                                                 )}
-                                            </Button>
+
+                                                <Button
+                                                    onClick={() => handleGenerateShotImage(idx, shot)}
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="w-full gap-2 rounded-lg"
+                                                    disabled={generatingShotImages[idx]}
+                                                >
+                                                    {generatingShotImages[idx] ? (
+                                                        <><Loader2 className="h-4 w-4 animate-spin" /> 生成中...</>
+                                                    ) : (
+                                                        <><Camera className="h-4 w-4" />生成分镜画面</>
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+
+                                    {/* Transition Block (Between Shot N and N+1) */}
+                                    {idx < shots.length - 1 && shots[idx].imageUrl && shots[idx + 1].imageUrl && (
+                                        <div className="flex flex-col items-center my-0 relative z-10 w-[90%] mx-auto">
+                                            <div className="w-0.5 h-6 bg-border/50"></div>
+
+                                            <div className="w-full bg-card/60 backdrop-blur border rounded-xl overflow-hidden shadow-sm transition-all">
+                                                {/* Header / Controls */}
+                                                <div className="flex items-center justify-between p-2.5 bg-muted/30 border-b">
+                                                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                                        <Wand2 className="h-3.5 w-3.5 text-purple-500" />
+                                                        生成转场过渡
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <select
+                                                            className="text-[10px] bg-background border rounded px-1.5 py-0.5 h-6 outline-none cursor-pointer text-muted-foreground"
+                                                            value={transitionGrids[idx] || "2x2"}
+                                                            onChange={(e) => setTransitionGrids(prev => ({ ...prev, [idx]: e.target.value }))}
+                                                            disabled={generatingTransitions[idx]}
+                                                        >
+                                                            <option value="1x2">1x2 宫格</option>
+                                                            <option value="2x2">2x2 宫格</option>
+                                                        </select>
+
+                                                        <Button
+                                                            onClick={() => handleGenerateTransition(idx)}
+                                                            size="sm"
+                                                            disabled={generatingTransitions[idx]}
+                                                            className="h-6 text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2.5 rounded-md"
+                                                        >
+                                                            {generatingTransitions[idx] ? (
+                                                                <><Loader2 className="h-3 w-3 animate-spin mr-1" /> 生成中</>
+                                                            ) : transitionImages[idx] ? (
+                                                                "重新生成"
+                                                            ) : "生成过渡帧"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Transition Image Preview */}
+                                                {transitionImages[idx] && (
+                                                    <div className="p-2 bg-black/5">
+                                                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border shadow-inner">
+                                                            <img
+                                                                src={transitionImages[idx]}
+                                                                alt="Transition frames"
+                                                                className="w-full h-full object-contain bg-black/90"
+                                                                crossOrigin="anonymous"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="w-0.5 h-6 bg-border/50"></div>
+                                        </div>
+                                    )}
+                                </React.Fragment>
                             ))
                         )}
                     </div>
