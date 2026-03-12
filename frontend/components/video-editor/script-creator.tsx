@@ -53,37 +53,58 @@ export function ScriptCreator({ modelSelection, onImportToWorkbench, onSaveToArc
     const [projectId, setProjectId] = useState<string | undefined>(initialData?.id)
 
     // Restore data when initialData changes (e.g. loading a different project)
-    useEffect(() => {
-        if (initialData) {
-            setProjectId(initialData.id)
-            if (initialData.characters) setCharacters(initialData.characters)
+    const prevInitialDataRef = useRef(initialData)
+    const suppressAutoSave = useRef(true) // suppress on first render and during restore
 
-            const parsed = parseChapters(initialData.script)
-            if (parsed && parsed.length > 0) {
-                setChapters(parsed)
-                setActiveChapterIndex(0)
-                setPrompt(parsed[0].prompt || "")
-                setScript(parsed[0].script || "")
-                setShots(parsed[0].shots || [])
-                setTransitionImages(parsed[0].transitionImages || {})
-            } else {
-                setPrompt(initialData.prompt || "")
-                setScript(initialData.script || "")
-                setShots(initialData.shots || [])
-                setTransitionImages({})
-                setChapters([{ prompt: initialData.prompt || "", script: initialData.script || "", shots: initialData.shots || [], transitionImages: {} }])
-                setActiveChapterIndex(0)
-            }
+    // 挂载后 2 秒解除自动保存抑制（覆盖 initialData 为 null 的新项目场景）
+    useEffect(() => {
+        const timer = setTimeout(() => { suppressAutoSave.current = false }, 2000)
+        return () => clearTimeout(timer)
+    }, [])
+    useEffect(() => {
+        if (!initialData) return
+
+        const prev = prevInitialDataRef.current
+        prevInitialDataRef.current = initialData
+
+        // 如果只是 id 变了（首次保存后回传 ID），只更新 projectId，不触发全量恢复
+        if (prev && initialData.id !== prev.id &&
+            initialData.prompt === prev.prompt &&
+            initialData.script === prev.script) {
+            setProjectId(initialData.id)
+            return
         }
+
+        // 全量恢复（切换项目时）
+        suppressAutoSave.current = true
+        setProjectId(initialData.id)
+        if (initialData.characters) setCharacters(initialData.characters)
+
+        const parsed = parseChapters(initialData.script)
+        if (parsed && parsed.length > 0) {
+            setChapters(parsed)
+            setActiveChapterIndex(0)
+            setPrompt(parsed[0].prompt || "")
+            setScript(parsed[0].script || "")
+            setShots(parsed[0].shots || [])
+            setTransitionImages(parsed[0].transitionImages || {})
+        } else {
+            setPrompt(initialData.prompt || "")
+            setScript(initialData.script || "")
+            setShots(initialData.shots || [])
+            setTransitionImages({})
+            setChapters([{ prompt: initialData.prompt || "", script: initialData.script || "", shots: initialData.shots || [], transitionImages: {} }])
+            setActiveChapterIndex(0)
+        }
+
+        // 延迟解除抑制，确保 restore 引起的 state 变化不会触发 auto-save
+        setTimeout(() => { suppressAutoSave.current = false }, 2000)
     }, [initialData])
 
     // Auto-save (debounced) — serializes all chapters
-    const isFirstRender = useRef(true)
     useEffect(() => {
-        if (isFirstRender.current) {
-            isFirstRender.current = false
-            return
-        }
+        // 首次渲染或数据恢复期间不触发自动保存
+        if (suppressAutoSave.current) return
 
         if (characters.length > 0 || shots.length > 0) {
             const timeoutId = setTimeout(() => {

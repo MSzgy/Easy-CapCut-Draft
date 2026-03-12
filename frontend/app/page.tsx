@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar, type TabType } from "@/components/video-editor/app-sidebar"
 import { ColumnInput, type GeneratedOutput, type SceneContent } from "@/components/video-editor/column-input"
@@ -19,6 +19,9 @@ import type { ModelSelection, ScriptShot, ScriptCharacter } from "@/lib/api/ai-c
 import { projectsApi } from "@/lib/api/projects"
 import { mediaApi } from "@/lib/api/media"
 import { useAuth } from "@/hooks/use-auth"
+
+// 模块级标记，确保数据加载只执行一次（即使 React StrictMode 重挂载也不会重复）
+let _dataLoaded = false
 
 export default function VideoEditorPage() {
   const router = useRouter()
@@ -49,12 +52,11 @@ export default function VideoEditorPage() {
 
   // ── 项目持久化 ────────────────────────────────────────────────────────
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
-  const hasMounted = useRef(false)
 
-  // 启动时恢复最新项目
+  // 启动时恢复最新项目（等 auth 完成后才执行，模块级标记防止重复）
   useEffect(() => {
-    if (hasMounted.current) return
-    hasMounted.current = true
+    if (_dataLoaded || authLoading || !user) return
+    _dataLoaded = true
 
     // 1. 恢复最新项目到 Workbench
     projectsApi.getLatestProject().then((res) => {
@@ -177,7 +179,7 @@ export default function VideoEditorPage() {
         console.log(`✅ 已加载 ${res.assets.length} 个全局素材到 Media Vault`)
       }
     }).catch(() => { })
-  }, [])
+  }, [authLoading, user])
 
   // 保存项目到数据库
   const saveProject = useCallback(async (output: GeneratedOutput, title?: string) => {
@@ -262,8 +264,11 @@ export default function VideoEditorPage() {
         console.log("✅ 剧本草稿已保存:", res.project.id)
         const p = res.project
 
-        // Update the script creator data with the new ID and latest data so future saves overwrite it
-        setScriptCreatorData({ id: p.id, prompt, script, shots, characters })
+        // 只在首次保存时（没有 projectId）更新 scriptCreatorData 以传递新 ID
+        // 后续自动保存不再更新，避免触发 ScriptCreator 的 restore effect 导致无限循环
+        if (!projectId) {
+          setScriptCreatorData(prev => prev ? { ...prev, id: p.id } : { id: p.id, prompt, script, shots, characters })
+        }
 
         const newOutputProject: OutputProject = {
           id: p.id,
